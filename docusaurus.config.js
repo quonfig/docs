@@ -8,8 +8,11 @@ const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 const config = {
   title: "Quonfig Documentation",
   tagline: "API Docs for Quonfig",
-  url: "https://docs.launch.quonfig.com",
-  baseUrl: "/",
+  url: "https://quonfig.github.io",
+  baseUrl: "/docs/",
+  organizationName: "quonfig",
+  projectName: "docs",
+  trailingSlash: false,
   onBrokenLinks: "throw",
   favicon: "img/favicon.png",
   plugins: [
