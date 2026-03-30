@@ -5,7 +5,7 @@ sidebar_label: Migrate from Prefab
 
 ## Overview
 
-Prefab has officially relaunched as Quonfig Launch.
+Prefab has officially relaunched as Quonfig.
 
 We've been hard at work improving the core experience around configuration, cleanup, and code generation — and building toward a unified AI-native feature management platform.
 
@@ -71,7 +71,7 @@ All organizations will need to upgrade from Prefab SDK -> Quonfig SDK to access 
 
 #### 3. Billing
 - Existing billing continues unchanged during migration.
-- When you're ready to switch, your final invoice on the legacy system will close out your previous period, and your next month's invoice will start under Quonfig Launch.
+- When you're ready to switch, your final invoice on the legacy system will close out your previous period, and your next month's invoice will start under Quonfig.
 
 ---
 

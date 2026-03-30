@@ -6,8 +6,8 @@ const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Quonfig Launch Documentation",
-  tagline: "API Docs for Quonfig Launch",
+  title: "Quonfig Documentation",
+  tagline: "API Docs for Quonfig",
   url: "https://docs.launch.quonfig.com",
   baseUrl: "/",
   onBrokenLinks: "throw",
@@ -117,7 +117,7 @@ const config = {
           {
             to: "/",
             position: "right",
-            label: "Quonfig Launch Docs Home",
+            label: "Quonfig Docs Home",
             className: "text-white", // workaround for the fact that docusuarus wants to always treat this link as active
           },
           {

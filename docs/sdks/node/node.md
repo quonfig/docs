@@ -308,7 +308,7 @@ After the init completes you can use:
 
 ## Context
 
-Quonfig Launch supports [context](/docs/explanations/concepts/context) for intelligent rule-based
+Quonfig supports [context](/docs/explanations/concepts/context) for intelligent rule-based
 evaluation of `get` and `isFeatureEnabled` based on the current request/device/user/etc.
 
 Given
@@ -988,10 +988,10 @@ const quonfig = new Quonfig({
 
 | Name                       | Description                                                                                                                            | Default           |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig Launch to view in web app                                                | true              |
-| collectLoggerCounts        | Send counts of logger usage back to Quonfig Launch to power log-levels configuration screen                                            | true              |
+| collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                | true              |
+| collectLoggerCounts        | Send counts of logger usage back to Quonfig to power log-levels configuration screen                                            | true              |
 | contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in quonfig contexts) or periodically send full example contexts | "periodicExample" |
-| defaultLevel               | Level to be used as the min-verbosity for a `loggerPath` if no value is configured in Quonfig Launch                                   | "warn"            |
-| enableSSE                  | Whether or not we should listen for live changes from Quonfig Launch                                                                   | true              |
-| enablePolling              | Whether or not we should poll for changes from Quonfig Launch                                                                          | true              |
+| defaultLevel               | Level to be used as the min-verbosity for a `loggerPath` if no value is configured in Quonfig                                   | "warn"            |
+| enableSSE                  | Whether or not we should listen for live changes from Quonfig                                                                   | true              |
+| enablePolling              | Whether or not we should poll for changes from Quonfig                                                                          | true              |
 | loggerKey                  | The config key to use for dynamic log level configuration (defaults to `"log-levels.default"`)                                          | "log-levels.default" |

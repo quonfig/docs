@@ -6,7 +6,7 @@ sidebar_position: 1
 
 # Tutorial Intro
 
-Let's discover **Quonfig Launch in less than 5 minutes**.
+Let's discover **Quonfig in less than 5 minutes**.
 
 Getting setup with Quonfig should take you 5 minutes, but only if we start right now ;)
 
@@ -67,7 +67,7 @@ There are 5 areas to note:
 
 ## Configuring our Feature Flag
 
-Time for some fun. Let's set up a feature flag that will show us a bit of the power of Quonfig Launch.
+Time for some fun. Let's set up a feature flag that will show us a bit of the power of Quonfig.
 For this example, let's say that we have a new thing we're ready to ship. We want to get ship to everyone in our Beta group.
 Additionally, since the beta group might not reflect our whole user base, so we also want to rollout to 5% of all traffic.
 

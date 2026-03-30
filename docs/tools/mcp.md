@@ -3,9 +3,9 @@ title: MCP
 sidebar_label: MCP
 ---
 
-# Quonfig Launch MCP
+# Quonfig MCP
 
-The Quonfig Launch Model Context Protocol (MCP) server lets you manage feature flags and configs directly from Claude, Cursor, or any MCP-enabled IDE.
+The Quonfig Model Context Protocol (MCP) server lets you manage feature flags and configs directly from Claude, Cursor, or any MCP-enabled IDE.
 
 ## What You Can Do
 

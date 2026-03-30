@@ -10,4 +10,4 @@ The Slack integration lets teams instantly share what FeatureFlags and Configura
 
 Friendly, readable descriptions highlight what changed so your team stays on the same page.
 
-Contact Quonfig Launch team to set it up.
+Contact Quonfig team to set it up.

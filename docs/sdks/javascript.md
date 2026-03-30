@@ -334,7 +334,7 @@ Since log levels are evaluated with the initial context, the `loggerKey` option 
 
 ## Tracking Experiment Exposures
 
-If you're using [Quonfig Launch for A/B testing](/docs/how-tos/experiment.md), you can supply code for tracking experiment exposures to your data warehouse or analytics tool of choice.
+If you're using [Quonfig for A/B testing](/docs/how-tos/experiment.md), you can supply code for tracking experiment exposures to your data warehouse or analytics tool of choice.
 
 <Tabs groupId="lang">
 <TabItem value="javascript" label="JavaScript">

@@ -325,7 +325,7 @@ Available typed methods: `getString()`, `getLong()`, `getDouble()`, `getBoolean(
 
 Live values are a convenient and clear way to use configuration throughout your system. Inject a Quonfig client and get live values for the configuration keys you need.
 
-In code, `.get()` will return the value. These values will update automatically when the configuration is updated in Quonfig Launch.
+In code, `.get()` will return the value. These values will update automatically when the configuration is updated in Quonfig.
 
 ```java
 import java.util.function.Supplier;
@@ -342,7 +342,7 @@ class MyClass {
   }
 
   public String test(){
-    return "I got %s and %d from Quonfig Launch.".formatted(sampleString.get(), sampleLong.get());
+    return "I got %s and %d from Quonfig.".formatted(sampleString.get(), sampleLong.get());
   }
 }
 ```

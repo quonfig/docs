@@ -103,7 +103,7 @@ Don't use the `QuonfigProvider`. Instead, use the `QuonfigTestProvider` and pass
 
 ## Testing with DataFiles
 
-Mocking out all of the Quonfig calls can be tedious, so we've added a feature called [DataFiles][df] to Quonfig Launch.
+Mocking out all of the Quonfig calls can be tedious, so we've added a feature called [DataFiles][df] to Quonfig.
 
 Having your tests/CI reach out to Quonfig to get the latest configuration is a viable approach, but for consistency & reproducibility, many of us prefer to have full control over the configuration used to run tests. Datafiles are perfect for this use case.
 

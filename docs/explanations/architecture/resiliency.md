@@ -4,7 +4,7 @@ sidebar_label: Reliability
 sidebar_position: 1
 ---
 
-## What if Quonfig Launch goes down?
+## What if Quonfig goes down?
 
 Uptime is incredibly important to us at Launch but configuration is critical infrastructure so it is important to have a belt & suspenders approach.
 

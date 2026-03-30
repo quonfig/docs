@@ -3,7 +3,7 @@ title: Context Playground & Debugger
 sidebar_label: Playground & Debugger
 ---
 
-Quonfig Launch provides a Context Playground and Debugger to help you understand how Contexts work and how they're used in your application.
+Quonfig provides a Context Playground and Debugger to help you understand how Contexts work and how they're used in your application.
 
 In the sidebare, navigate to "Contexts". Pick an environment and you'll see recent contexts and be able to search by `key` and `name` for a specific context.
 ![context UI](/img/docs/tools/context.jpg)
