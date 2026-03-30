@@ -63,15 +63,7 @@ const config = {
     },
   ],
 
-  scripts: [
-    {
-      type: "text/javascript",
-      id: "hs-script-loader",
-      async: true,
-      defer: true,
-      src: "//js.hs-scripts.com/20491267.js",
-    },
-  ],
+  scripts: [],
 
   presets: [
     [
