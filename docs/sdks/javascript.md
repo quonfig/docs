@@ -10,20 +10,20 @@ If you're using React, consider using our [React Client] instead, which also pro
 
 ## Install the latest version
 
-Use your favorite package manager to install `@quonfig-com/javascript` [npm](https://www.npmjs.com/package/@quonfig-com/javascript) | [github](https://github.com/QuonfigHQ/sdk-javascript)
+Use your favorite package manager to install `@quonfig/javascript` [npm](https://www.npmjs.com/package/@quonfig/javascript) | [github](https://github.com/QuonfigHQ/sdk-javascript)
 
 <Tabs groupId="lang">
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig-com/javascript
+npm install @quonfig/javascript
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig-com/javascript
+yarn add @quonfig/javascript
 ```
 
 </TabItem>
@@ -32,7 +32,7 @@ yarn add @quonfig-com/javascript
 We recommend using [jsDelivr][jsDelivr] for a minified/bundled version.
 
 ```
-<script src="https://cdn.jsdelivr.net/npm/@quonfig-com/javascript@0.0.3/dist/quonfig.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@quonfig/javascript@0.0.3/dist/quonfig.bundle.js"></script>
 ```
 
 See the <a href="#context">context</a> section for more information on how to initialize with the `<script>` tag and a user context.
@@ -48,7 +48,7 @@ Initialize `quonfig` with your SDK key:
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
-import { quonfig, Context } from "@quonfig-com/javascript";
+import { quonfig, Context } from "@quonfig/javascript";
 
 const options = {
   sdkKey: "YOUR_SDK_KEY",
@@ -133,7 +133,7 @@ You can also use:
 
 ```javascript
 // highlight-next-line
-import { quonfig, Context } from "@quonfig-com/javascript";
+import { quonfig, Context } from "@quonfig/javascript";
 
 const options = {
   sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
@@ -232,7 +232,7 @@ The SDK provides a built-in logger with standard log levels:
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
-import { quonfig } from "@quonfig-com/javascript";
+import { quonfig } from "@quonfig/javascript";
 
 await quonfig.init({
   sdkKey: "YOUR_SDK_KEY",
@@ -293,7 +293,7 @@ You can check log levels programmatically to conditionally execute expensive log
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
-import { quonfig, LogLevel, shouldLogAtLevel } from "@quonfig-com/javascript";
+import { quonfig, LogLevel, shouldLogAtLevel } from "@quonfig/javascript";
 
 // Get the configured log level
 const currentLevel = quonfig.getLogLevel("my.logger");
@@ -340,7 +340,7 @@ If you're using [Quonfig for A/B testing](/docs/how-tos/experiment.md), you can 
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
-import { quonfig, Context } from "@quonfig-com/javascript";
+import { quonfig, Context } from "@quonfig/javascript";
 
 const options = {
   sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
@@ -437,5 +437,5 @@ it("shows the turbo button when the feature is enabled", () => {
 | `afterEvaluationCallback`  | function | `undefined`            | Callback invoked after each flag/config evaluation                                           |
 
 [React Client]: /docs/sdks/react
-[jsDelivr]: https://www.jsdelivr.com/package/npm/@quonfig-com/javascript
+[jsDelivr]: https://www.jsdelivr.com/package/npm/@quonfig/javascript
 [segment]: /docs/explanations/features/rules-and-segmentation

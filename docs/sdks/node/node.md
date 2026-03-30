@@ -8,7 +8,7 @@ title: Node
 TypeScript definitions for type-safe access to your flags and configs:
 
 ```bash
-npx @quonfig-com/cli generate --targets node-ts
+npx @quonfig/cli generate --targets node-ts
 ```
 
 :::
@@ -19,14 +19,14 @@ npx @quonfig-com/cli generate --targets node-ts
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig-com/node
+npm install @quonfig/node
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig-com/node
+yarn add @quonfig/node
 ```
 
 </TabItem>
@@ -42,13 +42,13 @@ TypeScript types are included with the package.
 First, generate your types:
 
 ```bash
-npx @quonfig-com/cli generate --targets node-ts
+npx @quonfig/cli generate --targets node-ts
 ```
 
 Then use the generated typed class:
 
 ```typescript
-import { Quonfig } from "@quonfig-com/node";
+import { Quonfig } from "@quonfig/node";
 import { QuonfigTypesafeNode } from "./generated/quonfig-server";
 
 const baseQuonfig = new Quonfig({
@@ -74,7 +74,7 @@ const configWithContext = quonfig.userSpecificSetting({
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import { Quonfig } from "@quonfig-com/node";
+import { Quonfig } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
@@ -89,7 +89,7 @@ await quonfig.init();
 <TabItem value="javascript" label="JavaScript">
 
 ```js
-import { Quonfig } from "@quonfig-com/node";
+import { Quonfig } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
@@ -112,7 +112,7 @@ For Next.js API routes and other serverless environments, use the singleton patt
 
 ```typescript
 // app/api/flags/route.ts (or pages/api/flags.ts)
-import { Quonfig, type Contexts } from "@quonfig-com/node";
+import { Quonfig, type Contexts } from "@quonfig/node";
 import { QuonfigTypesafeNode } from "../../../generated/quonfig-server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
 
 ```typescript
 // app/api/flags/route.ts (or pages/api/flags.ts)
-import { Quonfig, type Contexts } from "@quonfig-com/node";
+import { Quonfig, type Contexts } from "@quonfig/node";
 import { NextRequest, NextResponse } from "next/server";
 
 let quonfig: Quonfig | null = null;
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
 
 ```js
 // app/api/flags/route.js (or pages/api/flags.js)
-import { Quonfig } from "@quonfig-com/node";
+import { Quonfig } from "@quonfig/node";
 
 let quonfig = null;
 
@@ -317,7 +317,7 @@ Given
 <TabItem value="typegen" label="⭐ TypeScript + Generated Types (Recommended)">
 
 ```typescript
-import type { Contexts } from "@quonfig-com/node";
+import type { Contexts } from "@quonfig/node";
 
 const context: Contexts = {
   user: { key: "some-unique-identifier", country: "US" },
@@ -355,7 +355,7 @@ baseQuonfig.inContext(context, (rf) => {
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import type { Contexts } from "@quonfig-com/node";
+import type { Contexts } from "@quonfig/node";
 
 const context: Contexts = {
   user: { key: "some-unique-identifier", country: "US" }, // user context
@@ -447,7 +447,7 @@ yarn add pino
 Create a Pino logger with dynamic level support:
 
 ```typescript
-import { Quonfig, createPinoLogger } from "@quonfig-com/node";
+import { Quonfig, createPinoLogger } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
@@ -469,7 +469,7 @@ Alternatively, add dynamic level control to an existing Pino logger:
 
 ```typescript
 import pino from "pino";
-import { createPinoHook } from "@quonfig-com/node";
+import { createPinoHook } from "@quonfig/node";
 
 const logger = pino({
   mixin: createPinoHook(quonfig, "myapp.services"),
@@ -500,7 +500,7 @@ yarn add winston
 Create a Winston logger with dynamic level support:
 
 ```typescript
-import { Quonfig, createWinstonLogger } from "@quonfig-com/node";
+import { Quonfig, createWinstonLogger } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
@@ -522,7 +522,7 @@ Alternatively, add dynamic level control to an existing Winston logger:
 
 ```typescript
 import winston from "winston";
-import { createWinstonFormat } from "@quonfig-com/node";
+import { createWinstonFormat } from "@quonfig/node";
 
 const logger = winston.createLogger({
   format: winston.format.combine(
@@ -813,7 +813,7 @@ unsubscribe();
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import type { ConfigChangeCallback } from "@quonfig-com/node";
+import type { ConfigChangeCallback } from "@quonfig/node";
 
 const changeHandler: ConfigChangeCallback = (changes) => {
   console.log("Configs changed:", changes);

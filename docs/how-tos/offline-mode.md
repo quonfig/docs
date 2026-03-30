@@ -39,7 +39,7 @@ Using [`quonfig serve`][serve] with a datafile will start a local server that se
 <TabItem value="js" label="JavaScript">
 
 ```javascript
-import { quonfig } from "@quonfig-com/javascript";
+import { quonfig } from "@quonfig/javascript";
 
 const endpoints = [
   // If using the quonfig serve command locally
@@ -62,7 +62,7 @@ await quonfig.init(options);
 <TabItem value="react" label="React">
 
 ```jsx
-import { QuonfigProvider } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
 
 const endpoints = [
   // If using the quonfig serve command locally

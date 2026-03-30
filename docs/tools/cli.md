@@ -12,7 +12,7 @@ The Quonfig CLI provides powerful tools for creating, modifying, and getting inf
 On a system with Node version 18+, run
 
 ```bash
-npm install -g @quonfig-com/cli
+npm install -g @quonfig/cli
 ```
 
 ## Authentication
@@ -532,7 +532,7 @@ Example Dockerfile
 ```dockerfile
 FROM node:20
 WORKDIR /app
-RUN npm i -g @quonfig-com/cli
+RUN npm i -g @quonfig/cli
 COPY quonfig.Production.589.config.json /app
 ENV QUONFIG_LOCAL_ONLY=true
 EXPOSE 9898

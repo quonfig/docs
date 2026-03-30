@@ -76,7 +76,7 @@ Now we'll just send the feature requests along with the user's tracking id to Qu
 ```javascript
 // at the top level of your app
 
-import { QuonfigProvider } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
 
 const context = {
   user: { key: user.tracking_id },
@@ -136,7 +136,7 @@ Here's all of the code together.
 ```javascript
 // at the top level of your app
 
-import { QuonfigProvider } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
 
 // highlight-start
 import { useSearchParams } from "react-router-dom";

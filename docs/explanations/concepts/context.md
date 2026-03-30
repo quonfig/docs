@@ -181,7 +181,7 @@ Learn more with the [Quonfig + Dropwizard example app](https://github.com/Quonfi
 In JavaScript, there is only the global context. You can't specify a JIT context. Quonfig fetches evaluated feature flags based on the context you provided.
 
 ```javascript
-import { Quonfig, Context } from '@quonfig-com/javascript'
+import { Quonfig, Context } from '@quonfig/javascript'
 
 const context = new Context({user: { email: 'test@example.com' }, device: { mobile: true } });
 
@@ -201,7 +201,7 @@ if (Quonfig.isEnabled('cool-feature') {
 In React, there is only the global context. You can't specify a JIT context. Quonfig fetches evaluated feature flags based on the context you provided.
 
 ```jsx
-import { QuonfigProvider } from '@quonfig-com/react';
+import { QuonfigProvider } from '@quonfig/react';
 
 const WrappedApp = () => {
   const context = { user: { email: "jeffrey@example.com" }, subscription: { plan: "advanced" } };

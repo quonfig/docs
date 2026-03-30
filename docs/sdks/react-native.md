@@ -6,7 +6,7 @@ Note: right now, this is a thin wrapper around the [React Client](./react.md). I
 
 ## Install the latest version
 
-Use your favorite package manager to install `@quonfig-com/react-native` [npm](https://www.npmjs.com/package/@quonfig-com/react-native) | [github](https://github.com/QuonfigHQ/react-native)
+Use your favorite package manager to install `@quonfig/react-native` [npm](https://www.npmjs.com/package/@quonfig/react-native) | [github](https://github.com/QuonfigHQ/react-native)
 
 You will also need to install `base-64` and `react-native-get-random-values` as dependencies.
 
@@ -14,14 +14,14 @@ You will also need to install `base-64` and `react-native-get-random-values` as 
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig-com/react-native base-64 react-native-get-random-values
+npm install @quonfig/react-native base-64 react-native-get-random-values
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig-com/react-native base-64 react-native-get-random-values
+yarn add @quonfig/react-native base-64 react-native-get-random-values
 ```
 
 </TabItem>
@@ -36,7 +36,7 @@ This client includes a `<QuonfigProvider>` and `useQuonfig` hook.
 First, wrap your component tree in the `QuonfigProvider`, e.g.
 
 ```jsx
-import { QuonfigProvider } from "@quonfig-com/react-native";
+import { QuonfigProvider } from "@quonfig/react-native";
 
 const WrappedApp = () => {
   const onError = (reason) => {
@@ -60,7 +60,7 @@ If you wish for the user's device to poll for updates to flags, you can pass a `
 Now use the `useQuonfig` hook to fetch flags. `isEnabled` is a convenience method for boolean flags.
 
 ```jsx
-import { useQuonfig } from "@quonfig-com/react-native";
+import { useQuonfig } from "@quonfig/react-native";
 
 const Logo = () => {
   const { isEnabled } = useQuonfig();
@@ -86,7 +86,7 @@ const flagVlaue = get("my-string-flag");
 `contextAttributes` lets you provide [context](/docs/explanations/concepts/context) that you can use to [segment] your users. Usually you will want to define context once when you setup `QuonfigProvider`.
 
 ```jsx
-import { QuonfigProvider } from "@quonfig-com/react-native";
+import { QuonfigProvider } from "@quonfig/react-native";
 
 const WrappedApp = () => {
   // highlight-start

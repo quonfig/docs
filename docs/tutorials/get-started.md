@@ -134,7 +134,7 @@ featureFlagClient.featureIsOn(
 <TabItem value="node" label="Node">
 
 ```javascript
-import { Quonfig } from "@quonfig-com/node";
+import { Quonfig } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   sdkKey: "SDK-KEY",

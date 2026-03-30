@@ -7,7 +7,7 @@ title: Lambdas / Netlify
 **⭐ Recommended**: Use the [Quonfig CLI](/docs/tools/cli#typescript-code-generation) to generate TypeScript definitions for type-safe access to your flags and configs:
 
 ```bash
-npx @quonfig-com/cli generate --targets node-ts
+npx @quonfig/cli generate --targets node-ts
 ```
 
 :::
@@ -24,7 +24,7 @@ A practical solution is to treat Netlify functions similar to a browser. Quonfig
 <TabItem value="typescript" label="TypeScript (Recommended)">
 
 ```typescript
-import { quonfig, Context } from "@quonfig-com/javascript";
+import { quonfig, Context } from "@quonfig/javascript";
 
 export default async (req: Request, context: any) => {
   const clientOptions = {
@@ -44,7 +44,7 @@ export default async (req: Request, context: any) => {
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
-import { quonfig, Context } from "@quonfig-com/javascript";
+import { quonfig, Context } from "@quonfig/javascript";
 
 export default async (req, context) => {
   const clientOptions = {
@@ -80,13 +80,13 @@ Here's a sample code snippet for this approach:
 First, generate your types:
 
 ```bash
-npx @quonfig-com/cli generate --targets node-ts
+npx @quonfig/cli generate --targets node-ts
 ```
 
 Then set up your Lambda with full type safety:
 
 ```typescript
-import { Quonfig, type Contexts } from "@quonfig-com/node";
+import { Quonfig, type Contexts } from "@quonfig/node";
 import { QuonfigTypesafeNode } from "./generated/quonfig-server";
 
 const baseQuonfig = new Quonfig({
@@ -127,7 +127,7 @@ export const config = { path: "/users/:userId" };
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import { Quonfig, type Contexts } from "@quonfig-com/node";
+import { Quonfig, type Contexts } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!, // server SDK key
@@ -163,7 +163,7 @@ export const config = { path: "/users/:userId" }; // URL pattern
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
-import { Quonfig } from "@quonfig-com/node";
+import { Quonfig } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
@@ -236,7 +236,7 @@ We can replace our `console.log` with some `logger.debug` and `logger.info`, and
 <TabItem value="typescript" label="TypeScript (Recommended)">
 
 ```typescript
-import { LogLevel } from "@quonfig-com/node";
+import { LogLevel } from "@quonfig/node";
 
 const logger = quonfig.logger("netlify.functions.hello", LogLevel.Warn);
 
@@ -310,7 +310,7 @@ To add per user targeting, we need to tell Quonfig who the current user is. We d
 <TabItem value="typescript" label="TypeScript (Recommended)">
 
 ```typescript
-import type { Contexts } from "@quonfig-com/node";
+import type { Contexts } from "@quonfig/node";
 
 // take the context from our url /users/123 and give it to Quonfig as context
 const { userId } = context.params;

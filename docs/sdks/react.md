@@ -21,27 +21,27 @@ NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY=your-key-here
 **⭐ Recommended**: Use the [Quonfig CLI](/docs/tools/cli#typescript-code-generation) to generate TypeScript definitions for type-safe access to your flags and configs:
 
 ```bash
-npx @quonfig-com/cli generate --targets react-ts
+npx @quonfig/cli generate --targets react-ts
 ```
 
 :::
 
 ## Install the latest version
 
-Use your favorite package manager to install `@quonfig-com/react` [npm](https://www.npmjs.com/package/@quonfig-com/react) | [github](https://github.com/QuonfigHQ/sdk-react)
+Use your favorite package manager to install `@quonfig/react` [npm](https://www.npmjs.com/package/@quonfig/react) | [github](https://github.com/QuonfigHQ/sdk-react)
 
 <Tabs groupId="lang">
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig-com/react
+npm install @quonfig/react
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig-com/react
+yarn add @quonfig/react
 ```
 
 </TabItem>
@@ -61,13 +61,13 @@ First, wrap your component tree in the `QuonfigProvider`, e.g.
 First, generate your types:
 
 ```bash
-npx @quonfig-com/cli generate --targets react-ts
+npx @quonfig/cli generate --targets react-ts
 ```
 
 Then set up your provider (same as TypeScript):
 
 ```tsx
-import { QuonfigProvider } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
 import type { ReactNode } from "react";
 
 // The generated types will automatically enhance the provider
@@ -88,7 +88,7 @@ const WrappedApp = (): ReactNode => {
 <TabItem value="typescript" label="TypeScript">
 
 ```tsx
-import { QuonfigProvider } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
 import type { ReactNode } from "react";
 
 const WrappedApp = (): ReactNode => {
@@ -109,7 +109,7 @@ const WrappedApp = (): ReactNode => {
 <TabItem value="javascript" label="JavaScript">
 
 ```jsx
-import { QuonfigProvider } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
 
 const WrappedApp = () => {
   const onError = (reason) => {
@@ -234,7 +234,7 @@ function MyComponent() {
 <TabItem value="typescript" label="TypeScript">
 
 ```tsx
-import { useQuonfig } from "@quonfig-com/react";
+import { useQuonfig } from "@quonfig/react";
 import type { ReactElement } from "react";
 
 const Logo = (): ReactElement => {
@@ -263,7 +263,7 @@ const duration = getDuration("api-timeout"); // duration object
 <TabItem value="javascript" label="JavaScript">
 
 ```jsx
-import { useQuonfig } from "@quonfig-com/react";
+import { useQuonfig } from "@quonfig/react";
 
 const Logo = () => {
   const { isEnabled } = useQuonfig();
@@ -297,8 +297,8 @@ const flagValue = get("my-string-flag");
 With generated types, the provider setup is the same, but you get enhanced type safety throughout:
 
 ```tsx
-import { QuonfigProvider } from "@quonfig-com/react";
-import type { Contexts } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
+import type { Contexts } from "@quonfig/react";
 import type { ReactNode } from "react";
 
 const WrappedApp = (): ReactNode => {
@@ -350,8 +350,8 @@ const UserDashboard = (): ReactElement => {
 <TabItem value="typescript" label="TypeScript">
 
 ```tsx
-import { QuonfigProvider } from "@quonfig-com/react";
-import type { Contexts } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
+import type { Contexts } from "@quonfig/react";
 import type { ReactNode } from "react";
 
 const WrappedApp = (): ReactNode => {
@@ -384,7 +384,7 @@ const WrappedApp = (): ReactNode => {
 <TabItem value="javascript" label="JavaScript">
 
 ```jsx
-import { QuonfigProvider } from "@quonfig-com/react";
+import { QuonfigProvider } from "@quonfig/react";
 
 const WrappedApp = () => {
   // highlight-start
@@ -517,7 +517,7 @@ const WelcomeMessage = (): ReactElement => {
 For non-generated usage, handle templating manually:
 
 ```tsx
-import { useQuonfig } from "@quonfig-com/react";
+import { useQuonfig } from "@quonfig/react";
 import Mustache from "mustache";
 import type { ReactElement } from "react";
 
@@ -554,7 +554,7 @@ const WelcomeMessage = (): ReactElement => {
 For raw javascript usage, handle templating manually:
 
 ```jsx
-import { useQuonfig } from "@quonfig-com/react";
+import { useQuonfig } from "@quonfig/react";
 import Mustache from "mustache";
 
 const WelcomeMessage = () => {
@@ -844,7 +844,7 @@ You could do the following in [jest]/[rtl]
 
 ```tsx
 import { render, screen } from "@testing-library/react";
-import { QuonfigTestProvider } from "@quonfig-com/react";
+import { QuonfigTestProvider } from "@quonfig/react";
 
 // Use the raw config object (camelCase gets converted internally)
 const renderInTestProvider = (config: Record<string, any>) => {
@@ -901,7 +901,7 @@ You could do the following in [jest]/[rtl]
 
 ```tsx
 import { render, screen } from "@testing-library/react";
-import { QuonfigTestProvider } from "@quonfig-com/react";
+import { QuonfigTestProvider } from "@quonfig/react";
 
 const renderInTestProvider = (config: Record<string, any>) => {
   render(
@@ -955,7 +955,7 @@ You could do the following in [jest]/[rtl]
 
 ```jsx
 import { render, screen } from "@testing-library/react";
-import { QuonfigTestProvider } from "@quonfig-com/react";
+import { QuonfigTestProvider } from "@quonfig/react";
 
 const renderInTestProvider = (config) => {
   render(
@@ -991,7 +991,7 @@ it("shows the secret feature when it is enabled", async () => {
 
 For SSR frameworks like Next.js, Remix, or custom React SSR setups, you can eliminate client-side loading states and improve performance by pre-fetching flag data on the server and rehydrating it on the client.
 
-This approach uses the underlying `@quonfig-com/javascript` client's `extract` and `hydrate` methods, which are accessible through the React hook.
+This approach uses the underlying `@quonfig/javascript` client's `extract` and `hydrate` methods, which are accessible through the React hook.
 
 :::info
 A fully working example is available as an [Example Launch Next.js](https://github.com/QuonfigHQ/example-launch-nextjs) application.
@@ -1015,7 +1015,7 @@ First, fetch and extract flag data on your server:
 
 ```tsx
 // app/page.tsx or your server component
-import { quonfig } from "@quonfig-com/javascript";
+import { quonfig } from "@quonfig/javascript";
 import { AppWithPreloadedQuonfig } from "../components/AppWithPreloadedQuonfig";
 
 export default async function Page() {
@@ -1050,7 +1050,7 @@ export default async function Page() {
 
 ```tsx
 // pages/index.tsx
-import { quonfig, Contexts } from "@quonfig-com/javascript";
+import { quonfig, Contexts } from "@quonfig/javascript";
 import type { GetServerSideProps } from "next";
 import { AppWithPreloadedQuonfig } from "../components/AppWithPreloadedQuonfig";
 
@@ -1100,7 +1100,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 // app/routes/_index.tsx
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { quonfig } from "@quonfig-com/javascript";
+import { quonfig } from "@quonfig/javascript";
 import { AppWithPreloadedQuonfig } from "../components/AppWithPreloadedQuonfig";
 
 interface LoaderData {
@@ -1156,7 +1156,7 @@ Create a client component that hydrates the React provider with server data:
 // components/AppWithPreloadedQuonfig.tsx
 "use client"; // Next.js App Router client component
 
-import { QuonfigProvider, Contexts } from "@quonfig-com/react";
+import { QuonfigProvider, Contexts } from "@quonfig/react";
 import { useQuonfig } from "./generated/quonfig-client";
 import { useEffect, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
@@ -1209,7 +1209,7 @@ const MainApp = (): ReactElement => {
 // components/AppWithPreloadedQuonfig.tsx
 "use client";
 
-import { QuonfigProvider, useQuonfig, Contexts } from "@quonfig-com/react";
+import { QuonfigProvider, useQuonfig, Contexts } from "@quonfig/react";
 import { useEffect, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 
@@ -1261,7 +1261,7 @@ const MainApp = (): ReactElement => {
 // components/AppWithPreloadedQuonfig.jsx
 "use client";
 
-import { QuonfigProvider, useQuonfig } from "@quonfig-com/react";
+import { QuonfigProvider, useQuonfig } from "@quonfig/react";
 
 const AppWithPreloadedQuonfig = ({
   children,
@@ -1305,7 +1305,7 @@ const MainApp = () => {
 You can also access the underlying JavaScript client directly from the hook:
 
 ```tsx
-import { useQuonfig } from "@quonfig-com/react";
+import { useQuonfig } from "@quonfig/react";
 import { useEffect } from "react";
 
 const MyComponent = ({ initialFlags }) => {
@@ -1420,7 +1420,7 @@ Many frameworks have specific requirements for client-side environment variables
 For advanced users who want to further extend quonfig hook functionality, you can use the `createQuonfigHook` factory function:
 
 ```tsx
-import { createQuonfigHook } from "@quonfig-com/react";
+import { createQuonfigHook } from "@quonfig/react";
 import { QuonfigTypesafeReact } from "./generated/quonfig-client";
 
 class MyTypesafeQuonfigClass extends QuonfigTypesafeReact {
