@@ -121,14 +121,17 @@ let quonfig: QuonfigTypesafeNode | null = null;
 
 async function getQuonfigClient(): Promise<QuonfigTypesafeNode> {
   if (!baseQuonfig || !quonfig) {
-    baseQuonfig = new Quonfig({
+    const client = new Quonfig({
       sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
       enableSSE: true,
       enablePolling: true,
     });
 
-    await baseQuonfig.init();
-    quonfig = new QuonfigTypesafeNode(baseQuonfig);
+    await client.init();
+    // Only cache after successful init — if init() throws,
+    // the next request will retry instead of returning a broken client.
+    baseQuonfig = client;
+    quonfig = new QuonfigTypesafeNode(client);
   }
 
   return quonfig;
@@ -166,13 +169,16 @@ let quonfig: Quonfig | null = null;
 
 async function getQuonfigClient(): Promise<Quonfig> {
   if (!quonfig) {
-    quonfig = new Quonfig({
+    const client = new Quonfig({
       sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
       enableSSE: true,
       enablePolling: true,
     });
 
-    await quonfig.init();
+    await client.init();
+    // Only cache after successful init — if init() throws,
+    // the next request will retry instead of returning a broken client.
+    quonfig = client;
   }
 
   return quonfig;
@@ -210,13 +216,16 @@ let quonfig = null;
 
 async function getQuonfigClient() {
   if (!quonfig) {
-    quonfig = new Quonfig({
+    const client = new Quonfig({
       sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
       enableSSE: true,
       enablePolling: true,
     });
 
-    await quonfig.init();
+    await client.init();
+    // Only cache after successful init — if init() throws,
+    // the next request will retry instead of returning a broken client.
+    quonfig = client;
   }
 
   return quonfig;
