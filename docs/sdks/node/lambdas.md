@@ -1,6 +1,50 @@
 ---
-title: Lambdas / Netlify
+title: Lambdas / Serverless
 ---
+
+## Vercel / Next.js Serverless
+
+Vercel serverless functions freeze the process after the response is sent, which means background telemetry timers won't fire. Use `flush()` with Next.js `after()` to ensure telemetry is sent before the function freezes.
+
+```typescript
+import { Quonfig } from "@quonfig/node";
+import { after } from "next/server";
+
+// Singleton — initialized once per cold start
+let quonfig: Quonfig | null = null;
+
+async function getQuonfig(): Promise<Quonfig> {
+  if (!quonfig) {
+    const client = new Quonfig({
+      sdkKey: process.env.QUONFIG_SDK_KEY!,
+      apiUrl: process.env.QUONFIG_API_URL,
+      telemetryUrl: process.env.QUONFIG_TELEMETRY_URL,
+      enableSSE: true,
+      enablePolling: true,
+    });
+    await client.init();
+    quonfig = client;
+  }
+  return quonfig;
+}
+
+// In a Next.js Server Component or Route Handler:
+export default async function MyPage() {
+  const quonfig = await getQuonfig();
+  const showBanner = quonfig.isFeatureEnabled("show-banner");
+
+  // flush telemetry after the response is sent, before Vercel freezes the function
+  after(() => quonfig.flush());
+
+  return <div>{showBanner && <Banner />}</div>;
+}
+```
+
+`after()` runs your callback after the response is sent to the client but before Vercel freezes the Lambda. This ensures evaluation summaries, context shapes, and example contexts are delivered on every request.
+
+---
+
+## Netlify / AWS Lambda
 
 :::tip TypeScript Support
 
