@@ -1535,3 +1535,19 @@ Here's an explanation of each property
 While `loading` is true, `isEnabled` will return `false` and `getDuration`/`get` will return `undefined`.
 
 :::
+
+### `QuonfigProvider` props
+
+| prop                         | required | type              | purpose                                                                       |
+| ---------------------------- | -------- | ----------------- | ----------------------------------------------------------------------------- |
+| `sdkKey`                     | yes      | `string`          | your Quonfig frontend SDK key                                                 |
+| `contextAttributes`          | no       | `Contexts`        | targeting context passed to all flag evaluations                              |
+| `initialFlags`               | no       | `Record<string, unknown>` | pre-seeded flag values for SSR hydration; disables network request  |
+| `pollInterval`               | no       | `number`          | poll for updates every N milliseconds                                         |
+| `apiUrls`                    | no       | `string[]`        | ordered list of API base URLs to try (defaults to Quonfig CDNs)              |
+| `apiUrl`                     | no       | `string`          | single API base URL (use `apiUrls` to specify multiple for failover)          |
+| `timeout`                    | no       | `number`          | initialization timeout in milliseconds (default 10000)                        |
+| `onError`                    | no       | `(error) => void` | callback invoked on initialization failure                                    |
+| `collectEvaluationSummaries` | no       | `boolean`         | opt out of evaluation summary telemetry (default `true`)                      |
+| `collectLoggerNames`         | no       | `boolean`         | collect logger name telemetry (default `false`)                               |
+| `afterEvaluationCallback`    | no       | `(key, value, contexts) => void` | callback invoked after each flag evaluation               |
