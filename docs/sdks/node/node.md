@@ -8,8 +8,14 @@ title: Node
 TypeScript definitions for type-safe access to your flags and configs:
 
 ```bash
-npx @quonfig/cli generate --targets node-ts
+# Step 1: pull a local copy of your workspace config files
+npx @quonfig/cli pull --dir ./my-config
+
+# Step 2: generate Node.js type definitions from local files
+npx @quonfig/cli generate --dir ./my-config --targets node-ts
 ```
+
+Set `QUONFIG_DIR=./my-config` to avoid repeating `--dir`.
 
 :::
 
@@ -39,10 +45,11 @@ TypeScript types are included with the package.
 <Tabs groupId="lang">
 <TabItem value="typegen" label="⭐ TypeScript + Generated Types (Recommended)">
 
-First, generate your types:
+First, pull your workspace config and generate types:
 
 ```bash
-npx @quonfig/cli generate --targets node-ts
+npx @quonfig/cli pull --dir ./my-config
+npx @quonfig/cli generate --dir ./my-config --targets node-ts
 ```
 
 Then use the generated typed class:

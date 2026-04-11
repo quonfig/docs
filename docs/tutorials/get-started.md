@@ -179,3 +179,26 @@ print(quonfig.enabled('features.example-flag', context))
 And that's it! A nice feature flag with a complex rule and a partial rollout in 5 minutes.
 
 For this example, we used "Just in Time" context, passing the context block into the `enabled?` methods. In general, you'll set the context once at the beginning of the request and then use the `enabled?` method without the context block. Read more about context [here](/docs/explanations/concepts/context).
+
+## TypeScript Type Generation (Optional)
+
+If you are using Node.js or React with TypeScript, the Quonfig CLI can generate type-safe definitions for all your flags and configs. This gives you autocomplete and compile-time safety in your IDE.
+
+Install the CLI globally (requires Node 18+):
+
+```bash
+npm install -g @quonfig/cli
+```
+
+Then log in, pull your workspace config, and generate types:
+
+```bash
+qfg login
+qfg pull --dir ./my-config
+qfg generate --dir ./my-config                       # react-ts (default)
+qfg generate --dir ./my-config --targets node-ts     # Node.js
+```
+
+Set `QUONFIG_DIR=./my-config` once (e.g. in `.env`) to avoid passing `--dir` every time.
+
+For full details on generated output files, configuration options, and IDE integration, see the [CLI documentation](/docs/tools/cli#typescript-code-generation).

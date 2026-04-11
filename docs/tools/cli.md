@@ -66,30 +66,59 @@ quonfig list --profile production
 
 **⭐ Recommended**: The `generate` command creates TypeScript definitions and type-safe clients for your Quonfig configuration, providing autocomplete and type safety in your IDE.
 
+`generate` reads from a **local copy** of your workspace config files. Use `pull` first to clone or update that local copy.
+
 ### Quick Start
 
 ```bash
-quonfig generate
+# Step 1: clone or update your workspace config files locally
+qfg pull --dir ./my-config
+
+# Step 2: generate TypeScript definitions from the local files
+qfg generate --dir ./my-config
+```
+
+To avoid repeating `--dir` in every command, set the `QUONFIG_DIR` environment variable:
+
+```bash
+export QUONFIG_DIR=./my-config
+qfg pull
+qfg generate
 ```
 
 This generates TypeScript files in the `generated/` directory:
 - `quonfig-client-types.d.ts` - Type definitions for React/JavaScript
 - `quonfig-client.ts` - Type-safe React/JavaScript client
 
+**Filter**: The `react-ts` target only includes configs with "Send to Client SDKs" enabled or configs of type `FEATURE_FLAG`. If a config is missing from generated types, check that setting in the Quonfig dashboard.
+
 ### Generate for Node.js
 
 ```bash
-quonfig generate --targets node-ts
+qfg pull --dir ./my-config
+qfg generate --dir ./my-config --targets node-ts
 ```
 
 This generates:
 - `quonfig-server-types.d.ts` - Type definitions for Node.js
 - `quonfig-server.ts` - Type-safe Node.js client
 
+The `node-ts` target includes **all** configs regardless of client SDK settings.
+
 ### Generate for Both Platforms
 
 ```bash
-quonfig generate --targets react-ts,node-ts
+qfg pull --dir ./my-config
+qfg generate --dir ./my-config --targets react-ts,node-ts
+```
+
+### CI/CD Integration
+
+Run both steps in your pipeline to keep generated types in sync with your workspace:
+
+```bash
+qfg pull --dir ./my-config
+qfg generate --dir ./my-config --output-directory ./src/generated
 ```
 
 ### Configuration File
@@ -153,28 +182,49 @@ quonfig create my.secret --type string --value "sensitive data" --secret --secre
 - Setting up encryption keys for different environments
 - Generating keys for config value protection
 
-### generate
+### pull
 
-`quonfig generate` creates TypeScript definitions and type-safe clients for your Quonfig configuration, providing autocomplete and type safety in your IDE.
+`qfg pull` clones or updates a local copy of your workspace config files. This is required before running `generate`.
 
 Options:
-- `--targets <targets>` - Specify target platforms (react-ts, node-ts)
-- `--output-directory <dir>` - Custom output directory
-- `--profile <name>` - Use specific profile
+- `--dir <path>` - Local directory to clone/update (defaults to `QUONFIG_DIR` env var)
+- `--workspace <id>` - Workspace ID (defaults to active profile)
 
 Examples:
 ```bash
-# Generate for React/JavaScript (default)
-quonfig generate
+# Clone or update into a local directory
+qfg pull --dir ./my-config
+
+# Use QUONFIG_DIR env var instead of --dir
+export QUONFIG_DIR=./my-config
+qfg pull
+```
+
+After pulling, you can also edit flag JSON directly, verify changes with `qfg verify <dir>`, and push via git.
+
+### generate
+
+`qfg generate` creates TypeScript definitions and type-safe clients for your Quonfig configuration. It reads from a local directory obtained via `qfg pull` — it does not contact the API directly.
+
+Options:
+- `--dir <path>` - Path to local config directory (defaults to `QUONFIG_DIR` env var)
+- `--targets <targets>` - Specify target platforms: `react-ts` (default) or `node-ts`
+- `--output-directory <dir>` - Custom output directory
+
+Examples:
+```bash
+# Pull first, then generate for React/JavaScript (default)
+qfg pull --dir ./my-config
+qfg generate --dir ./my-config
 
 # Generate for Node.js
-quonfig generate --targets node-ts
+qfg generate --dir ./my-config --targets node-ts
 
 # Generate for both platforms
-quonfig generate --targets react-ts,node-ts
+qfg generate --dir ./my-config --targets react-ts,node-ts
 
 # Custom output directory
-quonfig generate --output-directory src/generated
+qfg generate --dir ./my-config --output-directory src/generated
 ```
 
 This generates:
@@ -184,7 +234,7 @@ This generates:
 - Context-aware typing for better developer experience
 
 :::info
-💡 **For detailed setup instructions, configuration options, and usage examples**, see the [TypeScript Code Generation](#typescript-code-generation) section above. This includes information about configuration files, generated client usage, and integration with React and Node.js SDKs.
+For detailed setup instructions, configuration options, and usage examples, see the [TypeScript Code Generation](#typescript-code-generation) section above.
 :::
 
 ### login
@@ -584,6 +634,7 @@ echo $QUONFIG_API_URL_OVERRIDE
 ### Environment Variables
 
 - `QUONFIG_API_URL_OVERRIDE` - Override the default API URL
+- `QUONFIG_DIR` - Default local directory for `pull` and `generate` (avoids repeating `--dir`)
 - `QUONFIG_PROFILE` - Set default profile to use
 - `NO_COLOR` - Disable colored output
 - `QUONFIG_LOCAL_ONLY` - Use only local datafiles (for serve command)

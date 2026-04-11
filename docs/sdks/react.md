@@ -21,8 +21,16 @@ NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY=your-key-here
 **⭐ Recommended**: Use the [Quonfig CLI](/docs/tools/cli#typescript-code-generation) to generate TypeScript definitions for type-safe access to your flags and configs:
 
 ```bash
-npx @quonfig/cli generate --targets react-ts
+# Step 1: pull a local copy of your workspace config files
+npx @quonfig/cli pull --dir ./my-config
+
+# Step 2: generate React/JavaScript type definitions from local files
+npx @quonfig/cli generate --dir ./my-config --targets react-ts
 ```
+
+Set `QUONFIG_DIR=./my-config` to avoid repeating `--dir`.
+
+**Note**: The `react-ts` target only includes configs with "Send to Client SDKs" enabled and all feature flags. If a config is missing from the generated types, check that setting in the Quonfig dashboard.
 
 :::
 
@@ -58,10 +66,11 @@ First, wrap your component tree in the `QuonfigProvider`, e.g.
 <Tabs groupId="lang">
 <TabItem value="typegen" label="⭐ TypeScript + Generated Types (Recommended)">
 
-First, generate your types:
+First, pull your workspace config and generate types:
 
 ```bash
-npx @quonfig/cli generate --targets react-ts
+npx @quonfig/cli pull --dir ./my-config
+npx @quonfig/cli generate --dir ./my-config --targets react-ts
 ```
 
 Then set up your provider (same as TypeScript):
