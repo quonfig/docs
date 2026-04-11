@@ -94,7 +94,7 @@ Frontend config will return `undefined`, and you can use the pattern `Quonfig.ge
 
 The default timeout is `10` seconds, but you can set this in client initialization.
 
-You can run your own JS/React evaluation endpoint using the Quonfig CLI's [download](/docs/tools/cli#download) and [serve](/docs/tools/cli#serve) commands ([read more in our offline mode documentation][offline]). We also support [zero-ms feature flags and configs][0ms] in some Backend SDKs. If you have questions about this or our reliability roadmap, contact us, and we'll share what we're working on.
+We also support [zero-ms feature flags and configs][0ms] in some Backend SDKs. If you have questions about our reliability roadmap, contact us, and we'll share what we're working on.
 
 [offline]: /docs/how-tos/offline-mode.md
 [0ms]: /docs/explanations/concepts/zero-ms-frontend-feature-flags

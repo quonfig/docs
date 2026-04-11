@@ -361,28 +361,6 @@ quonfig schema my-schema --get
 
 Schemas enable runtime validation and better TypeScript integration when using generated types.
 
-### serve
-
-`quonfig serve DATA-FILE` starts a local server to serve a datafile, enabling offline development and testing with React/JavaScript clients.
-
-Options:
-- `--port <number>` - Port to serve on (default: 3099)
-
-Example:
-```bash
-quonfig serve ./quonfig.test.588.config.json --port=3099
-```
-
-This is useful for:
-- Local development without network connectivity
-- CI/CD pipelines that need consistent config data
-- Testing with specific datafile snapshots
-
-Update your client to point to the local server:
-```javascript
-endpoints: ["http://localhost:3099"]
-```
-
 ### workspace
 
 `quonfig workspace` allows you to switch between different Quonfig workspaces or display your current active workspace.
@@ -459,48 +437,6 @@ quonfig create my.api.key --type string --value="key123" --confidential
 - `--confidential`: Marks value as sensitive but doesn't encrypt (useful for display purposes)
 - `--secret` implies `--confidential`, so you don't need both
 
-### download
-
-`quonfig download` downloads a datafile for a given environment. [Datafiles](/docs/explanations/concepts/testing) are helpful for offline testing, CI/CD pipelines, and running your own JS/React endpoint with the [`serve`](#serve) command.
-
-Options:
-- `--environment <env>` - Environment to download (required)
-- `--json` - Output JSON format
-
-Examples:
-
-```bash
-# Basic download
-quonfig download --environment=test
-
-# Download for different environments
-quonfig download --environment=production
-quonfig download --environment=staging
-```
-
-**CI/CD Integration:**
-```bash
-# In your CI pipeline, download configs for testing
-quonfig download --environment=test
-
-# Use with serve for integration tests
-quonfig serve quonfig.test.588.config.json --port=3099 &
-PID=$!
-npm run test:integration
-kill $PID
-```
-
-**Offline Development Setup:**
-```bash
-# Download configs for offline work
-quonfig download --environment=development
-
-# Start local server for offline development
-quonfig serve quonfig.development.589.config.json
-```
-
-The downloaded file can be used with the `serve` command or for snapshot testing in your application.
-
 ### get
 
 `quonfig get NAME` will give you the value for a config in the environment tied to your SDK key.
@@ -568,27 +504,6 @@ Example:
 quonfig override my.flag.name --value=true
 ```
 
-### serve
-
-`quonfig serve` will start a local server to serve up a local datafile that React and JS clients can talk to. See `quonfig download` for more.
-
-```bash
-quonfig serve quonfig.test.588.config.json
-# Server is listening on 3099. Press ctrl-c to stop.
-```
-
-Example Dockerfile
-
-```dockerfile
-FROM node:20
-WORKDIR /app
-RUN npm i -g @quonfig/cli
-COPY quonfig.Production.589.config.json /app
-ENV QUONFIG_LOCAL_ONLY=true
-EXPOSE 9898
-CMD quonfig serve quonfig.Production.589.config.json --port=9898
-```
-
 ## Troubleshooting
 
 ### Common Issues
@@ -637,4 +552,3 @@ echo $QUONFIG_API_URL_OVERRIDE
 - `QUONFIG_DIR` - Default local directory for `pull` and `generate` (avoids repeating `--dir`)
 - `QUONFIG_PROFILE` - Set default profile to use
 - `NO_COLOR` - Disable colored output
-- `QUONFIG_LOCAL_ONLY` - Use only local datafiles (for serve command)

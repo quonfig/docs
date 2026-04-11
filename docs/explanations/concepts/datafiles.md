@@ -19,15 +19,14 @@ Datafiles can enable Quonfig usage in completely offline or on-premises feature 
 To get started with a datafile:
 
 1. Create an Environment in the Quonfig UI
-2. Generate a datafile for that environment using the Quonfig CLI
+2. Pull your workspace config files locally using the Quonfig CLI
 
 ```bash
-quonfig download --environment test
-# writes Quonfig.test.108.config.json
+qfg pull --dir ./my-config
+# clones your workspace config files to ./my-config
 ```
 
-3. Add the datafile to git `git add quonfig.test.108.config.json`.
-4. Set `QUONFIG_DATAFILE=quonfig.test.108.config.json` in your CI environment.
+3. Set `QUONFIG_DIR=./my-config` and `QUONFIG_ENVIRONMENT=test` in your CI environment.
 
 ## Using Datafiles in Docker Builds
 
@@ -36,10 +35,10 @@ Datafiles can also be helpful in Docker builds or other environments where you w
 `RUN RAILS_ENV=production QUONFIG_DATAFILE=quonfig.test.108.config.json bundle exec rake assets:precompile
 `
 
-If you don't want the test data there, you could also create another environment called 'docker-build' with any other configuration you want and use the CLI to download that as well.
+If you don't want the test data there, you could also create another environment called 'docker-build' with any other configuration you want and point `QUONFIG_ENVIRONMENT` at it.
 
-## Keeping The Datafile Up To Date
+## Keeping The Config Up To Date
 
-The CLI download will take a snapshot of the configuration at a given moment, but it won't keep it current. As you add configuration or feature flags that you need to test, you'll need to update the datafile by re-running the CLI command and committing the new datafile.
+Re-run `qfg pull` to get the latest config files. Commit the updated files to keep your CI environment current.
 
 [offline]: ../../how-tos/offline-mode
