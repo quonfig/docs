@@ -176,7 +176,7 @@ const config = {
         // Public API key: it is safe to commit it
         apiKey: "caa1592d833e68e465d3bcb96eab9207",
 
-        indexName: "Quonfig Documentation",
+        indexName: "Documentation website",
 
         // Optional: see doc section below
         contextualSearch: true,
