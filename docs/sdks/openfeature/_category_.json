@@ -1,0 +1,10 @@
+{
+  "label": "OpenFeature Providers",
+  "position": 10,
+  "collapsible": true,
+  "collapsed": false,
+  "link": {
+    "type": "generated-index",
+    "description": "Use Quonfig with the OpenFeature standard. Install a thin provider alongside your native SDK and evaluate flags through the OpenFeature API."
+  }
+}
