@@ -1,0 +1,9 @@
+{
+  "label": "Migrating to Quonfig",
+  "position": 6,
+  "link": {
+    "type": "generated-index",
+    "description": "Move an existing feature-flag setup onto Quonfig. Pick the subsection for the system you are coming from."
+  },
+  "collapsed": false
+}
