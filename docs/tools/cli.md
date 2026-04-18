@@ -184,7 +184,7 @@ quonfig create my.secret --type string --value "sensitive data" --secret --secre
 
 ### pull
 
-`qfg pull` clones or updates a local copy of your workspace config files. This is required before running `generate`.
+`qfg pull` clones or updates a local copy of your workspace config files. This is required before running `generate`, and it is also how you edit flag JSON directly for anything beyond the `set-default` / `set-rollout` shortcuts.
 
 Options:
 - `--dir <path>` - Local directory to clone/update (defaults to `QUONFIG_DIR` env var)
@@ -200,7 +200,17 @@ export QUONFIG_DIR=./my-config
 qfg pull
 ```
 
-After pulling, you can also edit flag JSON directly, verify changes with `qfg verify <dir>`, and push via git.
+#### Editing JSON for targeting rules
+
+Once you have a local copy, editing the JSON file is how you express rules that go beyond a catch-all default or a simple percentage rollout — for example "`user.email == jdwyah@gmail.com` → `true`, everyone else → `false`", segment membership, or custom properties. See the [Targeting rules](#targeting-rules) section below for the full workflow and a sample rule.
+
+After editing files:
+```bash
+qfg verify ./my-config                           # validate JSON before pushing
+git -C ./my-config add -A
+git -C ./my-config commit -m "feat: target beta cohort"
+git -C ./my-config push
+```
 
 ### generate
 
@@ -332,6 +342,74 @@ quonfig override my.flag.name --remove
 ```
 
 Overrides apply to any environment using an SDK key created by your Quonfig user.
+
+### Targeting rules
+
+Quonfig evaluates a flag by walking its rules in order. The CLI gives you three ways to change what those rules return:
+
+| You want to…                                    | Use                 |
+|-------------------------------------------------|---------------------|
+| Set the catch-all fallback (what everyone else gets) | `qfg set-default`   |
+| Run a percentage rollout / A-B test / canary    | `qfg set-rollout`   |
+| Target by user email, plan, segment, or any custom property | Edit the JSON config directly |
+
+`override` is deliberately NOT on this list — it only affects *your* SDK key. For production targeting, reach for one of the three above.
+
+#### Editing JSON directly
+
+The local JSON config supports every targeting operator the dashboard UI supports (`PROP_IS_ONE_OF`, `IN_SEG`, `PROP_MATCHES`, etc.). Two commands print the operator reference:
+
+```bash
+qfg config-schema                # human-readable operator reference + worked example
+qfg config-schema --json-schema  # machine-readable JSON Schema (e.g. for IDE completion)
+```
+
+For IDE autocomplete while editing, point your editor at `our-config/quonfig.schema.json` (or the equivalent file in your workspace clone).
+
+#### Sample rule — target a single user
+
+To express "`user.email == jdwyah@gmail.com` → `true`, everyone else → `false`" for `forcerank.my.flag`:
+
+```json
+{
+  "key": "forcerank.my.flag",
+  "type": "feature_flag",
+  "valueType": "bool",
+  "default": {
+    "rules": [
+      {
+        "criteria": [
+          {
+            "operator": "PROP_IS_ONE_OF",
+            "propertyName": "user.email",
+            "valueToMatch": { "type": "string_list", "value": ["jdwyah@gmail.com"] }
+          }
+        ],
+        "value": { "type": "bool", "value": true }
+      },
+      {
+        "criteria": [{ "operator": "ALWAYS_TRUE" }],
+        "value": { "type": "bool", "value": false }
+      }
+    ]
+  },
+  "environments": [],
+  "variants": []
+}
+```
+
+End-to-end workflow:
+
+```bash
+qfg pull --dir ./my-config                       # clone or refresh local copy
+$EDITOR ./my-config/feature-flags/forcerank.my.flag.json
+qfg verify ./my-config                           # catch typos: unknown operators, missing propertyName, etc.
+git -C ./my-config add -A
+git -C ./my-config commit -m "feat: target jdwyah for forcerank.my.flag"
+git -C ./my-config push
+```
+
+`qfg verify` validates against the same schema the SDK uses, so a passing verify is a strong signal the rule will evaluate correctly.
 
 ### profile
 
