@@ -429,6 +429,7 @@ it("shows the turbo button when the feature is enabled", () => {
 | option                     | type     | default                | description                                                                                  |
 | -------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------- |
 | `sdkKey`                   | string   | required               | Your Quonfig SDK key                                                                         |
+| `apiUrls`                  | string[] | `["https://primary.quonfig.com"]` | Ordered list of API base URLs to try                                              |
 | `context`                  | Context  | `{}`                   | Initial context for evaluation                                                               |
 | `loggerKey`                | string   | `"log-levels.default"` | Config key for LOG_LEVEL_V2 configuration (useful for isolating log levels per application) |
 | `defaultLevel`             | LogLevel | `LogLevel.WARN`        | Default log level when no configuration is found                                             |

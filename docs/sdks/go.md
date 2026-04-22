@@ -40,6 +40,22 @@ func init() {
 }
 ```
 
+### API URLs
+
+By default the SDK connects to `https://primary.quonfig.com` for config fetches
+and automatically connects to `https://stream.primary.quonfig.com` for live SSE
+updates — the stream URL is derived from each API URL by prepending `stream.`
+to the hostname, so you don't configure it separately. A fallback
+`secondary.quonfig.com` will be added to the default list once the fallback app
+exists. Override the list with `WithAPIURLs`:
+
+```go
+sdk, err := quonfig.NewSdk(
+    quonfig.WithSdkKey(sdkKey),
+    quonfig.WithAPIURLs([]string{"https://primary.quonfig.com"}),
+)
+```
+
 ## Feature Flags
 
 For boolean flags, you can use the `FeatureIsOn` function:
@@ -437,6 +453,7 @@ client, err := quonfig.NewSdk(
 | Name                           | Description                                                                                                                           | Default          |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | WithSdkKey                     | Your Quonfig SDK key (not needed if QUONFIG_BACKEND_SDK_KEY env var is set)                                                           | from env var     |
+| WithAPIURLs                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                             | `["https://primary.quonfig.com"]` |
 | WithProjectEnvID               | Project environment ID (required when using WithOfflineSources)                                                                       | nil              |
 | WithOfflineSources             | Use offline data sources (datafiles) instead of API/SSE. Automatically disables telemetry. Requires WithProjectEnvID                  | nil              |
 | WithGlobalContext              | Set a static context to be used as the base layer in all configuration evaluation                                                     | empty            |

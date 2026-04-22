@@ -166,7 +166,7 @@ const provider = new QuonfigWebProvider({
 const provider = new QuonfigWebProvider({
   sdkKey: "qf_sk_...",            // required
   targetingKeyMapping: "user.id", // default
-  apiUrl: "https://custom.api",   // optional — override API base URL
+  apiUrls: ["https://custom.api"], // optional — override API base URLs (default: ["https://primary.quonfig.com"])
   timeout: 5000,                  // optional — ms
 });
 ```

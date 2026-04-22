@@ -33,6 +33,24 @@ If you set `QUONFIG_BACKEND_SDK_KEY` as an environment variable, initializing th
 Quonfig.init # reads QUONFIG_BACKEND_SDK_KEY env var by default
 ```
 
+### API URLs
+
+By default the SDK connects to `https://primary.quonfig.com` for config fetches
+and automatically connects to `https://stream.primary.quonfig.com` for live SSE
+updates. The stream URL is derived from each API URL by prepending `stream.` to
+the hostname, so you don't configure it separately. A fallback
+`secondary.quonfig.com` will be added to the default list once the fallback app
+exists. Override the list with the `api_urls` option (or the
+`QUONFIG_API_URLS` env var — comma-separated):
+
+```ruby
+Quonfig.init(
+  Quonfig::Options.new(
+    api_urls: ["https://primary.quonfig.com"],
+  )
+)
+```
+
 ### Rails Applications
 
 Initializing Quonfig in your `application.rb` will allow you to reference dynamic configuration in your environment (e.g. `staging.rb`) and initializers. This is useful for setting environment-specific config like your redis connection URL.
@@ -544,6 +562,7 @@ For more control, you can initialize your client with options. Here are the defa
 ```ruby
 options = Quonfig::Options.new(
   sdk_key: ENV['QUONFIG_BACKEND_SDK_KEY'],
+  api_urls: ['https://primary.quonfig.com'], # or ENV['QUONFIG_API_URLS'] (comma-separated). SSE URL is derived by prepending 'stream.'
   on_no_default: ON_NO_DEFAULT::RAISE, # options :raise, :warn_and_return_nil,
   initialization_timeout_sec: 10, # how long to wait before on_init_failure
   on_init_failure: ON_INITIALIZATION_FAILURE::RAISE, # choose to crash or continue with local data only if unable to fetch config data from prefab at startup

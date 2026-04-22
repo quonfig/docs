@@ -270,6 +270,22 @@ This pattern prevents re-initialization on every API request, which is crucial f
 Make sure to use `QUONFIG_BACKEND_SDK_KEY` (not `NEXT_PUBLIC_`) in API routes since they run server-side. Only client-side code needs the `NEXT_PUBLIC_` prefix.
 :::
 
+### API URLs
+
+By default the SDK connects to `https://primary.quonfig.com` for config fetches
+and automatically connects to `https://stream.primary.quonfig.com` for live SSE
+updates. The stream URL is derived from each API URL by prepending `stream.` to
+the hostname, so you don't configure it separately. A fallback
+`secondary.quonfig.com` will be added to the default list once the fallback app
+exists. Override the list by passing `apiUrls`:
+
+```typescript
+const quonfig = new Quonfig({
+  sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
+  apiUrls: ["https://primary.quonfig.com"],
+});
+```
+
 ## Feature Flags and Dynamic Config
 
 <Tabs groupId="lang">
@@ -1004,6 +1020,7 @@ const quonfig = new Quonfig({
 
 | Name                       | Description                                                                                                                            | Default           |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| apiUrls                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                       | `["https://primary.quonfig.com"]` |
 | collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                | true              |
 | collectLoggerCounts        | Send counts of logger usage back to Quonfig to power log-levels configuration screen                                            | true              |
 | contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in quonfig contexts) or periodically send full example contexts | "periodicExample" |

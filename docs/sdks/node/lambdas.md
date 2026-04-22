@@ -17,8 +17,6 @@ async function getQuonfig(): Promise<Quonfig> {
   if (!quonfig) {
     const client = new Quonfig({
       sdkKey: process.env.QUONFIG_SDK_KEY!,
-      apiUrl: process.env.QUONFIG_API_URL,
-      telemetryUrl: process.env.QUONFIG_TELEMETRY_URL,
       enableSSE: true,
       enablePolling: true,
     });

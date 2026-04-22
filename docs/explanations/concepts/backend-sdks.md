@@ -55,6 +55,12 @@ multiple sources in case of errors. Once it gets a connection it will unlock and
 
 The client will also start a streaming connection to the APIs to pull down new changes.
 
+The delivery service is split across two hosts: short-lived HTTP fetches go to
+`primary.quonfig.com` and the long-lived SSE stream goes to
+`stream.primary.quonfig.com`. The SDK derives the stream host from the
+configured API URL (by prepending `stream.`) so you only configure one
+`apiUrls` list and routing is automatic.
+
 Additionally, the SDK will poll for updates as a resiliency measure.
 
 Note that the evaluation is always happening in-process in your application.

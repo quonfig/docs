@@ -1553,8 +1553,7 @@ While `loading` is true, `isEnabled` will return `false` and `getDuration`/`get`
 | `contextAttributes`          | no       | `Contexts`        | targeting context passed to all flag evaluations                              |
 | `initialFlags`               | no       | `Record<string, unknown>` | pre-seeded flag values for SSR hydration; disables network request  |
 | `pollInterval`               | no       | `number`          | poll for updates every N milliseconds                                         |
-| `apiUrls`                    | no       | `string[]`        | ordered list of API base URLs to try (defaults to Quonfig CDNs)              |
-| `apiUrl`                     | no       | `string`          | single API base URL (use `apiUrls` to specify multiple for failover)          |
+| `apiUrls`                    | no       | `string[]`        | ordered list of API base URLs to try (defaults to `["https://primary.quonfig.com"]`; a fallback `secondary.quonfig.com` will be added) |
 | `timeout`                    | no       | `number`          | initialization timeout in milliseconds (default 10000)                        |
 | `onError`                    | no       | `(error) => void` | callback invoked on initialization failure                                    |
 | `collectEvaluationSummaries` | no       | `boolean`         | opt out of evaluation summary telemetry (default `true`)                      |
