@@ -108,11 +108,8 @@ provider := openfeaturego.NewQuonfigProvider(openfeaturego.Options{
 ```go
 native := provider.GetClient()
 
-// Log level integration
-shouldLog := native.ShouldLog(quonfig.LogLevelCheck{
-    LoggerName:   "auth",
-    DesiredLevel: "DEBUG",
-})
+// Log level integration — pass the full stored key, no auto-prefix
+shouldLog := native.ShouldLog("log-level.auth", "DEBUG", nil)
 ```
 
 ## What you lose vs. the native SDK

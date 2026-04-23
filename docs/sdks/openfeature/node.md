@@ -105,9 +105,9 @@ Access the underlying `@quonfig/node` client for features not available in OpenF
 ```typescript
 const native = provider.getClient();
 
-// Log level integration
+// Log level integration — pass the full stored key
 const shouldLog = native.shouldLog({
-  loggerName: "auth",
+  configKey: "log-level.auth",
   desiredLevel: "DEBUG",
   contexts: { user: { id: "user-123" } },
 });
@@ -135,7 +135,7 @@ const provider = new QuonfigProvider({
 OpenFeature is designed for feature flags, not general configuration. Some Quonfig
 features require the native `@quonfig/node` SDK directly:
 
-1. **Log levels** -- `shouldLog()` and `logger()` are native-only.
+1. **Log levels** -- `shouldLog()` and the Winston/Pino adapters are native-only.
 2. **`string_list` configs** -- must be accessed via `getObjectValue()` and cast to `string[]`.
 3. **`duration` configs** -- returned as a raw number (milliseconds) via `getNumberValue()`.
 4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).

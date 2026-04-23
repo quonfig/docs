@@ -2,6 +2,14 @@
 title: Java
 ---
 
+:::warning Not yet available
+
+There is no official Quonfig Java SDK yet. The instructions below describe a planned API and are **not** currently usable — the Maven coordinates, classes, and method names on this page are aspirational and may change before release.
+
+If you need Java support, please let us know so we can prioritize. In the meantime, the [Go](./go.md), [Node](./node/node.md), [Python](./python.md), and [Ruby](./ruby.md) SDKs are production-ready.
+
+:::
+
 ## Install the latest version
 
 [Github](https://github.com/QuonfigHQ/sdk-java) | [Maven Repository](https://mvnrepository.com/artifact/com.quonfig/sdk)

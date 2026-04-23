@@ -163,11 +163,17 @@ If `max-jobs-per-second` is available, `wasFound` will be `true` and `value` wil
 
 ## Dynamic Log Levels
 
-Quonfig provides real-time dynamic log level control for popular Go logging libraries. When you change a log level in Quonfig, it takes effect immediately in your application via SSE without any polling or restarts.
+Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app`). The SDK consults that config on every log call, so changes made in Quonfig take effect immediately via SSE with no polling or restart.
 
-### Standard Library (slog)
+### Concept
 
-The SDK includes built-in support for Go's standard library `log/slog` package with no additional dependencies:
+- One `log_level` config per app, keyed like `log-level.my-app`. Value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+- Tell the client which config to consult with `WithLoggerKey(...)`.
+- `ShouldLogPath(loggerPath, desiredLevel, ctx)` pushes `loggerPath` into the evaluation context as `quonfig-sdk-logging.key` (verbatim — no normalization) so a single config can drive per-logger rules.
+- The `ShouldLog(configKey, desiredLevel, ctx)` primitive is also available when you want to evaluate a specific config without the convenience layer.
+- Logger names flowing through `quonfig-sdk-logging.key` are auto-captured by example-context telemetry, so the dashboard can auto-suggest rule targets.
+
+### Basic usage
 
 ```go
 import (
@@ -176,191 +182,103 @@ import (
     quonfig "github.com/QuonfigHQ/sdk-go"
 )
 
-sdk, _ := quonfig.NewSdk(quonfig.WithSdkKey("your-key"))
+client, _ := quonfig.NewClient(
+    quonfig.WithSdkKey("your-key"),
+    quonfig.WithLoggerKey("log-level.my-app"),
+)
 
-// Create a Quonfig handler that wraps your base handler
-baseHandler := slog.NewJSONHandler(os.Stdout, nil)
-handler := quonfig.NewQuonfigHandler(sdk, baseHandler, "com.example.myapp")
-logger := slog.New(handler)
-
-// Log levels are controlled dynamically by Quonfig
-logger.Debug("Debug message")
-logger.Info("Info message")
-logger.Error("Error message")
+if client.ShouldLogPath("com.example.auth", "DEBUG", nil) {
+    // …
+}
 ```
 
-Alternatively, use `QuonfigLeveler` with `HandlerOptions`:
+### Rule example
+
+Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+
+```yaml
+# Default to INFO for every logger in this app
+default: INFO
+
+rules:
+  # Bump a subsystem to DEBUG
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "com.example.auth"
+    value: DEBUG
+
+  # Silence a chatty third-party package
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "github.com/somelib"
+    value: ERROR
+
+  # Turn DEBUG on for one developer, everywhere
+  - criteria:
+      user.email: "developer@example.com"
+    value: DEBUG
+```
+
+Because the evaluator sees your full context — global context set via `WithGlobalContext`, per-call context passed into `ShouldLogPath`, and `quonfig-sdk-logging.key` — you can combine logger rules with user, environment, or request context to crank verbosity up for one user, one staging deploy, or one bad request, without touching anyone else.
+
+### slog handler
+
+The SDK ships a `slog.Handler` that wraps any inner handler and gates each record through `ShouldLogPath`:
 
 ```go
-leveler := quonfig.NewQuonfigLeveler(sdk, "com.example.myapp")
+import (
+    "log/slog"
+    "os"
+    quonfig "github.com/QuonfigHQ/sdk-go"
+)
+
+client, _ := quonfig.NewClient(
+    quonfig.WithSdkKey("your-key"),
+    quonfig.WithLoggerKey("log-level.my-app"),
+)
+
+inner := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+handler := quonfig.NewQuonfigHandler(client, inner, "com.example.auth")
+logger := slog.New(handler)
+
+logger.Debug("debug line")
+logger.Info("info line")
+```
+
+If you'd rather let slog drive the level decision itself, use `QuonfigLeveler`:
+
+```go
+leveler := quonfig.NewQuonfigLeveler(client, "com.example.auth")
 handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
     Level: leveler,
 })
 logger := slog.New(handler)
 ```
 
-### Third-Party Logger Integrations
+### Attaching per-request context
 
-Quonfig provides optional integrations for popular third-party logging libraries. These are available as separate modules to keep the main SDK dependency-free:
-
-#### Zap
-
-```bash
-go get github.com/QuonfigHQ/sdk-go/integrations/zap
-```
+Both `NewQuonfigHandler` and `NewQuonfigLeveler` read any `*ContextSet` attached to the `context.Context` passed through slog, so per-request user/team context flows into rule evaluation:
 
 ```go
-import (
-    quonfig "github.com/QuonfigHQ/sdk-go"
-    quonfigzap "github.com/QuonfigHQ/sdk-go/integrations/zap"
-    "go.uber.org/zap"
-)
+cs := quonfig.NewContextSet()
+cs.WithNamedContextValues("user", map[string]interface{}{
+    "email": "developer@example.com",
+})
+ctx := quonfig.ContextWithContextSet(context.Background(), cs)
 
-sdk, _ := quonfig.NewSdk(quonfig.WithSdkKey("your-key"))
-
-// Option 1: Using IncreaseLevel
-dynamicLevel := quonfigzap.NewQuonfigZapLevel(sdk, "com.example.myapp")
-logger, _ := zap.NewProduction(zap.IncreaseLevel(dynamicLevel))
-
-// Option 2: Using custom core
-encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
-core := quonfigzap.NewQuonfigZapCore(
-    zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), zapcore.DebugLevel),
-    sdk,
-    "com.example.myapp",
-)
-logger := zap.New(core)
+logger.DebugContext(ctx, "debug line — evaluated with user context")
 ```
 
-[View zap integration docs on GitHub](https://github.com/QuonfigHQ/sdk-go/tree/main/integrations/zap)
+### Reference
 
-#### Zerolog
-
-```bash
-go get github.com/QuonfigHQ/sdk-go/integrations/zerolog
-```
-
-```go
-import (
-    quonfig "github.com/QuonfigHQ/sdk-go"
-    quonfigzerolog "github.com/QuonfigHQ/sdk-go/integrations/zerolog"
-    "github.com/rs/zerolog"
-)
-
-sdk, _ := quonfig.NewSdk(quonfig.WithSdkKey("your-key"))
-hook := quonfigzerolog.NewQuonfigZerologHook(sdk, "com.example.myapp")
-logger := zerolog.New(os.Stdout).Hook(hook).With().Timestamp().Logger()
-```
-
-[View zerolog integration docs on GitHub](https://github.com/QuonfigHQ/sdk-go/tree/main/integrations/zerolog)
-
-#### Charmbracelet Log
-
-```bash
-go get github.com/QuonfigHQ/sdk-go/integrations/charmbracelet
-```
-
-```go
-import (
-    quonfig "github.com/QuonfigHQ/sdk-go"
-    charmbracelet "github.com/QuonfigHQ/sdk-go/integrations/charmbracelet"
-    "github.com/charmbracelet/log"
-)
-
-sdk, _ := quonfig.NewSdk(quonfig.WithSdkKey("your-key"))
-baseLogger := log.New(os.Stdout)
-logger := charmbracelet.NewQuonfigCharmLogger(sdk, baseLogger, "com.example.myapp")
-```
-
-[View charmbracelet integration docs on GitHub](https://github.com/QuonfigHQ/sdk-go/tree/main/integrations/charmbracelet)
-
-### Configuration
-
-Create a `LOG_LEVEL_V2` config in your Quonfig dashboard with key `log-levels`:
-
-```yaml
-# Default to INFO for all loggers
-default: INFO
-
-# Set specific packages to DEBUG
-rules:
-  - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example.services"
-    value: DEBUG
-
-  # Only log errors in noisy third-party library
-  - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "github.com/somelib"
-    value: ERROR
-```
-
-You can customize the config key name using the `WithLoggerKey` option. This is useful if you have multiple applications sharing the same Quonfig project and want to isolate log level configuration per application:
-
-```go
-sdk, _ := quonfig.NewSdk(
-    quonfig.WithSdkKey("your-key"),
-    quonfig.WithLoggerKey("myapp.log.levels"),
-)
-```
-
-The SDK automatically includes `lang: "go"` in the evaluation context, which you can use in your rules to create Go-specific log level configurations:
-
-```yaml
-# Different log levels for Go vs other languages
-rules:
-  - criteria:
-      quonfig-sdk-logging.lang: go
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example"
-    value: DEBUG
-
-  - criteria:
-      quonfig-sdk-logging.lang: java
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example"
-    value: INFO
-```
-
-### Targeted Log Levels
-
-You can use [rules and segmentation](/docs/explanations/features/rules-and-segmentation) to change your log levels based on the current user/request/device context. This allows you to increase log verbosity for specific users, environments, or conditions without affecting your entire application.
-
-The log level evaluation has access to **all context** that is available during evaluation, not just the `quonfig-sdk-logging` context. This means you can create rules combining:
-
-- **SDK logging context** (`quonfig-sdk-logging.*`) - Logger name and language
-- **Global context** - Application name, environment, availability zone, etc.
-- **Dynamic context** - User, team, device, request information from bound or just-in-time context
-
-For example, you can create rules like:
-
-```yaml
-# Enable DEBUG logs only for specific application in staging
-rules:
-  - criteria:
-      application.key: "myapp"
-      application.environment: "staging"
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example"
-    value: DEBUG
-
-  # Enable DEBUG logs for a specific user across all applications
-  - criteria:
-      user.email: "developer@example.com"
-    value: DEBUG
-
-  # Lower verbosity in production
-  - criteria:
-      application.environment: "production"
-    value: WARN
-```
-
-This allows you to increase log verbosity for specific users, specific applications, particular environments, or any combination of conditions without affecting your entire system.
-
-### How It Works
-
-All logger integrations check Quonfig configuration **on every log call** for real-time updates. When you change a log level in Quonfig, it takes effect immediately via SSE without any polling or manual refresh. Different components can have different log levels using different logger names.
+| Name                                          | Example                                                                              | Description                                                                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `WithLoggerKey(key)`                          | `quonfig.WithLoggerKey("log-level.my-app")`                                          | Tells the client which `log_level` config `ShouldLogPath` and the slog adapter should consult. Required for either.           |
+| `ShouldLogPath(loggerPath, desiredLevel, ctx)`| `client.ShouldLogPath("com.example.auth", "DEBUG", nil)`                             | Convenience. Uses `LoggerKey` + injects `quonfig-sdk-logging.key = loggerPath` so rules can target individual loggers.        |
+| `ShouldLog(configKey, desiredLevel, ctx)`     | `client.ShouldLog("log-level.my-app", "DEBUG", nil)`                                 | Primitive. Evaluates the named config directly — no auto-injection. Use when building a custom adapter.                       |
+| `NewQuonfigHandler(client, inner, loggerPath)`| `slog.New(quonfig.NewQuonfigHandler(client, inner, "com.example.auth"))`             | `slog.Handler` that gates each record through `ShouldLogPath`.                                                                |
+| `NewQuonfigLeveler(client, loggerPath)`       | `slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: leveler})`               | `slog.Leveler` backed by Quonfig. Use when you want slog's own enabled-check path to see the dynamic level.                   |
+| `ContextWithContextSet(ctx, cs)`              | `ctx := quonfig.ContextWithContextSet(ctx, cs)`                                      | Attach a `*ContextSet` to a `context.Context` so the slog adapter picks it up on each record.                                 |
 
 ## Telemetry
 
@@ -463,4 +381,4 @@ client, err := quonfig.NewSdk(
 | WithConfigs                    | Provide in-memory configs for testing                                                                                                 | nil              |
 | WithOnInitializationFailure    | Choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup                               | RAISE (crash)    |
 | WithInitializationTimeoutSeconds | Timeout for initial config fetch                                                                                                    | 10               |
-| WithLoggerKey                  | Config key for LOG_LEVEL_V2 configuration                                                                                            | log-levels       |
+| WithLoggerKey                  | The `log_level` config key consulted by `ShouldLogPath` and the slog adapter. No default — set it to enable the `loggerPath` convenience. | `""`             |

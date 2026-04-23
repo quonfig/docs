@@ -446,71 +446,77 @@ quonfig.inContext(context, (rf) => {
 
 ## Dynamic Log Levels
 
-The Quonfig SDK provides integration with popular Node.js logging frameworks, enabling you to dynamically manage log levels across your application in real-time without restarting.
+Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app`). Rules inside that config decide what verbosity a given logger gets — down to individual classes or modules — and changes propagate live via SSE with no restart.
 
-### Features
+### Concept
 
-- **Centrally manage log levels** - Control logging across your entire application from the Quonfig dashboard
-- **Real-time updates** - Change log levels without restarting your application
-- **Context-aware logging** - Different log levels for different loggers based on runtime context
-- **Framework support** - Works with Pino and Winston
+- One `log_level` config per app, keyed like `log-level.my-app`. The value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+- Tell the SDK which config to consult by passing `loggerKey` at init time.
+- Every `shouldLog` / logger-adapter call pushes the logger's native name (`"MyApp.Services.Auth"`, `"com.app.Auth"`, whatever you use) into the evaluation context as `quonfig-sdk-logging.key` — verbatim, no normalization.
+- Rules match against `quonfig-sdk-logging.key` (or any other context property — user, environment, etc.) so one config can drive per-logger, per-user, or per-environment overrides.
+- Logger names flowing through `quonfig-sdk-logging.key` are auto-captured by Quonfig's example-context telemetry, so candidate logger names show up in the dashboard for rule-building.
 
-### Pino Integration
+### Basic usage
 
-[Pino](https://getpino.io/) is a fast JSON logger for Node.js. Install it as a peer dependency:
-
-<Tabs groupId="lang">
-<TabItem value="npm" label="npm">
-
-```bash
-npm install pino
-```
-
-</TabItem>
-<TabItem value="yarn" label="yarn">
-
-```bash
-yarn add pino
-```
-
-</TabItem>
-</Tabs>
-
-Create a Pino logger with dynamic level support:
+Initialize the client with `loggerKey`, then call `shouldLog` with a `loggerPath`:
 
 ```typescript
-import { Quonfig, createPinoLogger } from "@quonfig/node";
+import { Quonfig } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
-  enableSSE: true,
+  loggerKey: "log-level.my-app",
 });
 
 await quonfig.init();
 
-// Create logger with dynamic log levels from Quonfig
-const logger = createPinoLogger(quonfig, "myapp.services");
-
-// Log levels are controlled dynamically by Quonfig
-logger.debug("Debug message");
-logger.info("Info message");
-logger.error("Error message");
+if (quonfig.shouldLog({ loggerPath: "MyApp.Services.Auth", desiredLevel: "DEBUG" })) {
+  console.log("auth debug line");
+}
 ```
 
-Alternatively, add dynamic level control to an existing Pino logger:
+If you'd rather bypass the convenience form and point at a config directly, use the primitive shape:
 
 ```typescript
-import pino from "pino";
-import { createPinoHook } from "@quonfig/node";
-
-const logger = pino({
-  mixin: createPinoHook(quonfig, "myapp.services"),
+quonfig.shouldLog({
+  configKey: "log-level.my-app",
+  desiredLevel: "DEBUG",
+  contexts: { user: { id: "user-123" } },
 });
 ```
 
-### Winston Integration
+### Rule example
 
-[Winston](https://github.com/winstonjs/winston) is a versatile logging library. Install it as a peer dependency:
+Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+
+```yaml
+# Default to INFO for every logger in this app
+default: INFO
+
+rules:
+  # Bump the auth subsystem to DEBUG
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "MyApp.Services.Auth"
+    value: DEBUG
+
+  # Silence a chatty third-party logger
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "SomeLib"
+    value: ERROR
+
+  # Turn DEBUG on for one developer, everywhere
+  - criteria:
+      user.email: "developer@example.com"
+    value: DEBUG
+```
+
+Because the evaluator sees your full context — not just `quonfig-sdk-logging.*` — you can combine logger rules with global or per-request context (`application.environment`, `user.email`, `team.id`, etc.) to crank verbosity up for a single user, a staging deploy, or one bad request, without affecting anyone else.
+
+### Winston adapter
+
+Install Winston as a peer dependency:
 
 <Tabs groupId="lang">
 <TabItem value="npm" label="npm">
@@ -529,149 +535,96 @@ yarn add winston
 </TabItem>
 </Tabs>
 
-Create a Winston logger with dynamic level support:
+`createWinstonFormat` is a Winston format that consults `quonfig.shouldLog` and drops records that don't pass. Import it from the `@quonfig/node/winston` subpath:
 
 ```typescript
-import { Quonfig, createWinstonLogger } from "@quonfig/node";
+import { Quonfig } from "@quonfig/node";
+import { createWinstonFormat } from "@quonfig/node/winston";
+import winston from "winston";
 
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
-  enableSSE: true,
+  loggerKey: "log-level.my-app",
 });
-
 await quonfig.init();
-
-// Create logger with dynamic log levels from Quonfig
-const logger = createWinstonLogger(quonfig, "myapp.services");
-
-// Log levels are controlled dynamically by Quonfig
-logger.debug("Debug message");
-logger.info("Info message");
-logger.error("Error message");
-```
-
-Alternatively, add dynamic level control to an existing Winston logger:
-
-```typescript
-import winston from "winston";
-import { createWinstonFormat } from "@quonfig/node";
 
 const logger = winston.createLogger({
   format: winston.format.combine(
-    createWinstonFormat(quonfig, "myapp.services"),
+    createWinstonFormat(quonfig, "MyApp.Services.Auth"),
     winston.format.json()
   ),
   transports: [new winston.transports.Console()],
 });
+
+logger.info("live-controlled"); // emits iff shouldLog says so
 ```
 
-### Configuration
+The second argument (`loggerPath`) is forwarded to `quonfig.shouldLog` verbatim, so rules can key on whatever identifier shape your app actually uses.
 
-Create a `LOG_LEVEL_V2` config in your Quonfig dashboard with key `log-levels.default`:
-
-```yaml
-# Default to INFO for all loggers
-default: INFO
-
-# Set specific packages to DEBUG
-rules:
-  - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "myapp.services"
-    value: DEBUG
-
-  # Only log errors in noisy third-party library
-  - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "somelib"
-    value: ERROR
-```
-
-You can customize the config key name using the `loggerKey` option. This is useful if you have multiple applications sharing the same Quonfig project and want to isolate log level configuration per application:
+If you want a ready-to-go logger with the Quonfig gate already attached, use `createWinstonLogger`:
 
 ```typescript
+import { createWinstonLogger } from "@quonfig/node/winston";
+
+const logger = createWinstonLogger(quonfig, "MyApp.Services.Auth");
+logger.debug("debug line");
+```
+
+### Pino adapter
+
+Install Pino as a peer dependency:
+
+<Tabs groupId="lang">
+<TabItem value="npm" label="npm">
+
+```bash
+npm install pino
+```
+
+</TabItem>
+<TabItem value="yarn" label="yarn">
+
+```bash
+yarn add pino
+```
+
+</TabItem>
+</Tabs>
+
+`createPinoHooks` returns a Pino `hooks` object that gates every emission through Quonfig. Import it from the `@quonfig/node/pino` subpath:
+
+```typescript
+import { Quonfig } from "@quonfig/node";
+import { createPinoHooks } from "@quonfig/node/pino";
+import pino from "pino";
+
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
-  loggerKey: "myapp.log.levels",
+  loggerKey: "log-level.my-app",
 });
+await quonfig.init();
+
+const logger = pino({
+  level: "trace", // let Pino emit everything; Quonfig decides what survives
+  hooks: createPinoHooks(quonfig, "MyApp.Services.Auth"),
+});
+
+logger.debug("debug line");
 ```
 
-The SDK automatically includes `lang: "node"` in the evaluation context, which you can use in your rules to create Node.js-specific log level configurations:
+As with Winston, the convenience constructor `createPinoLogger(quonfig, loggerPath)` wires the hooks for you.
 
-```yaml
-# Different log levels for Node.js vs other languages
-rules:
-  - criteria:
-      quonfig-sdk-logging.lang: node
-      quonfig-sdk-logging.logger-path:
-        starts-with: "myapp"
-    value: DEBUG
+### Reference
 
-  - criteria:
-      quonfig-sdk-logging.lang: java
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example"
-    value: INFO
-```
-
-### Targeted Log Levels
-
-You can use [rules and segmentation](/docs/explanations/features/rules-and-segmentation) to change your log levels based on the current user/request/device context. This allows you to increase log verbosity for specific users, environments, or conditions without affecting your entire application.
-
-The log level evaluation has access to **all context** that is available during evaluation, not just the `quonfig-sdk-logging` context. This means you can create rules combining:
-
-- **SDK logging context** (`quonfig-sdk-logging.*`) - Logger name and language
-- **Global context** - Application name, environment, availability zone, etc.
-- **Dynamic context** - User, team, device, request information from context-scoped evaluations
-
-For example, you can create rules like:
-
-```yaml
-# Enable DEBUG logs only for specific application in staging
-rules:
-  - criteria:
-      application.key: "myapp"
-      application.environment: "staging"
-      quonfig-sdk-logging.logger-path:
-        starts-with: "myapp"
-    value: DEBUG
-
-  # Enable DEBUG logs for a specific user across all applications
-  - criteria:
-      user.email: "developer@example.com"
-    value: DEBUG
-
-  # Lower verbosity in production
-  - criteria:
-      application.environment: "production"
-    value: WARN
-```
-
-This allows you to increase log verbosity for specific users, specific applications, particular environments, or any combination of conditions without affecting your entire system.
-
-### Direct Log Level API
-
-You can also check log levels programmatically using the `getLogLevel` method:
-
-```typescript
-const logLevel = quonfig.getLogLevel("myapp.services.auth");
-console.log(`Current log level: ${logLevel}`); // e.g., "INFO", "DEBUG", "WARN"
-
-// Use it to conditionally log expensive operations
-if (quonfig.getLogLevel("myapp.analytics") === "DEBUG") {
-  // Only compute and log expensive analytics in debug mode
-  logger.debug("Detailed analytics:", computeExpensiveAnalytics());
-}
-```
-
-### How It Works
-
-Once configured, the integration automatically filters **all** logging calls:
-
-- Works with **all loggers** that use the integration
-- Filters happen **before** log messages are formatted (performance benefit)
-- Checks configuration on every log call for real-time updates
-- No modification of your existing logging configuration needed
+| Name                                                 | Example                                                                                   | Description                                                                                                                                      |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `loggerKey` (constructor option)                     | `new Quonfig({ loggerKey: "log-level.my-app", ... })`                                     | The `log_level` config consulted by the `shouldLog({loggerPath})` convenience. Required for the `loggerPath` form.                               |
+| `shouldLog({loggerPath, desiredLevel, contexts?})`   | `quonfig.shouldLog({ loggerPath: "MyApp.Auth", desiredLevel: "DEBUG" })`                  | Convenience shape. Uses `loggerKey` + injects `contexts["quonfig-sdk-logging"] = { key: loggerPath }` so rules can target individual loggers.    |
+| `shouldLog({configKey, desiredLevel, contexts?})`    | `quonfig.shouldLog({ configKey: "log-level.my-app", desiredLevel: "DEBUG" })`             | Primitive shape. Evaluates the named config directly — no auto-injection. Use when you're building a custom adapter.                             |
+| `createWinstonFormat(quonfig, loggerPath, options?)` | `winston.format.combine(createWinstonFormat(quonfig, "MyApp.Auth"), winston.format.json())` | Winston format that consults `shouldLog`. Import from `@quonfig/node/winston`.                                                                 |
+| `createWinstonLogger(quonfig, loggerPath, options?)` | `createWinstonLogger(quonfig, "MyApp.Auth")`                                              | Ready-to-use Winston logger with the Quonfig format pre-attached. Import from `@quonfig/node/winston`.                                         |
+| `createPinoHooks(quonfig, loggerPath, options?)`     | `pino({ hooks: createPinoHooks(quonfig, "MyApp.Auth") })`                                 | Pino hooks that gate every emission through `shouldLog`. Import from `@quonfig/node/pino`.                                                     |
+| `createPinoLogger(quonfig, loggerPath, options?)`    | `createPinoLogger(quonfig, "MyApp.Auth")`                                                 | Ready-to-use Pino logger with Quonfig hooks pre-attached. Import from `@quonfig/node/pino`.                                                    |
 
 ## Mustache Templating
 
@@ -1022,9 +975,9 @@ const quonfig = new Quonfig({
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | apiUrls                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                       | `["https://primary.quonfig.com"]` |
 | collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                | true              |
-| collectLoggerCounts        | Send counts of logger usage back to Quonfig to power log-levels configuration screen                                            | true              |
+| collectLoggerCounts        | Send counts of logger usage back to Quonfig to power the log-level configuration screen                                         | true              |
 | contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in quonfig contexts) or periodically send full example contexts | "periodicExample" |
 | defaultLevel               | Level to be used as the min-verbosity for a `loggerPath` if no value is configured in Quonfig                                   | "warn"            |
 | enableSSE                  | Whether or not we should listen for live changes from Quonfig                                                                   | true              |
 | enablePolling              | Whether or not we should poll for changes from Quonfig                                                                          | true              |
-| loggerKey                  | The config key to use for dynamic log level configuration (defaults to `"log-levels.default"`)                                          | "log-levels.default" |
+| loggerKey                  | The `log_level` config key consulted by `shouldLog({loggerPath})`. No default — set it to enable the `loggerPath` convenience.          | `undefined`       |

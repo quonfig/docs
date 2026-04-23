@@ -214,123 +214,71 @@ By default configs are not sent to client SDKs. You must enable access for each 
 
 ## Dynamic Log Levels
 
-The Quonfig JavaScript SDK provides basic dynamic log level control for client-side applications. This allows you to control console logging verbosity from the Quonfig dashboard.
+Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app`). The browser SDK exposes a single primitive — `shouldLog` — that consults that config and returns a boolean. You decide how to wire it into the logging calls you actually use.
 
 :::info Client-Side Limitations
-The JavaScript SDK evaluates log levels once during initialization using the provided context. Unlike backend SDKs that support real-time per-request context, the JavaScript SDK:
-- Evaluates log levels with a **single context** at initialization time
-- Best suited for **application-wide log level control** rather than per-user targeting
-
-For more advanced logging features, consider using backend SDKs.
+The browser SDK evaluates log levels against the **context snapshot captured at init**. Real-time per-request context (like backend SDKs get) isn't a thing here — if you change context, call `quonfig.updateContext(newContext)` to re-evaluate. Best suited for **application-wide log level control** or rules that key on relatively stable context (user, app version, environment).
 :::
 
-### Basic Usage
+### Concept
 
-The SDK provides a built-in logger with standard log levels:
+- One `log_level` config per app, keyed like `log-level.my-app`. Value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+- Tell the SDK which config to consult with the `loggerKey` init option.
+- Each `shouldLog({loggerPath, ...})` call pushes `loggerPath` into the evaluation context as `quonfig-sdk-logging.key` (verbatim — no normalization) so a single config can drive per-logger rules.
+- Logger names flowing through `quonfig-sdk-logging.key` are captured by example-context telemetry, so the dashboard can auto-suggest rule targets.
 
-<Tabs groupId="lang">
-<TabItem value="javascript" label="JavaScript">
+### Basic usage
 
 ```javascript
-import { quonfig } from "@quonfig/javascript";
+import { quonfig, Context } from "@quonfig/javascript";
 
 await quonfig.init({
-  sdkKey: "YOUR_SDK_KEY",
+  sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
   context: new Context({ user: { email: "test@example.com" } }),
+  loggerKey: "log-level.my-app",
 });
 
-// Use the built-in logger
-quonfig.logger.trace("Trace message");
-quonfig.logger.debug("Debug message");
-quonfig.logger.info("Info message");
-quonfig.logger.warn("Warning message");
-quonfig.logger.error("Error message");
-quonfig.logger.fatal("Fatal error");
+if (quonfig.shouldLog({ loggerPath: "checkout.cart", desiredLevel: "DEBUG" })) {
+  console.debug("cart debug line", computeExpensiveData());
+}
 ```
 
-The logger automatically checks the configured log level and only outputs to console when appropriate.
+The primitive shape — `shouldLog({configKey, desiredLevel})` — is also available if you want to evaluate a config directly without the `loggerKey`/`loggerPath` convenience.
 
-</TabItem>
-</Tabs>
+### Rule example
 
-### Configuration
-
-Create a `LOG_LEVEL_V2` config in your Quonfig dashboard with key `log-levels.default`:
+Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
 
 ```yaml
-# Default log level for the application
+# Default to INFO
 default: INFO
 
-# Optional: Use rules for context-based levels (evaluated once at init)
 rules:
+  # DEBUG for the checkout subsystem
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "checkout."
+    value: DEBUG
+
+  # Turn DEBUG on for internal users
   - criteria:
       user.email:
         ends-with: "@mycompany.com"
     value: DEBUG
 ```
 
-You can customize the config key name using the `loggerKey` option. This is particularly useful if you have multiple applications sharing the same Quonfig project:
+Because the evaluator sees the full init-time context — not just `quonfig-sdk-logging.*` — you can combine logger rules with global context (app version, deploy ring, user email) for targeted debugging.
 
-<Tabs groupId="lang">
-<TabItem value="javascript" label="JavaScript">
+### Updating context
 
-```javascript
-await quonfig.init({
-  sdkKey: "YOUR_SDK_KEY",
-  context: new Context({ user: { email: "test@example.com" } }),
-  loggerKey: "my-app.log-levels", // Custom config key
-});
-```
-
-</TabItem>
-</Tabs>
-
-### Programmatic Log Level Checking
-
-You can check log levels programmatically to conditionally execute expensive logging operations:
-
-<Tabs groupId="lang">
-<TabItem value="javascript" label="JavaScript">
+Because evaluation is pinned to the context snapshot captured at init, flip verbosity for a specific user by calling `updateContext` — this refetches and re-evaluates:
 
 ```javascript
-import { quonfig, LogLevel, shouldLogAtLevel } from "@quonfig/javascript";
-
-// Get the configured log level
-const currentLevel = quonfig.getLogLevel("my.logger");
-
-// Check if a specific level should be logged
-if (shouldLogAtLevel(currentLevel, LogLevel.DEBUG)) {
-  // Only compute expensive debug info when DEBUG is enabled
-  console.debug("Expensive computation:", computeExpensiveData());
-}
-
-// Get numeric severity for custom logic
-const severity = getLogLevelSeverity(currentLevel);
+await quonfig.updateContext(
+  new Context({ user: { email: "developer@example.com" } })
+);
+// subsequent shouldLog calls see the new context
 ```
-
-</TabItem>
-</Tabs>
-
-Available log levels (in order of severity):
-- `LogLevel.TRACE` (most verbose)
-- `LogLevel.DEBUG`
-- `LogLevel.INFO`
-- `LogLevel.WARN`
-- `LogLevel.ERROR`
-- `LogLevel.FATAL` (least verbose)
-
-### How It Works
-
-The JavaScript SDK evaluates the log level configuration once during initialization:
-
-1. When you call `quonfig.init()`, the SDK fetches all configs including log levels
-2. Log levels are evaluated using the context provided to `init()`
-3. The configured level remains static until you call `quonfig.updateContext()` or manually refresh
-4. The built-in `quonfig.logger.*` methods automatically filter based on the configured level
-
-:::tip
-Since log levels are evaluated with the initial context, the `loggerKey` option is the most effective way to isolate log levels between different applications or deployments. Use separate config keys like `"app-v1.log-levels"` and `"app-v2.log-levels"` rather than relying on complex context-based rules.
-:::
 
 ## Tracking Experiment Exposures
 
@@ -413,13 +361,12 @@ it("shows the turbo button when the feature is enabled", () => {
 | `extract`       | `quonfig.extract()`                    | returns the current config as a plain object of key, config value pairs                      |
 | `getDuration`   | `quonfig.getDuration("timeout-key")`   | returns a Duration object with `seconds` and `ms` properties for duration configs            |
 | `get`           | `quonfig.get('retry-count')`           | returns the value of a flag or config evaluated in the current context                       |
-| `getLogLevel`   | `quonfig.getLogLevel("my.logger")`     | returns the configured LogLevel enum value for the specified logger name                     |
 | `hydrate`       | `quonfig.hydrate(configurationObject)` | sets the current config based on a plain object of key, config value pairs                   |
 | `isEnabled`     | `quonfig.isEnabled("new-logo")`        | returns a boolean (default `false`) if a feature is enabled based on the current context     |
 | `loaded`        | `if (quonfig.loaded) { ... }`          | a boolean indicating whether quonfig content has loaded                                      |
-| `logger`        | `quonfig.logger.info("message")`       | built-in logger with methods: trace, debug, info, warn, error, fatal                         |
+| `loggerKey`     | `quonfig.loggerKey`                    | the init-time `loggerKey` used by the `shouldLog({loggerPath, ...})` overload                |
 | `poll`          | `quonfig.poll({frequencyInMs})`        | starts polling every `frequencyInMs` ms.                                                     |
-| `shouldLog`     | `if (quonfig.shouldLog(...)) {`        | returns a boolean indicating whether the proposed log level is valid for the current context |
+| `shouldLog`     | `quonfig.shouldLog({loggerPath, desiredLevel})` | returns whether a message at `desiredLevel` should emit; accepts either `{loggerPath}` (uses init-time `loggerKey`) or `{configKey}` |
 | `stopPolling`   | `quonfig.stopPolling()`                | stops the polling process                                                                    |
 | `stopTelemetry` | `quonfig.stopTelemetry()`              | stops telemetry collection and clears aggregators                                            |
 | `updateContext` | `quonfig.updateContext(newContext)`    | update the context and refetch. Pass `false` as a second argument to skip refetching         |
@@ -431,8 +378,8 @@ it("shows the turbo button when the feature is enabled", () => {
 | `sdkKey`                   | string   | required               | Your Quonfig SDK key                                                                         |
 | `apiUrls`                  | string[] | `["https://primary.quonfig.com"]` | Ordered list of API base URLs to try                                              |
 | `context`                  | Context  | `{}`                   | Initial context for evaluation                                                               |
-| `loggerKey`                | string   | `"log-levels.default"` | Config key for LOG_LEVEL_V2 configuration (useful for isolating log levels per application) |
-| `defaultLevel`             | LogLevel | `LogLevel.WARN`        | Default log level when no configuration is found                                             |
+| `loggerKey`                | string   | `undefined`            | The `log_level` config key consulted by `shouldLog({loggerPath})`. Required for the `loggerPath` form. |
+| `defaultLevel`             | string   | `"warn"`               | Default level used if no matching config is found                                            |
 | `collectEvaluationSummaries` | boolean | `true`                | Send evaluation summary telemetry to Quonfig                                                 |
 | `collectContextMode`       | string   | `"PERIODIC_EXAMPLE"`   | Context telemetry mode: `"PERIODIC_EXAMPLE"`, `"SHAPE_ONLY"`, or `"NONE"`                   |
 | `afterEvaluationCallback`  | function | `undefined`            | Callback invoked after each flag/config evaluation                                           |

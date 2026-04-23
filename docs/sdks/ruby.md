@@ -257,11 +257,66 @@ You can modify this behavior by setting the option `on_no_default` to `Quonfig::
 
 ## Dynamic Log Levels
 
-Quonfig supports dynamic log levels with both SemanticLogger and Ruby's stdlib Logger. Choose the integration that best fits your application.
+Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app`). The SDK consults that config on every log call, so changes made in Quonfig take effect live via SSE without redeploying.
 
-### Using SemanticLogger (Recommended)
+### Concept
 
-[SemanticLogger] is a powerful logging framework that provides structured logging and advanced features. To use dynamic logging with SemanticLogger, add it to your Gemfile and configure your app.
+- One `log_level` config per app, keyed like `log-level.my-app`. Value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+- Tell the client which config to consult via `Quonfig::Options.new(logger_key: ...)`.
+- `should_log?(logger_path:, desired_level:)` pushes `logger_path` into the evaluation context as `quonfig-sdk-logging.key` (verbatim — no normalization) so a single config can drive per-class rules.
+- Logger names flowing through `quonfig-sdk-logging.key` are auto-captured by example-context telemetry, so the dashboard can auto-suggest rule targets.
+
+### Basic usage
+
+```ruby
+require "quonfig"
+
+options = Quonfig::Options.new(
+  sdk_key: ENV.fetch("QUONFIG_BACKEND_SDK_KEY"),
+  logger_key: "log-level.my-app",
+)
+Quonfig.init(options)
+
+if Quonfig.instance.should_log?(
+  logger_path: "MyApp::Services::Auth",
+  desired_level: :debug,
+)
+  # ...
+end
+```
+
+### Rule example
+
+Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+
+```yaml
+# Default to INFO for every logger in this app
+default: INFO
+
+rules:
+  # Bump one namespace to DEBUG
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "MyApp::Services::Auth"
+    value: DEBUG
+
+  # Silence a chatty gem
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "SomeGem"
+    value: ERROR
+
+  # Turn DEBUG on for one developer, everywhere
+  - criteria:
+      user.email: "developer@example.com"
+    value: DEBUG
+```
+
+Because the evaluator sees your full context — global context, per-request thread-local context, and `quonfig-sdk-logging.key` — you can combine logger rules with user, environment, or request context for targeted debugging.
+
+### SemanticLogger integration
+
+[SemanticLogger](https://github.com/reidmorrison/semantic_logger) is a popular structured logging framework. Attach a filter built by `semantic_logger_filter(config_key:)` and SemanticLogger will gate each record through Quonfig:
 
 <Tabs groupId="ruby-usage">
 <TabItem value="ruby" label="Ruby">
@@ -275,14 +330,14 @@ gem "semantic_logger"
 require "semantic_logger"
 require "quonfig"
 
-Quonfig.init
+Quonfig.init(Quonfig::Options.new(logger_key: "log-level.my-app"))
 
 SemanticLogger.sync!
-SemanticLogger.default_level = :trace # Quonfig will take over the filtering
+SemanticLogger.default_level = :trace # let Quonfig do the filtering
 SemanticLogger.add_appender(
   io: $stdout,
   formatter: :json,
-  filter: ->(log) { Quonfig.instance.log_level_client.semantic_filter(log) },
+  filter: Quonfig.instance.semantic_logger_filter(config_key: "log-level.my-app"),
 )
 ```
 
@@ -298,17 +353,17 @@ gem "rails_semantic_logger"
 
 ```ruby
 # config/application.rb
-Quonfig.init
+Quonfig.init(Quonfig::Options.new(logger_key: "log-level.my-app"))
 ```
 
 ```ruby
 # config/initializers/logging.rb
 SemanticLogger.sync!
-SemanticLogger.default_level = :trace # Quonfig will take over the filtering
+SemanticLogger.default_level = :trace # let Quonfig do the filtering
 SemanticLogger.add_appender(
   io: $stdout,
   formatter: Rails.env.development? ? :color : :json,
-  filter: ->(log) { Quonfig.instance.log_level_client.semantic_filter(log) },
+  filter: Quonfig.instance.semantic_logger_filter(config_key: "log-level.my-app"),
 )
 ```
 
@@ -319,119 +374,27 @@ Please read the [Puma/Unicorn](ruby#special-considerations-with-forking-servers-
 </TabItem>
 </Tabs>
 
-### Using stdlib Logger
+The filter uses the SemanticLogger log's `name` as the `quonfig-sdk-logging.key` context value, so the rule examples above (`starts-with: "MyApp::Services::Auth"`) work out of the box.
 
-If you prefer to use Ruby's standard library Logger, you can integrate Quonfig's dynamic log levels using a custom formatter:
+### Stdlib Logger integration
+
+If you use Ruby's standard library `Logger`, attach a `Quonfig::Client#stdlib_formatter`:
 
 ```ruby
 require "logger"
 require "quonfig"
 
-# Initialize Quonfig
-options = Quonfig::Options.new(
-  logger_key: "log.levels" # Configure your log level config key
-)
-Quonfig.init(options)
+Quonfig.init(Quonfig::Options.new(logger_key: "log-level.my-app"))
 
-# Create a logger with Quonfig's dynamic formatter
 logger = Logger.new($stdout)
-logger.level = Logger::DEBUG # Set to lowest level; Quonfig will filter
-logger.formatter = Quonfig.instance.log_level_client.stdlib_formatter("MyApp")
+logger.level = Logger::DEBUG # let Quonfig do the filtering
+logger.formatter = Quonfig.instance.stdlib_formatter(logger_name: "MyApp::Services::Auth")
 
-# Now your logger respects dynamic log levels from Quonfig
-logger.debug "This will be filtered by Quonfig's dynamic config"
-logger.info "So will this"
+logger.debug "filtered by Quonfig"
+logger.info  "filtered by Quonfig"
 ```
 
-The `stdlib_formatter` method takes a logger name/path as an argument, which Quonfig uses to determine the appropriate log level from your configuration.
-
-### Configuration
-
-Create a `LOG_LEVEL_V2` config in your Quonfig dashboard with key `log-levels.default`:
-
-```yaml
-# Default to INFO for all loggers
-default: INFO
-
-# Set specific packages to DEBUG
-rules:
-  - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "MyApp::Services"
-    value: DEBUG
-
-  # Only log errors in noisy third-party library
-  - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "SomeGem"
-    value: ERROR
-```
-
-You can customize the config key name using the `logger_key` option. This is useful if you have multiple applications sharing the same Quonfig project and want to isolate log level configuration per application:
-
-```ruby
-options = Quonfig::Options.new(
-  logger_key: "myapp.log.levels"
-)
-Quonfig.init(options)
-```
-
-The SDK automatically includes `lang: "ruby"` in the evaluation context, which you can use in your rules to create Ruby-specific log level configurations:
-
-```yaml
-# Different log levels for Ruby vs other languages
-rules:
-  - criteria:
-      quonfig-sdk-logging.lang: ruby
-      quonfig-sdk-logging.logger-path:
-        starts-with: "MyApp"
-    value: DEBUG
-
-  - criteria:
-      quonfig-sdk-logging.lang: java
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example"
-    value: INFO
-```
-
-### Targeted Log Levels
-
-You can use [rules and segmentation](/docs/explanations/features/rules-and-segmentation) to change your log levels based on the current user/request/device context. This allows you to increase log verbosity for specific users, environments, or conditions without affecting your entire application.
-
-The log level evaluation has access to **all context** that is available during evaluation, not just the `quonfig-sdk-logging` context. This means you can create rules combining:
-
-- **SDK logging context** (`quonfig-sdk-logging.*`) - Logger name and language
-- **Global context** - Application name, environment, availability zone, etc.
-- **Thread-local context** - User, team, device, request information from request-scoped context
-
-For example, you can create rules like:
-
-```yaml
-# Enable DEBUG logs only for specific application in staging
-rules:
-  - criteria:
-      application.key: "myapp"
-      application.environment: "staging"
-      quonfig-sdk-logging.logger-path:
-        starts-with: "MyApp"
-    value: DEBUG
-
-  # Enable DEBUG logs for a specific user across all applications
-  - criteria:
-      user.email: "developer@example.com"
-    value: DEBUG
-
-  # Lower verbosity in production
-  - criteria:
-      application.environment: "production"
-    value: WARN
-```
-
-This allows you to increase log verbosity for specific users, specific applications, particular environments, or any combination of conditions without affecting your entire system.
-
-### How It Works
-
-With either integration, you can now adjust your log levels down to the controller or method level in real-time. This is invaluable for debugging production issues! You can set and tweak log levels on-the-fly in the Quonfig web app without redeploying your application.
+The formatter asks Quonfig `should_log?(logger_path:, desired_level:)` before each line. `logger_name:` is passed verbatim as `quonfig-sdk-logging.key`. If you omit `logger_name:` the formatter falls back to the logger's `progname`.
 
 ## Telemetry
 
@@ -440,8 +403,9 @@ By default, Quonfig uploads telemetry that enables a number of useful features. 
 | Name                         | Description                                                                                                                           | Default           |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | collect_evaluation_summaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                       | true              |
-| collect_logger_counts        | Send counts of logger usage back to Quonfig to power log-levels configuration screen                                                   | true              |
 | context_upload_mode          | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts | :periodic_example |
+
+Logger names flowing through `quonfig-sdk-logging.key` are picked up by the normal example-context telemetry, so no separate logger-counts toggle is needed — the dashboard sees candidate logger names via the same path.
 
 If you want to change any of these options, you can pass an `options` object when initializing the Quonfig client.
 
@@ -454,7 +418,6 @@ module MyApplication
     // highlight-start
     options = Quonfig::Options.new(
       collect_evaluation_summaries: true,
-      collect_logger_counts: true,
       context_upload_mode: :periodic_example,
     )
 
@@ -567,8 +530,7 @@ options = Quonfig::Options.new(
   initialization_timeout_sec: 10, # how long to wait before on_init_failure
   on_init_failure: ON_INITIALIZATION_FAILURE::RAISE, # choose to crash or continue with local data only if unable to fetch config data from prefab at startup
   datafile: ENV['QUONFIG_DATAFILE'] || ENV['PREFAB_DATAFILE'],
-  logger_key: 'log-levels.default', # the config key to use for dynamic log levels
-  collect_logger_counts: true, # send counts of logger usage back to Quonfig to power log-levels configuration screen
+  logger_key: nil, # the `log_level` config key consulted by `should_log?(logger_path:, ...)`, e.g. "log-level.my-app"
   collect_max_paths: DEFAULT_MAX_PATHS,
   collect_sync_interval: nil,
   context_upload_mode: :periodic_example, # :periodic_example, :shape_only, :none

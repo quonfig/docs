@@ -261,173 +261,123 @@ result1 == result2 #=> True
 
 ## Dynamic Log Levels
 
-The Quonfig SDK provides integration with Python's standard logging module and structlog, enabling you to dynamically manage log levels across your application in real-time without restarting.
+Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app`). The SDK consults that config on every log call, so changes made in Quonfig take effect live via SSE without restarting.
 
-### Features
+### Concept
 
-- **Centrally manage log levels** - Control logging across your entire application from the Quonfig dashboard
-- **Real-time updates** - Change log levels without restarting your application
-- **Context-aware logging** - Different log levels for different loggers based on runtime context
-- **Framework support** - Works with standard Python logging and structlog
+- One `log_level` config per app, keyed like `log-level.my-app`. Value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+- Tell the client which config to consult via the `logger_key` constructor argument.
+- `client.should_log(logger_path=..., desired_level=...)` pushes `logger_path` into the evaluation context as `quonfig-sdk-logging.key` (verbatim — no normalization) so a single config can drive per-module rules.
+- `client.should_log(config_key=..., desired_level=...)` is the primitive form — use it when you want to evaluate a specific config without the convenience layer.
+- Logger names flowing through `quonfig-sdk-logging.key` are auto-captured by example-context telemetry, so the dashboard can auto-suggest rule targets.
 
-### Standard Python Logging Integration
+### Install
 
-Add the `LoggerFilter` to your logging handlers during application startup:
+```bash
+pip install quonfig
+```
+
+### Basic usage
+
+```python
+from quonfig import Quonfig
+
+client = Quonfig(
+    sdk_key="sdk-...",
+    logger_key="log-level.my-app",
+).init()
+
+if client.should_log(logger_path="my_app.auth", desired_level="DEBUG"):
+    # ...
+    pass
+
+# Primitive form — no auto-injection
+if client.should_log(config_key="log-level.my-app", desired_level="DEBUG"):
+    pass
+```
+
+### Rule example
+
+Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+
+```yaml
+# Default to INFO for every logger in this app
+default: INFO
+
+rules:
+  # Bump a module to DEBUG
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "my_app.auth"
+    value: DEBUG
+
+  # Silence a chatty library
+  - criteria:
+      quonfig-sdk-logging.key:
+        starts-with: "urllib3"
+    value: ERROR
+
+  # Turn DEBUG on for one developer, everywhere
+  - criteria:
+      user.email: "developer@example.com"
+    value: DEBUG
+```
+
+Because the evaluator sees your full context — global context, per-request context, and `quonfig-sdk-logging.key` — you can combine logger rules with user, environment, or request context for targeted debugging.
+
+### Stdlib `logging` integration
+
+`QuonfigLoggerFilter` is a `logging.Filter` you can attach to any logger or handler. It gates each record through `client.should_log(logger_path=record.name, ...)`:
 
 ```python
 import logging
-import sys
-from sdk_quonfig import QuonfigSDK, Options, LoggerFilter
+from quonfig import Quonfig, QuonfigLoggerFilter
 
-def configure_logger():
-    """Add the Quonfig LoggerFilter after SDK is ready"""
-    handler = logging.StreamHandler(sys.stdout)
-    handler.addFilter(LoggerFilter())
+client = Quonfig(sdk_key="sdk-...", logger_key="log-level.my-app").init()
 
-    logger = logging.getLogger()
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)  # Set to lowest level; Quonfig will filter
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)  # let Quonfig do the filtering
+root.addFilter(QuonfigLoggerFilter(client))
 
-# Initialize SDK with on_ready_callback
-sdk = QuonfigSDK(Options(on_ready_callback=configure_logger))
-
-# Now all your logging respects Quonfig log levels
-logger = logging.getLogger("myapp.services")
-logger.debug("This will be filtered by Quonfig's dynamic config")
-logger.info("So will this")
+logging.getLogger("my_app.auth").debug("filtered by Quonfig")
 ```
 
-### Structlog Integration
+The record's `name` flows into the context verbatim as `quonfig-sdk-logging.key`, so rules that `starts-with: "my_app.auth"` match what your app already logs.
 
-Structlog is available as an optional dependency. Install it with:
+### structlog integration
 
-```bash
-pip install sdk-quonfig[structlog]
-```
-
-Add the `LoggerProcessor` to your structlog processor pipeline:
+`structlog` is an optional dependency. Install it separately (`pip install structlog`) and use `QuonfigLoggerProcessor` in your processor pipeline:
 
 ```python
 import structlog
-from sdk_quonfig import QuonfigSDK, Options, LoggerProcessor
+from quonfig import Quonfig, QuonfigLoggerProcessor
 
-# Configure structlog with Quonfig processor
+client = Quonfig(sdk_key="sdk-...", logger_key="log-level.my-app").init()
+
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.stdlib.add_log_level,  # Must come before LoggerProcessor
-        structlog.processors.CallsiteParameterAdder(
-            {
-                structlog.processors.CallsiteParameter.MODULE,
-            }
-        ),
-        LoggerProcessor().processor,  # Add Quonfig log level control
+        structlog.stdlib.add_log_level,   # must come before QuonfigLoggerProcessor
+        QuonfigLoggerProcessor(client),
         structlog.dev.ConsoleRenderer(),
     ]
 )
 
-sdk = QuonfigSDK(Options())
-logger = structlog.getLogger()
-
-# Log levels are controlled dynamically by Quonfig
-logger.debug("Debug message")
-logger.info("Info message")
+logger = structlog.get_logger("my_app.auth")
+logger.debug("filtered by Quonfig")
 ```
 
-**Important**: The `LoggerProcessor` must come **after** `structlog.stdlib.add_log_level` in the processor pipeline.
+`QuonfigLoggerProcessor` raises at construction time if `structlog` isn't installed. Place it after `structlog.stdlib.add_log_level` so the level name is populated before the processor checks it.
 
-### Configuration
+### Reference
 
-Create a `LOG_LEVEL_V2` config in your Quonfig dashboard with key `log-levels.default`:
-
-```yaml
-# Default to INFO for all loggers
-default: INFO
-
-# Set specific packages to DEBUG
-rules:
-  - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "myapp.services"
-    value: DEBUG
-
-  # Only log errors in noisy third-party library
-  - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "urllib3"
-    value: ERROR
-```
-
-You can customize the config key name using the `logger_key` option. This is useful if you have multiple applications sharing the same Quonfig project and want to isolate log level configuration per application:
-
-```python
-from sdk_quonfig import QuonfigSDK, Options
-
-# Use a different config key for this application
-sdk = QuonfigSDK(Options(logger_key="myapp.log.levels"))
-```
-
-The SDK automatically includes `lang: "python"` in the evaluation context, which you can use in your rules to create Python-specific log level configurations:
-
-```yaml
-# Different log levels for Python vs other languages
-rules:
-  - criteria:
-      quonfig-sdk-logging.lang: python
-      quonfig-sdk-logging.logger-path:
-        starts-with: "myapp"
-    value: DEBUG
-
-  - criteria:
-      quonfig-sdk-logging.lang: java
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.myapp"
-    value: INFO
-```
-
-### Targeted Log Levels
-
-You can use [rules and segmentation](/docs/explanations/features/rules-and-segmentation) to change your log levels based on the current user/request/device context. This allows you to increase log verbosity for specific users, environments, or conditions without affecting your entire application.
-
-The log level evaluation has access to **all context** that is available during evaluation, not just the `quonfig-sdk-logging` context. This means you can create rules combining:
-
-- **SDK logging context** (`quonfig-sdk-logging.*`) - Logger name and language
-- **Global context** - Application name, environment, availability zone, etc.
-- **Dynamic context** - User, team, device, request information from thread-local or scoped context
-
-For example, you can create rules like:
-
-```yaml
-# Enable DEBUG logs only for specific application in staging
-rules:
-  - criteria:
-      application.key: "myapp"
-      application.environment: "staging"
-      quonfig-sdk-logging.logger-path:
-        starts-with: "myapp"
-    value: DEBUG
-
-  # Enable DEBUG logs for a specific user across all applications
-  - criteria:
-      user.email: "developer@example.com"
-    value: DEBUG
-
-  # Lower verbosity in production
-  - criteria:
-      application.environment: "production"
-    value: WARN
-```
-
-This allows you to increase log verbosity for specific users, specific applications, particular environments, or any combination of conditions without affecting your entire system.
-
-### How It Works
-
-Once configured, the integration automatically filters **all** logging calls:
-
-- Works with **all loggers** (no need to configure individual loggers)
-- Filters happen **before** log messages are formatted (performance benefit)
-- Checks configuration on every log call for real-time updates
-- No modification of your existing logging configuration needed
+| Name                                                  | Example                                                                      | Description                                                                                                          |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `logger_key` (constructor)                            | `Quonfig(sdk_key=..., logger_key="log-level.my-app")`                        | The `log_level` config consulted by the `should_log(logger_path=...)` convenience. Required for the `logger_path` form. |
+| `should_log(logger_path=..., desired_level=...)`      | `client.should_log(logger_path="my_app.auth", desired_level="DEBUG")`        | Convenience. Uses `logger_key` + injects `quonfig-sdk-logging.key = logger_path`.                                    |
+| `should_log(config_key=..., desired_level=...)`       | `client.should_log(config_key="log-level.my-app", desired_level="DEBUG")`    | Primitive. Evaluates the named config directly — no auto-injection. Useful for custom adapters.                      |
+| `QuonfigLoggerFilter(client, logger_path=None)`       | `root.addFilter(QuonfigLoggerFilter(client))`                                | Stdlib `logging.Filter`. Reads the record's `name` into `quonfig-sdk-logging.key`.                                   |
+| `QuonfigLoggerProcessor(client, logger_path=None)`    | `structlog.configure(processors=[..., QuonfigLoggerProcessor(client)])`      | structlog processor. Requires `structlog` to be installed.                                                           |
 
 ## Debugging
 
@@ -464,4 +414,4 @@ sdk.get(...)
 - `context_upload_mode` - send context information to Quonfig. Values (from the `Options.ContextUploadMode` enum) are `NONE` (don't send any context data), `SHAPE_ONLY` to only send the schema of the contexts to Quonfig (field name, data types), `PERIODIC_EXAMPLE` to send the data types AND the actual contexts being used to Quonfig **Context telemetry Implemented in v0.10+**
 - `global_context` - an immutable global context to be used in all lookups. Use this for things like availability zone, machine type...
 - `on_ready_callback` - register a single method to be called when the client has loaded its first configuration and is ready for use
-- `logger_key` - the config key to use for dynamic log level configuration (defaults to `"log-levels.default"`)
+- `logger_key` - the `log_level` config key consulted by `should_log(logger_path=...)`. No default — set it to enable the `logger_path` convenience (defaults to `None`).
