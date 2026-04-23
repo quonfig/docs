@@ -121,6 +121,113 @@ protect the cursor file from getting clobbered.
 
 ---
 
+## "I got a warning about dropped override sections"
+
+**Symptom:** the migrator prints something like
+
+```
+Warning: Dropped N override section(s) referencing M env ID(s) that no
+longer exist in the source: ...
+```
+
+**Why this happens.** The source system had rule overrides pointing at
+environments that have since been archived or deleted there. The
+migrator will not forge a mapping to an environment that no longer
+exists, so it drops those override sections and moves on.
+
+**How to resolve.** Review the per-env breakdown the warning prints.
+
+- If any of the listed envs is still in use in the source system, restore
+  it there and re-run `qfg migrate`.
+- If the envs are genuinely dead (long-archived, renamed years ago), the
+  warning is advisory — the migrated workspace is correct. The only
+  data you lost was the override section that pointed nowhere.
+
+---
+
+## "I got a warning about skipped invalid configs"
+
+**Symptom:**
+
+```
+Warning: Skipped N invalid config(s): <key> (variant value type
+<actual> does not match declared valueType <declared>), ...
+```
+
+**Why this happens.** A source config's variant payload does not match
+its own `valueType` — for example `valueType: "double"` but a variant
+whose `value.type` is `"string"`. The source system happened to allow
+this (usually from schema drift over time); Quonfig does not, because
+a `double` typed config that returns a string would break SDK callers.
+
+Previously the migrator aborted the entire run on the first one of these.
+It now skips just the offender and emits the warning so the rest of your
+workspace still migrates.
+
+**How to resolve.** Fix the variant's value in the source system
+(correct type, or change `valueType` to match) and re-run. The rest of
+the workspace is unaffected — only the listed config is missing.
+
+---
+
+## "I got a warning about resolved cross-type duplicates"
+
+**Symptom:**
+
+```
+Warning: Resolved N cross-type key collision(s): <key> (kept config,
+dropped feature_flag), ...
+```
+
+**Why this happens.** A key existed in the source as **both** a config
+**and** a feature flag at the same time. The source allowed the
+collision; Quonfig requires globally unique keys across all types
+(`config`, `feature-flag`, `log-level`). The migrator's tiebreaker is
+config-wins, because configs are strictly more expressive than boolean
+flags — a flag's behavior can always be expressed as a config, but not
+vice versa.
+
+**How to resolve.** The dropped sides are logged in `MIGRATION_REPORT.md`
+so you can review what was lost. If the feature-flag side was actually
+the live one:
+
+1. In the source system, delete whichever side should not have existed.
+2. Re-run `qfg migrate`.
+
+If the warning was benign (e.g. a renamed key where both sides happened
+to linger), no action is needed.
+
+---
+
+## Schema-typed configs are auto-converted to JSON Schema
+
+Configs whose `valueType` is `schema` (Reforge's Zod-schema storage) are
+converted to [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
+automatically during `qfg migrate`. You do not need to do anything
+special — schema configs migrate like any other config.
+
+The supported Zod surface area covers the common cases:
+
+- Primitives: `string` (with `.email()`, `.uuid()`, `.datetime()`,
+  `.min()`, `.max()`, `.regex()`), `number` / `int` (with `.min()` /
+  `.max()`), `boolean`, `null`, `undefined`
+- `.optional()`, `.nullable()`, `.default()`, `.describe()`
+- `object`, `object().partial()`, `object().strict()` / `.strip()` /
+  `.passthrough()`
+- `array` (with `.min()` / `.max()` / `.length()`), `tuple`
+- `enum`, `nativeEnum`, `literal`
+- `union`, `discriminatedUnion`, `intersection`
+- `record`, `map`, `set`
+
+If your schemas reach for the exotic end of Zod — `z.function()`,
+`z.promise()`, `z.lazy()` with recursive references, custom
+`refine()` / `superRefine()` predicates that cannot be expressed as
+JSON Schema constraints — the migrator fails loudly and prints the
+offending Zod source. File a bead so we can either add the surface or
+document a workaround.
+
+---
+
 ## "I need to verify the migration actually worked"
 
 1. Run `qfg migrate status` to see counts and the current cursor.
