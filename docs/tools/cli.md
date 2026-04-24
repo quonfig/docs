@@ -148,11 +148,25 @@ Create a `quonfig.config.json` file in your project root to customize output:
 Once generated, import and use the type-safe clients:
 
 ```typescript
-// For React
-import { useTypedQuonfig } from './generated/quonfig-client';
+// For React — the generator emits both a QuonfigTypesafeReact class
+// and a ready-to-use hook bound to it.
+import { useQuonfig, QuonfigTypesafeReact } from './generated/quonfig-client';
 
-// For Node.js
-import { createTypedQuonfig } from './generated/quonfig-server';
+function Nav() {
+  const q = useQuonfig();
+  return q.buildDarkMode() ? <DarkNav /> : <LightNav />;
+}
+
+// For Node.js — wrap a Quonfig instance to get typed accessors.
+import { Quonfig } from '@quonfig/node';
+import { QuonfigTypesafeNode } from './generated/quonfig-server';
+
+const quonfig = new Quonfig({ sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY! });
+await quonfig.init();
+const typed = new QuonfigTypesafeNode(quonfig);
+
+typed.buildDarkMode();                    // boolean, no string keys
+typed.get('build.dark-mode');             // same value, key autocompleted
 ```
 
 ## Commands
