@@ -24,7 +24,7 @@ The Quonfig Model Context Protocol (MCP) server lets you manage feature flags an
 Install the CLI and run:
 
 ```bash
-quonfig mcp
+qfg mcp
 ```
 
 This will automatically add the MCP server to your configuration.

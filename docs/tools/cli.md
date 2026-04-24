@@ -20,22 +20,22 @@ npm install -g @quonfig/cli
 First, authenticate with Quonfig:
 
 ```bash
-quonfig login
+qfg login
 ```
 
 This will open your browser and authenticate you with Quonfig. You can also use profiles to manage multiple workspaces:
 
 ```bash
-quonfig login --profile my-company
+qfg login --profile my-company
 ```
 
 For additional details about authentication, profiles, and troubleshooting, see the [`login` command documentation](#login) below.
 
 ## Usage
 
-See `quonfig --help` for all the available commands. `quonfig [COMMAND] --help` will give you detailed information about a given command.
+See `qfg --help` for all the available commands. `qfg [COMMAND] --help` will give you detailed information about a given command.
 
-`quonfig` is designed for humans first, but all commands support a `--json` flag to output JSON instead.
+`qfg` is designed for humans first, but all commands support a `--json` flag to output JSON instead.
 
 ## Global Flags
 
@@ -50,16 +50,16 @@ These flags are available for all commands:
 Examples:
 ```bash
 # Get detailed logging information
-quonfig list --verbose
+qfg list --verbose
 
 # Generate clean output for scripts
-quonfig get my.config --no-color --json
+qfg get my.config --no-color --json
 
 # Force non-interactive mode for automation
-quonfig create my.flag --type boolean-flag --value=true --no-interactive
+qfg create my.flag --type boolean-flag --value=true --no-interactive
 
 # Use a specific profile
-quonfig list --profile production
+qfg list --profile production
 ```
 
 ## TypeScript Code Generation
@@ -159,11 +159,11 @@ import { createTypedQuonfig } from './generated/quonfig-server';
 
 ### generate-new-hex-key
 
-`quonfig generate-new-hex-key` generates a cryptographically secure hex key suitable for encrypting config values with the `--secret` flag.
+`qfg generate-new-hex-key` generates a cryptographically secure hex key suitable for encrypting config values with the `--secret` flag.
 
 Example:
 ```bash
-quonfig generate-new-hex-key
+qfg generate-new-hex-key
 ```
 
 This outputs a 64-character hex key like:
@@ -174,7 +174,7 @@ a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
 Use this key when creating or updating configs with encryption:
 ```bash
 # Create an encrypted config using the generated key
-quonfig create my.secret --type string --value "sensitive data" --secret --secret-key-name "my-encryption-key"
+qfg create my.secret --type string --value "sensitive data" --secret --secret-key-name "my-encryption-key"
 ```
 
 **Use cases:**
@@ -249,7 +249,7 @@ For detailed setup instructions, configuration options, and usage examples, see 
 
 ### login
 
-`quonfig login` authenticates you with Quonfig using OAuth. This opens your browser to complete the authentication flow and stores tokens locally for subsequent CLI commands.
+`qfg login` authenticates you with Quonfig using OAuth. This opens your browser to complete the authentication flow and stores tokens locally for subsequent CLI commands.
 
 Options:
 - `--profile <name>` - Profile name to create or update (defaults to "default")
@@ -257,26 +257,26 @@ Options:
 
 Example:
 ```bash
-quonfig login
-quonfig login --profile production
+qfg login
+qfg login --profile production
 ```
 
 Profiles allow you to manage multiple Quonfig accounts or environments. Use the `QUONFIG_PROFILE` environment variable or `--profile` flag to specify which profile to use.
 
 ### logout
 
-`quonfig logout` clears all stored authentication tokens from your local machine. After logging out, you'll need to run `quonfig login` again to authenticate.
+`qfg logout` clears all stored authentication tokens from your local machine. After logging out, you'll need to run `qfg login` again to authenticate.
 
 Example:
 ```bash
-quonfig logout
+qfg logout
 ```
 
 This affects all profiles and is useful for security, troubleshooting authentication issues, or switching accounts.
 
 ### list
 
-`quonfig list` shows keys for your configurations, feature flags, log levels, schemas, and segments. By default, all types are shown, but you can filter to specific types.
+`qfg list` shows keys for your configurations, feature flags, log levels, schemas, and segments. By default, all types are shown, but you can filter to specific types.
 
 Options:
 - `--configs` - Include only configs
@@ -289,21 +289,21 @@ Options:
 
 Examples:
 ```bash
-quonfig list
-quonfig list --feature-flags
-quonfig list --configs --feature-flags
-quonfig list --json
+qfg list
+qfg list --feature-flags
+qfg list --configs --feature-flags
+qfg list --json
 ```
 
 When you specify one or more type flags, only those types are included in the output.
 
 ### info
 
-`quonfig info NAME` shows detailed information about a specific config, feature flag, or other resource, including current values across environments and recent evaluation statistics.
+`qfg info NAME` shows detailed information about a specific config, feature flag, or other resource, including current values across environments and recent evaluation statistics.
 
 Example:
 ```bash
-quonfig info my.config.name
+qfg info my.config.name
 ```
 
 This displays:
@@ -314,19 +314,19 @@ This displays:
 
 ### interactive
 
-`quonfig interactive` (or just `quonfig`) launches an interactive CLI mode where you can browse and manage your resources through a menu-driven interface.
+`qfg interactive` (or just `qfg`) launches an interactive CLI mode where you can browse and manage your resources through a menu-driven interface.
 
 Example:
 ```bash
-quonfig
-quonfig interactive
+qfg
+qfg interactive
 ```
 
 This provides an easier way to explore your configs and flags without remembering specific command syntax.
 
 ### override
 
-`quonfig override NAME` allows you to override the value of a config or feature flag for your specific user/SDK key combination. This is especially helpful for testing different values without affecting other users.
+`qfg override NAME` allows you to override the value of a config or feature flag for your specific user/SDK key combination. This is especially helpful for testing different values without affecting other users.
 
 Options:
 - `--value <value>` - Value to use for your override
@@ -336,9 +336,9 @@ Options:
 
 Examples:
 ```bash
-quonfig override my.flag.name --value=true
-quonfig override my.config.name --value=42 --environment=staging
-quonfig override my.flag.name --remove
+qfg override my.flag.name --value=true
+qfg override my.config.name --value=42 --environment=staging
+qfg override my.flag.name --remove
 ```
 
 Overrides apply to any environment using an SDK key created by your Quonfig user.
@@ -413,18 +413,18 @@ git -C ./my-config push
 
 ### profile
 
-`quonfig profile` manages authentication profiles and allows you to set the default profile for CLI operations.
+`qfg profile` manages authentication profiles and allows you to set the default profile for CLI operations.
 
 Example:
 ```bash
-quonfig profile
+qfg profile
 ```
 
 This command helps you switch between different Quonfig accounts or workspace configurations.
 
 ### schema
 
-`quonfig schema NAME` manages Zod schema definitions for your configs, providing type safety and validation.
+`qfg schema NAME` manages Zod schema definitions for your configs, providing type safety and validation.
 
 Options:
 - `--get` - Get the current schema definition
@@ -433,26 +433,26 @@ Options:
 
 Examples:
 ```bash
-quonfig schema my-schema --set-zod="z.object({url: z.string()})"
-quonfig schema my-schema --get
+qfg schema my-schema --set-zod="z.object({url: z.string()})"
+qfg schema my-schema --get
 ```
 
 Schemas enable runtime validation and better TypeScript integration when using generated types.
 
 ### workspace
 
-`quonfig workspace` allows you to switch between different Quonfig workspaces or display your current active workspace.
+`qfg workspace` allows you to switch between different Quonfig workspaces or display your current active workspace.
 
 Example:
 ```bash
-quonfig workspace
+qfg workspace
 ```
 
 This helps when you have access to multiple Quonfig workspaces and need to switch contexts.
 
 ### mcp
 
-`quonfig mcp` configures the Quonfig MCP (Model Context Protocol) server for AI assistants like Claude, Cursor, or other compatible editors.
+`qfg mcp` configures the Quonfig MCP (Model Context Protocol) server for AI assistants like Claude, Cursor, or other compatible editors.
 
 Options:
 - `--editor <type>` - Editor to configure (claude-code, codeium)
@@ -460,27 +460,27 @@ Options:
 
 Examples:
 ```bash
-quonfig mcp
-quonfig mcp --editor cursor
+qfg mcp
+qfg mcp --editor cursor
 ```
 
 This enables AI assistants to access your Quonfig configuration data directly for better code assistance.
 
 ### set-default
 
-`quonfig set-default NAME` allows you to change the default value for an environment. Any rules defined for that environment will still apply; only the default is changed.
+`qfg set-default NAME` allows you to change the default value for an environment. Any rules defined for that environment will still apply; only the default is changed.
 
 This can be particularly helpful for flipping a flag on or off for everyone.
 
 Example:
 
 ```bash
-quonfig set-default my.flag.name --value=true --environment=staging
+qfg set-default my.flag.name --value=true --environment=staging
 ```
 
 ### create
 
-`quonfig create NAME` creates a new flag or config in Quonfig. You can use this to create basic values, encrypted secrets, or values provided by ENV vars.
+`qfg create NAME` creates a new flag or config in Quonfig. You can use this to create basic values, encrypted secrets, or values provided by ENV vars.
 
 Supported types: `boolean-flag`, `boolean`, `string`, `double`, `int`, `string-list`, `json`, `duration`, `int-range`, `bytes`
 
@@ -488,26 +488,26 @@ Examples:
 
 ```bash
 # Basic types
-quonfig create my.new.string --type string --value="hello world"
-quonfig create my.feature --type boolean-flag --value=true
-quonfig create my.timeout --type int --value=30
-quonfig create my.price --type double --value=19.99
+qfg create my.new.string --type string --value="hello world"
+qfg create my.feature --type boolean-flag --value=true
+qfg create my.timeout --type int --value=30
+qfg create my.price --type double --value=19.99
 
 # Complex types
-quonfig create my.tags --type string-list --value="tag1,tag2,tag3"
-quonfig create my.config --type json --value='{"key": "value"}'
-quonfig create my.duration --type duration --value="30s"
-quonfig create my.range --type int-range --value="1-100"
-quonfig create my.size --type bytes --value="1GB"
+qfg create my.tags --type string-list --value="tag1,tag2,tag3"
+qfg create my.config --type json --value='{"key": "value"}'
+qfg create my.duration --type duration --value="30s"
+qfg create my.range --type int-range --value="1-100"
+qfg create my.size --type bytes --value="1GB"
 
 # Encrypted values (requires string type)
-quonfig create my.secret --type string --value="sensitive data" --secret
+qfg create my.secret --type string --value="sensitive data" --secret
 
 # Environment variable sourced
-quonfig create my.db.url --type string --env-var=DATABASE_URL
+qfg create my.db.url --type string --env-var=DATABASE_URL
 
 # Confidential (non-encrypted) values
-quonfig create my.api.key --type string --value="key123" --confidential
+qfg create my.api.key --type string --value="key123" --confidential
 ```
 
 **Encryption vs Confidential:**
@@ -517,12 +517,12 @@ quonfig create my.api.key --type string --value="key123" --confidential
 
 ### get
 
-`quonfig get NAME` will give you the value for a config in the environment tied to your SDK key.
+`qfg get NAME` will give you the value for a config in the environment tied to your SDK key.
 
 Example: 
 
 ```bash
-quonfig get aws.bucket
+qfg get aws.bucket
 ```
 
 #### Interpolating a value from Quonfig
@@ -533,19 +533,19 @@ Here's an example command to download a file from s3 using the [aws cli](https:/
 
 ```bash
 aws s3api get-object \
-  --bucket $(quonfig get aws.bucket) \
-  --key $(quonfig get aws.db.backup.filename) \
+  --bucket $(qfg get aws.bucket) \
+  --key $(qfg get aws.db.backup.filename) \
   db.tgz
 ```
 
-As you'd expect, you can similarly use `quonfig` in a pipeline with `xargs` and similar.
+As you'd expect, you can similarly use `qfg` in a pipeline with `xargs` and similar.
 
 ### info
 
-`quonfig info NAME` will show details about an item in Quonfig. Example output:
+`qfg info NAME` will show details about an item in Quonfig. Example output:
 
 ```
-quonfig info aws.bucket
+qfg info aws.bucket
 
 https://app.cloud/account/projects/XYZ/configs/aws.bucket
 
@@ -568,18 +568,18 @@ Development: 7
 
 ### list
 
-`quonfig list` will show the names of items in your Quonfig account. You can pass flags to filter this to only show items of a specific type (e.g. segments).
+`qfg list` will show the names of items in your Quonfig account. You can pass flags to filter this to only show items of a specific type (e.g. segments).
 
 ### override
 
-`quonfig override` lets you override the value for a config or feature flag for your quonfig.com user. This is especially helpful for testing both sides of a feature flag.
+`qfg override` lets you override the value for a config or feature flag for your quonfig.com user. This is especially helpful for testing both sides of a feature flag.
 
 Are you using a backend key for your server code and a frontend key for your UI? No problem; this override will apply to any environment using an SDK key created by your quonfig.com user.
 
 Example:
 
 ```bash
-quonfig override my.flag.name --value=true
+qfg override my.flag.name --value=true
 ```
 
 ## Troubleshooting
@@ -589,17 +589,17 @@ quonfig override my.flag.name --value=true
 **Authentication Problems:**
 ```bash
 # Clear authentication and re-login
-quonfig logout
-quonfig login
+qfg logout
+qfg login
 
 # Use specific profile
-quonfig login --profile production
+qfg login --profile production
 ```
 
 **Configuration Generation Issues:**
 ```bash
 # Generate with verbose output to see detailed logs
-quonfig generate --verbose
+qfg generate --verbose
 
 # Check if config file exists and is valid JSON
 cat quonfig.config.json | jq .
@@ -618,7 +618,7 @@ cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 **Network/API Issues:**
 ```bash
 # Test connectivity with verbose output
-quonfig list --verbose
+qfg list --verbose
 
 # Check API endpoint override
 echo $QUONFIG_API_URL_OVERRIDE
