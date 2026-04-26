@@ -444,6 +444,25 @@ quonfig.inContext(context, (rf) => {
 </TabItem>
 </Tabs>
 
+## Developer overrides (`qfg override`)
+
+The [`qfg override`](/docs/tools/cli#override) CLI flips a flag for *your* developer machine without affecting anyone else. It does this by writing a top-priority rule on the flag keyed on the property `quonfig-user.email`. The SDK only injects that property when you opt in, so the rule is dead code in production by construction (a server that never opted in has no `quonfig-user.email` on its eval context, and the rule cannot fire).
+
+Enable injection:
+
+```typescript
+const quonfig = new Quonfig({
+  sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
+  enableQuonfigUserContext: true, // opt in
+});
+```
+
+Or set `QUONFIG_DEV_CONTEXT=true` in the environment — useful for `.env.development` so production deploys never accidentally inject anything.
+
+When enabled, the SDK reads `~/.quonfig/tokens.json` (written by `qfg login`) on init and merges `{ "quonfig-user": { email: <userEmail> } }` into your `globalContext`. Customer-supplied `quonfig-user` keys win on collision. If the file is missing or unparseable the SDK is a no-op — init still succeeds.
+
+Telemetry note: `quonfig-user.email` flows through telemetry like any other context attribute. It only appears in dev-machine telemetry because production never injects it.
+
 ## Dynamic Log Levels
 
 Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app`). Rules inside that config decide what verbosity a given logger gets — down to individual classes or modules — and changes propagate live via SSE with no restart.
@@ -981,3 +1000,4 @@ const quonfig = new Quonfig({
 | enableSSE                  | Whether or not we should listen for live changes from Quonfig                                                                   | true              |
 | enablePolling              | Whether or not we should poll for changes from Quonfig                                                                          | true              |
 | loggerKey                  | The `log_level` config key consulted by `shouldLog({loggerPath})`. No default — set it to enable the `loggerPath` convenience.          | `undefined`       |
+| enableQuonfigUserContext   | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into `globalContext`. Pairs with `qfg override`. Env var `QUONFIG_DEV_CONTEXT=true` also enables. Default off so production never injects. | false             |
