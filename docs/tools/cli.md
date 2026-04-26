@@ -340,22 +340,31 @@ This provides an easier way to explore your configs and flags without rememberin
 
 ### override
 
-`qfg override NAME` allows you to override the value of a config or feature flag for your specific user/SDK key combination. This is especially helpful for testing different values without affecting other users.
+`qfg override` writes a top-priority rule on a flag, keyed on the dev-only `quonfig-user.email` property, that fires only for SDK clients which set your email in their context. This lets you test a value locally without affecting anyone else. You must `qfg login` first — the user identity comes from your saved tokens.
 
-Options:
-- `--value <value>` - Value to use for your override
-- `--environment <env>` - Environment to override in
-- `--remove` - Remove your existing override
-- `--profile <name>` - Use specific profile
+Surface:
+- `qfg override` — list flags where you have an override (in the current env).
+- `qfg override <key> <value>` — set an override. The value's type is inferred: `true`/`false` → bool, integer → int, decimal → double, JSON-shaped (`{...}`/`[...]`) → json, anything else → string.
+- `qfg override <key> --remove` — remove your override on `<key>`.
+- `qfg override --clear` — remove all of your overrides in the current env.
+
+Flags:
+- `--env <env>` — environment to operate in. Defaults to `$QUONFIG_ENVIRONMENT`. Required if neither is set.
+- `--remove` — remove your override on the given key.
+- `--clear` — remove every override you have in this env.
 
 Examples:
 ```bash
-qfg override my.flag.name --value=true
-qfg override my.config.name --value=42 --environment=staging
-qfg override my.flag.name --remove
+qfg override                                  # list your overrides
+qfg override my.flag true                     # bool
+qfg override my.flag 42                       # int
+qfg override my.flag '{"a":1}'                # json
+qfg override my.flag --remove                 # remove just this one
+qfg override --clear                          # remove all of yours
+qfg override my.flag true --env=staging       # operate in a specific env
 ```
 
-Overrides apply to any environment using an SDK key created by your Quonfig user.
+Overrides on `production` are accepted but inert for SDK clients that don't set `quonfig-user.email` in their context (most production SDKs don't), so the CLI prints a soft warning when you target `production`.
 
 ### Targeting rules
 
