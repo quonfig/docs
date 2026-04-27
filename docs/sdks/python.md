@@ -400,7 +400,7 @@ sdk.get(...)
 ### Available `Option` parameters
 
 - `sdk_key` - your quonfig.com SDK key
-- `quonfig_api_url` - the API endpoint your SDK key has been created for (i.e. `https://api.quonfig.com`)
+- `quonfig_api_url` - the API endpoint your SDK key has been created for (i.e. `https://primary.quonfig.com`)
 - `datafile` - datafile to load
 - `on_no_default` - one of `"RAISE"` (default) or `"RETURN_NONE"`. This determines how the client behaves when a request for
   a config cannot find a value, and no default is supplied. These settings will, respectively, raise a `MissingDefaultException`,
