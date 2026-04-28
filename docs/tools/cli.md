@@ -66,7 +66,7 @@ qfg list --profile production
 
 **⭐ Recommended**: The `generate` command creates TypeScript definitions and type-safe clients for your Quonfig configuration, providing autocomplete and type safety in your IDE.
 
-`generate` reads from a **local copy** of your workspace config files. Use `pull` first to clone or update that local copy.
+`generate` can read from either a local copy of your workspace (paired with `qfg pull`) or directly from the API in one shot — see [the `generate` reference](#generate) for the in-memory mode.
 
 ### Quick Start
 
@@ -228,20 +228,29 @@ git -C ./my-config push
 
 ### generate
 
-`qfg generate` creates TypeScript definitions and type-safe clients for your Quonfig configuration. It reads from a local directory obtained via `qfg pull` — it does not contact the API directly.
+`qfg generate` creates TypeScript definitions and type-safe clients for your Quonfig configuration.
+
+It can read from either:
+
+- **A local directory** (default when `--dir`/`QUONFIG_DIR` is set) — pair with `qfg pull` to keep a checked-in copy of the workspace files.
+- **The API** (when no local directory is given) — `generate` mints a Gitea read token, clones the workspace into a temp dir, generates from it, and cleans up. Use this in CI or one-shot scripts where you don't want to keep a working copy on disk.
 
 Options:
-- `--dir <path>` - Path to local config directory (defaults to `QUONFIG_DIR` env var)
+- `--dir <path>` - Path to local config directory (defaults to `QUONFIG_DIR` env var). When unset, `generate` fetches the workspace in-memory.
+- `--workspace <slug-or-id>` - Workspace to fetch when running without `--dir`. Required if `QUONFIG_API_KEY` is set without `QUONFIG_WORKSPACE`.
 - `--targets <targets>` - Specify target platforms: `react-ts` (default) or `node-ts`
 - `--output-directory <dir>` - Custom output directory
 
 Examples:
 ```bash
-# Pull first, then generate for React/JavaScript (default)
+# Pull-then-generate (keeps a local copy)
 qfg pull --dir ./my-config
 qfg generate --dir ./my-config
 
-# Generate for Node.js
+# One-shot generate from the API (CI / no local copy)
+qfg generate --workspace acme-prod --targets node-ts
+
+# Generate for Node.js from a local dir
 qfg generate --dir ./my-config --targets node-ts
 
 # Generate for both platforms
@@ -473,6 +482,22 @@ qfg workspace
 
 This helps when you have access to multiple Quonfig workspaces and need to switch contexts.
 
+#### workspace create
+
+`qfg workspace create <slug>` provisions a new workspace under one of your organizations. Useful for agent-driven setups and scripted environments where you don't want to click through the UI.
+
+Options:
+- `--name <name>` - Display name (defaults to the slug)
+- `--org <slug-or-id>` - Organization slug or UUID. Required if your account has more than one org.
+
+Examples:
+```bash
+qfg workspace create my-new-workspace
+qfg workspace create acme-prod --name "Acme Production" --org acme-corp
+```
+
+On success, prints the workspace ID, slug, Gitea repo URL, and the default environments (`development`, `production`, `staging`). Returns a non-zero exit code with a clear message on slug collisions, missing org membership, or auth failure.
+
 ### mcp
 
 `qfg mcp` configures the Quonfig MCP (Model Context Protocol) server for AI assistants like Claude, Cursor, or other compatible editors.
@@ -505,7 +530,7 @@ qfg set-default my.flag.name --value=true --environment=staging
 
 `qfg create NAME` creates a new flag or config in Quonfig. You can use this to create basic values, encrypted secrets, or values provided by ENV vars.
 
-Supported types: `boolean-flag`, `boolean`, `string`, `double`, `int`, `string-list`, `json`, `duration`, `int-range`, `bytes`
+Supported types: `boolean-flag`, `boolean`, `string`, `double`, `int`, `string-list`, `json`, `duration`, `int-range`, `bytes`, `log_level`
 
 Examples:
 
@@ -531,12 +556,26 @@ qfg create my.db.url --type string --env-var=DATABASE_URL
 
 # Confidential (non-encrypted) values
 qfg create my.api.key --type string --value="key123" --confidential
+
+# Log level (key must start with `log-level.`; value is one of TRACE/DEBUG/INFO/WARN/ERROR/FATAL)
+qfg create log-level.my-app --type log_level --value=INFO
 ```
 
 **Encryption vs Confidential:**
 - `--secret`: Encrypts the value, requires decryption key
 - `--confidential`: Marks value as sensitive but doesn't encrypt (useful for display purposes)
 - `--secret` implies `--confidential`, so you don't need both
+
+**Log levels:** `--type log_level` requires the key to start with `log-level.` and the value to be a recognized level name (case-insensitive). `--secret`, `--env-var`, and `--confidential` are rejected on this type. To target individual loggers without creating one config per logger, write rules on the `quonfig-sdk-logging.key` context property — see the SDK docs for details.
+
+### log-level
+
+`qfg log-level NAME` is a thin alias for `qfg create --type log_level NAME`. It exists for discoverability — running `qfg log-level --help` surfaces the `log-level.` prefix rule and the `quonfig-sdk-logging.key` per-logger targeting pattern in one place.
+
+Example:
+```bash
+qfg log-level log-level.my-app --value=WARN
+```
 
 ### get
 
