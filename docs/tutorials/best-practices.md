@@ -147,10 +147,6 @@ Sometimes your config is more complex than a simple string or number. You might 
 
 An easy way to get more out of your Quonfig experience is to setup the [Slack Integration](/docs/tools/slack-integration). It's a great way to get notifications when things are changed and see how your team is using Quonfig.
 
-## MCP
-
-Use `quonfig mcp` to install the MCP into Claude Code or Cursor.
-
 ## Cron Job Contexts
 
 If you've got feature flags going you've likely solved how to set the context for web requests. This happens in things like a `Around Actions` that sets the context for each web request. Cron jobs are a bit different, but the same concept applies. If we have a cron job that loops over every team and processes them, we can set the context for that processing with the same `Quonfig.with_context` pattern. In Ruby this might look like this:

@@ -498,22 +498,6 @@ qfg workspace create acme-prod --name "Acme Production" --org acme-corp
 
 On success, prints the workspace ID, slug, Gitea repo URL, and the default environments (`development`, `production`, `staging`). Returns a non-zero exit code with a clear message on slug collisions, missing org membership, or auth failure.
 
-### mcp
-
-`qfg mcp` configures the Quonfig MCP (Model Context Protocol) server for AI assistants like Claude, Cursor, or other compatible editors.
-
-Options:
-- `--editor <type>` - Editor to configure (claude-code, codeium)
-- `--url <url>` - Internal URL for testing
-
-Examples:
-```bash
-qfg mcp
-qfg mcp --editor cursor
-```
-
-This enables AI assistants to access your Quonfig configuration data directly for better code assistance.
-
 ### set-default
 
 `qfg set-default NAME` allows you to change the default value for an environment. Any rules defined for that environment will still apply; only the default is changed.
@@ -665,16 +649,6 @@ qfg generate --verbose
 
 # Check if config file exists and is valid JSON
 cat quonfig.config.json | jq .
-```
-
-**MCP Configuration Issues:**
-```bash
-# Verify editor configuration was created
-# For VS Code/Cursor:
-cat ~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json
-
-# For Claude Desktop:
-cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```
 
 **Network/API Issues:**
