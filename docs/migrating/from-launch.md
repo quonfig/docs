@@ -58,11 +58,11 @@ offline / air-gapped development. **Node and Go only.**
 ### 1. Run the migrator
 
 ```bash
-qfg migrate --from launch --api-key $LAUNCH_KEY --dir ./quonfig-config
+qfg migrate --from launch --api-key $LAUNCH_KEY --dir ./quonfig-repo
 ```
 
 This pulls every flag, config, and segment from Launch and writes them into
-`./quonfig-config/` as Quonfig workspace files. It also writes:
+`./quonfig-repo/` as Quonfig workspace files. It also writes:
 
 - `.qf/import-state.json` — the delta cursor, committed alongside the files
 - `.qf/identifier-map.json` — a deterministic map of legacy keys to Quonfig keys
@@ -81,7 +81,7 @@ single source of truth for what was imported cleanly and what needs human eyes.
 import { init } from '@quonfig/sdk';
 
 const client = await init({
-  datadir: './quonfig-config',
+  datadir: './quonfig-repo',
   environment: 'production',
 });
 ```
@@ -92,7 +92,7 @@ const client = await init({
 import "github.com/quonfig/sdk-go/quonfig"
 
 client, err := quonfig.New(
-    quonfig.WithDatadir("./quonfig-config"),
+    quonfig.WithDatadir("./quonfig-repo"),
     quonfig.WithEnvironment("production"),
 )
 ```
@@ -102,7 +102,7 @@ migrator wrote.
 
 ### 3. Verify behavior matches Launch
 
-Run your app locally against `./quonfig-config` and exercise the flags and
+Run your app locally against `./quonfig-repo` and exercise the flags and
 configs you care about. Compare the values against what Launch returns. Anything
 surprising should already be flagged in `MIGRATION_REPORT.md`; if it is not,
 that is a bug — file it on the `cli` repo.
@@ -112,7 +112,7 @@ that is a bug — file it on the `cli` repo.
 Changes in Launch after the initial import? Re-run the same command:
 
 ```bash
-qfg migrate --from launch --api-key $LAUNCH_KEY --dir ./quonfig-config
+qfg migrate --from launch --api-key $LAUNCH_KEY --dir ./quonfig-repo
 ```
 
 The cursor in `.qf/import-state.json` ensures only new changes are fetched.
@@ -121,7 +121,7 @@ Existing files are overwritten idempotently; the report reflects only the delta.
 ### 5. When you are ready, switch to Flow B
 
 Sign up, create a workspace, then see [Flow B](#flow-b--cloud-push-all-sdks)
-below for how to push `./quonfig-config` up to the cloud.
+below for how to push `./quonfig-repo` up to the cloud.
 
 ---
 
@@ -202,7 +202,7 @@ qfg migrate --from <source> [flags]
 | --- | --- |
 | `--from <source>` | Required. `launch` is the supported source today; `launchdarkly` and `flagsmith` are stubbed. |
 | `--api-key <key>` | Legacy-system API key. Also read from `LAUNCH_API_KEY`. |
-| `--dir <path>` | Write to this local directory. Defaults to `./quonfig-config`. |
+| `--dir <path>` | Write to this local directory. Defaults to `./quonfig-repo`. |
 | `--workspace <slug>` | Push to a named cloud workspace. Requires `qfg login`. |
 | `--push` | After migrating locally, push to the cloud workspace (Flow B). |
 | `--dry-run` | Show what would happen; write nothing. |
@@ -213,7 +213,7 @@ qfg migrate --from <source> [flags]
 ### Force a full reimport
 
 ```bash
-qfg migrate --from launch --api-key $LAUNCH_KEY --dir ./quonfig-config --reset
+qfg migrate --from launch --api-key $LAUNCH_KEY --dir ./quonfig-repo --reset
 ```
 
 `--reset` ignores the cursor entirely; the identifier map is re-derived so your
