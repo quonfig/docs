@@ -154,19 +154,47 @@ Warning: Skipped N invalid config(s): <key> (variant value type
 <actual> does not match declared valueType <declared>), ...
 ```
 
-**Why this happens.** A source config's variant payload does not match
-its own `valueType` — for example `valueType: "double"` but a variant
-whose `value.type` is `"string"`. The source system happened to allow
-this (usually from schema drift over time); Quonfig does not, because
-a `double` typed config that returns a string would break SDK callers.
+…or, for a Zod schema that the migrator could not convert:
 
-Previously the migrator aborted the entire run on the first one of these.
-It now skips just the offender and emits the warning so the rest of your
-workspace still migrates.
+```
+Warning: Skipped N invalid config(s): <key> (Schema conversion failed
+for "<key>": Unsupported Zod expression: ...)
+```
 
-**How to resolve.** Fix the variant's value in the source system
-(correct type, or change `valueType` to match) and re-run. The rest of
-the workspace is unaffected — only the listed config is missing.
+…or, for a schema config whose payload is not a Zod schema at all
+(e.g. `schemaType: "OPENAPI"`):
+
+```
+Warning: Skipped N invalid config(s): <key> (Unsupported schema payload
+for "<key>")
+```
+
+**Why this happens.** A source config is structurally invalid in a way
+that the migrator refuses to translate:
+
+- **Variant/valueType mismatch.** A variant whose `value.type` does not
+  match the config's `valueType` (e.g. `valueType: "double"` but
+  `value.type: "string"`). The source allowed this from schema drift;
+  Quonfig does not, because a `double` config that returns a string
+  would break SDK callers.
+- **Schema conversion failed.** The Zod source for a schema-typed config
+  uses syntax the migrator cannot translate to JSON Schema (e.g. a
+  hand-written value that isn't a real Zod expression, or an exotic
+  `refine()` predicate — see "Schema-typed configs are auto-converted"
+  below for the supported surface).
+- **Unsupported schema payload.** A schema config whose `schemaType` is
+  something other than `ZOD` (e.g. `OPENAPI`). qfg currently only
+  ingests Zod-typed schemas.
+
+Previously any one of these aborted the entire run on the first
+offender. The migrator now skips just the bad config, lists it in
+`MIGRATION_REPORT.md` under **Skipped invalid configs**, and continues
+so the rest of your workspace still migrates.
+
+**How to resolve.** Fix the offending config in the source system —
+correct the type, fix the Zod source, or convert the schema to Zod —
+and re-run. The rest of the workspace is unaffected; only the listed
+configs are missing.
 
 ---
 
@@ -205,6 +233,13 @@ Configs whose `valueType` is `schema` (Reforge's Zod-schema storage) are
 converted to [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
 automatically during `qfg migrate`. You do not need to do anything
 special — schema configs migrate like any other config.
+
+**Object schemas are emitted strict.** The Quonfig authoring validator
+requires `additionalProperties: false` on every object that declares
+`properties`, so the converter always emits strict object schemas —
+even when the original Zod source was open (the default `z.object({…})`
+shape). If you intentionally want an open schema, edit the emitted JSON
+Schema by hand after the migration; otherwise no action is needed.
 
 The supported Zod surface area covers the common cases:
 
