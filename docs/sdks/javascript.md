@@ -368,7 +368,9 @@ it("shows the turbo button when the feature is enabled", () => {
 | `poll`          | `quonfig.poll({frequencyInMs})`        | starts polling every `frequencyInMs` ms.                                                     |
 | `shouldLog`     | `quonfig.shouldLog({loggerPath, desiredLevel})` | returns whether a message at `desiredLevel` should emit; accepts either `{loggerPath}` (uses init-time `loggerKey`) or `{configKey}` |
 | `stopPolling`   | `quonfig.stopPolling()`                | stops the polling process                                                                    |
-| `stopTelemetry` | `quonfig.stopTelemetry()`              | stops telemetry collection and clears aggregators                                            |
+| `flush`         | `await quonfig.flush()`                | drains pending telemetry counters to the telemetry endpoint without tearing the SDK down. Useful before a context swap in a long-lived SPA. Returns a Promise. |
+| `close`         | `await quonfig.close()`                | drains telemetry (via `flush`), then stops polling and telemetry timers. Returns a Promise. Prefer this over `stopTelemetry()` for normal teardown so in-flight counters aren't dropped. |
+| `stopTelemetry` | `quonfig.stopTelemetry()`              | stops telemetry aggregator timers without draining. Prefer `close()` or `flush()` — they drain pending counters first. |
 | `updateContext` | `quonfig.updateContext(newContext)`    | update the context and refetch. Pass `false` as a second argument to skip refetching         |
 
 ### `init()` Options
@@ -376,11 +378,15 @@ it("shows the turbo button when the feature is enabled", () => {
 | option                     | type     | default                | description                                                                                  |
 | -------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------- |
 | `sdkKey`                   | string   | required               | Your Quonfig SDK key                                                                         |
-| `apiUrls`                  | string[] | `["https://primary.quonfig.com"]` | Ordered list of API base URLs to try                                              |
 | `context`                  | Context  | `{}`                   | Initial context for evaluation                                                               |
+| `domain`                   | string   | `"quonfig.com"`        | Single knob that flips api + telemetry URLs in lockstep. e.g. `domain: "quonfig-staging.com"` resolves api to `https://primary.quonfig-staging.com` (+ secondary) and telemetry to `https://telemetry.quonfig-staging.com`. Highest-precedence default; overridden only by explicit `apiUrls` / `apiUrl` / `telemetryUrl`. |
+| `apiUrls`                  | string[] | derived from `domain`  | Ordered list of API base URLs to try (failover order). Escape hatch for deploys that don't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`. |
+| `apiUrl`                   | string   | `undefined`            | Convenience alias for callers with a single API base URL. Normalized to `apiUrls = [apiUrl]`. `apiUrls` wins if both are set. |
+| `telemetryUrl`             | string   | derived from `domain`  | Base URL for the telemetry service. Escape hatch for deploys that split telemetry off the primary domain. When set, wins over `domain`. |
+| `timeout`                  | number   | `10000`                | Initialization request timeout in ms                                                         |
 | `loggerKey`                | string   | `undefined`            | The `log_level` config key consulted by `shouldLog({loggerPath})`. Required for the `loggerPath` form. |
-| `defaultLevel`             | string   | `"warn"`               | Default level used if no matching config is found                                            |
 | `collectEvaluationSummaries` | boolean | `true`                | Send evaluation summary telemetry to Quonfig                                                 |
+| `collectLoggerNames`       | boolean  | `false`                | Send logger-name telemetry (counts per logger path) to Quonfig                               |
 | `collectContextMode`       | string   | `"PERIODIC_EXAMPLE"`   | Context telemetry mode: `"PERIODIC_EXAMPLE"`, `"SHAPE_ONLY"`, or `"NONE"`                   |
 | `afterEvaluationCallback`  | function | `undefined`            | Callback invoked after each flag/config evaluation                                           |
 

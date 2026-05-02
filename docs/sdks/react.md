@@ -1553,7 +1553,9 @@ While `loading` is true, `isEnabled` will return `false` and `getDuration`/`get`
 | `contextAttributes`          | no       | `Contexts`        | targeting context passed to all flag evaluations                              |
 | `initialFlags`               | no       | `Record<string, unknown>` | pre-seeded flag values for SSR hydration; disables network request  |
 | `pollInterval`               | no       | `number`          | poll for updates every N milliseconds                                         |
-| `apiUrls`                    | no       | `string[]`        | ordered list of API base URLs to try (defaults to `["https://primary.quonfig.com"]`; a fallback `secondary.quonfig.com` will be added) |
+| `domain`                     | no       | `string`          | single knob that flips api + telemetry URLs in lockstep, e.g. `domain="quonfig-staging.com"` resolves api to `https://primary.quonfig-staging.com` (+ secondary) and telemetry to `https://telemetry.quonfig-staging.com`. Defaults to `"quonfig.com"`. Overridden by explicit `apiUrl` / `apiUrls`. |
+| `apiUrls`                    | no       | `string[]`        | ordered list of API base URLs to try (failover order). Escape hatch when your deploy doesn't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`. |
+| `apiUrl`                     | no       | `string`          | convenience alias for a single API base URL — normalized to `apiUrls=[apiUrl]`. `apiUrls` wins if both are set. |
 | `timeout`                    | no       | `number`          | initialization timeout in milliseconds (default 10000)                        |
 | `onError`                    | no       | `(error) => void` | callback invoked on initialization failure                                    |
 | `collectEvaluationSummaries` | no       | `boolean`         | opt out of evaluation summary telemetry (default `true`)                      |

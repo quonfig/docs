@@ -165,11 +165,13 @@ const provider = new QuonfigWebProvider({
 ```typescript
 const provider = new QuonfigWebProvider({
   sdkKey: "qf_sk_...",            // required
-  targetingKeyMapping: "user.id", // default
-  apiUrls: ["https://custom.api"], // optional — override API base URLs (default: ["https://primary.quonfig.com"])
-  timeout: 5000,                  // optional — ms
+  targetingKeyMapping: "user.id", // default — which Quonfig context property OpenFeature `targetingKey` maps to
+  apiUrl: "https://custom.api",   // optional — override the Quonfig API base URL. Defaults derive from `primary.quonfig.com` / `secondary.quonfig.com`.
+  timeout: 5000,                  // optional — initialization request timeout in ms
 });
 ```
+
+To point a browser app at staging, set `apiUrl` to your staging API host (e.g. `https://primary.quonfig-staging.com`). The native `@quonfig/javascript` SDK exposes a `domain` option that flips api + telemetry URLs in lockstep — that knob is not currently surfaced through this provider, so override `apiUrl` here, and if you need to redirect telemetry too reach for the underlying client via `provider.getClient()`.
 
 ## What you lose vs. the native SDK
 
