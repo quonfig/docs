@@ -169,27 +169,11 @@ qfg workspace create acme-prod --org acme-org
 slug; combined with the org, the workspace is addressable as `acme-org/acme-prod`
 in every other CLI command.
 
-### 3. Migrate locally
+### 3. Migrate to the cloud in one step
 
-Run the migrator pointed at a local directory first (no `--push` yet):
-
-```bash
-qfg migrate --from launch --api-key $LAUNCH_API_KEY --dir ./quonfig-repo
-```
-
-### 4. Verify the migrated workspace
-
-```bash
-cd ./quonfig-repo && qfg verify
-```
-
-This catches schema and structural problems before the cloud sees them. Skipping
-verify means a bad migration becomes a failed `--push` (or worse, a successful
-push of broken data).
-
-### 5. Push to the cloud workspace
-
-From the parent directory, re-run with `--workspace`, `--dir`, and `--push`:
+Use a single `qfg migrate --push` invocation. Point `--dir` at an empty
+directory or a path that does not exist yet — the migrator will clone the
+workspace into it, apply the data, and push:
 
 ```bash
 qfg migrate --from launch --api-key $LAUNCH_API_KEY \
@@ -201,16 +185,25 @@ qfg migrate --from launch --api-key $LAUNCH_API_KEY \
 The `--workspace` value **must be in `org/slug` form** (`acme-org/acme-prod`,
 not `acme-prod`). Bare slugs are rejected.
 
-`--dir` and `--workspace` are mutually exclusive **unless `--push` is also
-passed** — `--push` is what tells the CLI you want both a local copy and a cloud
-target. Drop one of the flags if you do not need the local copy.
+The migrator runs the same `qfg verify` checks the server-side `qfg-verify`
+hook would run, **before** committing — so a bad migration fails locally with
+a clear error rather than getting partway through a push and rolling back.
+
+> **Why a single command (and not `migrate --dir` followed by `migrate --push`
+> later)?** A two-step flow leaves the local directory as a `git init`'d repo
+> with no remote. The second `--push` invocation cannot adopt that repo — it
+> needs an empty path or a clone of the target Gitea repo. Running the
+> single-command flow above avoids that trap. If you want to inspect the
+> migrated files before pushing, run the same command without `--push` against
+> a fresh `--dir`, then re-run with `--push` against a **different fresh empty
+> path** (or `qfg pull --workspace acme-org/acme-prod --dir <new-empty>` first
+> to seed the dir with the workspace's repo, then re-run with `--push`).
 
 The migrator:
 
-1. Pulls from Launch into the local directory (the cursor in
-   `.qf/import-state.json` ensures the second pull is a no-op if nothing changed
-   since step 3).
-2. Clones your cloud workspace's git repo.
+1. Clones your cloud workspace's git repo into `--dir`.
+2. Pulls from Launch into the same directory; the cursor in
+   `.qf/import-state.json` ensures re-runs only fetch new changes.
 3. Applies the migrated data as new commits on top of existing history
    (**clone-and-stack**, not `push --mirror`).
 4. Fast-forwards the push.
@@ -220,13 +213,13 @@ between migrator runs. If the cloud has diverged (same file edited in both
 places), the push fails with a conflict rather than silently clobbering your UI
 changes. See [Troubleshooting](./troubleshooting.md#i-ran-it-twice-and-got-a-merge-conflict).
 
-### 6. Confirm in the UI
+### 4. Confirm in the UI
 
 Open your workspace in app-quonfig. You should see every flag, config, and
 segment from Launch. Click around, flip a flag, verify the history view shows
 the migrator commit plus any edits you make.
 
-### 7. Mint an SDK key
+### 5. Mint an SDK key
 
 Cloud reads require a Quonfig SDK key — `qfg login` does not create one for you.
 Create one per environment:
@@ -239,7 +232,7 @@ qfg sdk-key create --environment production --type server --workspace acme-org/a
 browser SDK. The command prints the key once — store it in your secret manager
 immediately, you cannot retrieve it again later.
 
-### 8. Switch your SDK to read from the cloud
+### 6. Switch your SDK to read from the cloud
 
 All three SDKs (Node, Go, browser JavaScript) connect to `api-delivery` over SSE
 when initialized with a Quonfig SDK key. The init option is named **`sdkKey`**
@@ -276,7 +269,7 @@ const client = await init({
 > SDK derives api / SSE / telemetry URLs from `domain`. Without it, the SDK will
 > try to reach `quonfig.com` and you will see connection failures.
 
-### 9. Re-run to pick up deltas
+### 7. Re-run to pick up deltas
 
 Same command, same cursor. Clone-and-stack keeps UI edits intact:
 
