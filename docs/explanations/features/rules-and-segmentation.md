@@ -58,11 +58,15 @@ Note: Date context values can be specified as milliseconds since epoch or RFC333
 
 ### Semantic Version Rules
 
+Semver rules parse both the context value and the criteria value as [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html) versions, including pre-release and build-metadata precedence per the spec. If either value fails to parse as a valid SemVer, the rule does not match.
+
+JSON config operator names: `PROP_SEMVER_LESS_THAN`, `PROP_SEMVER_EQUAL`, `PROP_SEMVER_GREATER_THAN`.
+
 | Name          | Function                 | Example usage                                                              | Notes |
 |---------------|--------------------------|----------------------------------------------------------------------------|-------|
-| `Property Is Semver Less Than` | Use `Property Is Semver Less Than` to target an attribute referring to a software version | If you set `Criteria Property` to `sdk.version` and `Criteria Value` to '2.0.0', then the rule will match versions less than `2.0.0` | See note below on SDK version requirements for new rule operators |
-| `Property Is Semver Equal To` | Use `Property Is Semver Equal To` to target an attribute referring to a software version | If you set `Criteria Property` to `sdk.version` and `Criteria Value` to '2.0.0', then the rule will match versions equal to than `2.0.0` | See note below on SDK version requirements for new rule operators |
-| `Property Is Semver Greater To` | Use `Property Is Semver Greater Than` to target an attribute referring to a software version | If you set `Criteria Property` to `sdk.version` and `Criteria Value` to '2.0.0', then the rule will match versions greater than `2.0.0` | See note below on SDK version requirements for new rule operators |
+| `Property Is Semver Less Than` | Use `Property Is Semver Less Than` to target an attribute referring to a software version | If you set `Criteria Property` to `sdk.version` and `Criteria Value` to `2.0.0`, then the rule will match versions less than `2.0.0` (e.g. `1.9.9`, `2.0.0-rc.1`) | See note below on SDK version requirements for new rule operators |
+| `Property Is Semver Equal To` | Use `Property Is Semver Equal To` to target an attribute referring to a software version | If you set `Criteria Property` to `sdk.version` and `Criteria Value` to `2.0.0`, then the rule will match versions equal to `2.0.0` | See note below on SDK version requirements for new rule operators |
+| `Property Is Semver Greater Than` | Use `Property Is Semver Greater Than` to target an attribute referring to a software version | If you set `Criteria Property` to `sdk.version` and `Criteria Value` to `2.0.0`, then the rule will match versions greater than `2.0.0` (e.g. `2.0.1`, `2.1.0`) | See note below on SDK version requirements for new rule operators |
 
 
 ## SDK Compatibility
