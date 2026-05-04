@@ -7,9 +7,9 @@ sidebar_position: 1
 # Migrating from Launch
 
 `qfg migrate --from launch` pulls every flag, config, and segment out of a Launch
-workspace and turns it into a Quonfig workspace — either as files on disk that
-your SDK reads directly, or pushed up to a cloud workspace you can edit in the
-Quonfig UI.
+workspace and turns it into a Quonfig workspace — pushed up to a cloud workspace
+you can edit in the Quonfig UI (the recommended path), or written as files on
+disk that your SDK reads directly (the local-only alternative).
 
 Re-runs are incremental: the migrator persists a cursor in `.qf/import-state.json`
 and picks up only the changes made in Launch since the last run, so you can keep
@@ -17,22 +17,18 @@ both systems in sync while you cut over.
 
 ## :warning: Browser-SDK limitation (read this first)
 
-**Flow A (local-only) only works for server-side SDKs.**
+**The local-only alternative only works for server-side SDKs.**
 
-| SDK | Flow A (datadir, no service) | Flow B (cloud + api-delivery) |
+| SDK | Cloud (recommended) | Local-only datadir |
 | --- | --- | --- |
-| `sdk-node` | :white_check_mark: supported (`WithDatadir`) | :white_check_mark: supported |
-| `sdk-go` | :white_check_mark: supported (`WithDatadir`) | :white_check_mark: supported |
-| `sdk-javascript` (browser) | :x: **not supported** — browsers cannot read a local directory | :white_check_mark: supported (SSE from `api-delivery`) |
+| `sdk-node` | :white_check_mark: supported | :white_check_mark: supported (`WithDatadir`) |
+| `sdk-go` | :white_check_mark: supported | :white_check_mark: supported (`WithDatadir`) |
+| `sdk-javascript` (browser) | :white_check_mark: supported (SSE from `api-delivery`) | :x: **not supported** — browsers cannot read a local directory |
 
-If your app ships to browsers via `sdk-javascript`, you **must** use Flow B. The
-browser SDK loads configuration from `api-delivery` over SSE and has no datadir
-mode — this is architectural, not a roadmap gap. Trying to point the browser SDK
-at a local directory will not work.
-
-Node and Go users can use either flow. Most customers kick the tires with Flow A
-(no signup, no cloud state to clean up) and then switch to Flow B once they are
-ready to use the Quonfig UI.
+If your app ships to browsers via `sdk-javascript`, you **must** use the cloud
+flow. The browser SDK loads configuration from `api-delivery` over SSE and has
+no datadir mode — this is architectural, not a roadmap gap. Trying to point the
+browser SDK at a local directory will not work.
 
 ---
 
@@ -40,7 +36,6 @@ ready to use the Quonfig UI.
 
 - The `qfg` CLI installed (see [CLI tool](../tools/cli.md))
 - A Launch API key with read access to the workspace you are migrating
-- For Flow B: a Quonfig account. Run `qfg login` first.
 
 Set the API key in your shell so you are not pasting it on the command line.
 The CLI reads `LAUNCH_API_KEY` automatically when `--api-key` is omitted, so
@@ -50,130 +45,63 @@ The CLI reads `LAUNCH_API_KEY` automatically when `--api-key` is omitted, so
 export LAUNCH_API_KEY="123-Development-Backend-a1b2c3d4-..."
 ```
 
-Real Launch keys look like `<NUM>-<EnvName>-<Role>-<UUID>` (e.g.
-`456-Production-Backend-9f8e7d6c-...`). The legacy `launch_sk_` prefix is
-no longer issued.
-
 ---
 
-## Flow A — Local-only (server-side SDKs)
+## Migrate to Quonfig (recommended)
 
-Best for: kicking the tires, diffing behavior against Launch before you sign up,
-offline / air-gapped development. **Node and Go only.**
+This is the path most teams take. It works for every SDK (Node, Go, browser
+JavaScript), and the cloud workspace is what the Quonfig UI reads from.
 
-### 1. Run the migrator
+### 1. Sign up at quonfig.com
 
-```bash
-qfg migrate --from launch --api-key $LAUNCH_API_KEY --dir ./quonfig-repo
-```
+Sign up at [quonfig.com](https://quonfig.com). Signup creates your **organization**
+— this is the parent that owns your workspaces, your team members, and your
+billing. You'll pick an org slug during signup (e.g. `acme-org`); it shows up in
+every URL afterwards (`app.quonfig.com/<org-slug>/...`).
 
-This pulls every flag, config, and segment from Launch and writes them into
-`./quonfig-repo/` as Quonfig workspace files. It also writes:
+You only do this once. If your team already has an org, get yourself invited to
+it instead of creating a new one.
 
-- `.qf/import-state.json` — the delta cursor, committed alongside the files
-- `.qf/identifier-map.json` — a deterministic map of legacy keys to Quonfig keys
-  (used by `qfg migrate my-code` later)
-- `MIGRATION_REPORT.md` — counts, identifier map, anything lossy or unsupported,
-  and a follow-up checklist split into "must fix before cutover" vs "review post-cutover"
-
-**Always read `MIGRATION_REPORT.md` before you trust the output.** See
-[What to expect in `MIGRATION_REPORT.md`](#what-to-expect-in-migration_reportmd)
-below for the warnings most customers hit.
-
-### 2. Verify the migrated workspace
-
-Before pointing your SDK at it, ask the CLI to validate the directory:
-
-```bash
-cd ./quonfig-repo && qfg verify
-```
-
-`qfg verify` catches schema problems, malformed files, and identifier collisions
-client-side — much faster than discovering them at SDK init time or on a `--push`.
-
-### 3. Point your SDK at the directory
-
-**Node:**
-
-```typescript
-import { init } from '@quonfig/sdk';
-
-const client = await init({
-  datadir: './quonfig-repo',
-  environment: 'production',
-});
-```
-
-**Go:**
-
-```go
-import "github.com/quonfig/sdk-go/quonfig"
-
-client, err := quonfig.New(
-    quonfig.WithDatadir("./quonfig-repo"),
-    quonfig.WithEnvironment("production"),
-)
-```
-
-No API key, no network call — the SDK reads directly from the files the
-migrator wrote.
-
-### 4. Verify behavior matches Launch
-
-Run your app locally against `./quonfig-repo` and exercise the flags and
-configs you care about. Compare the values against what Launch returns. Anything
-surprising should already be flagged in `MIGRATION_REPORT.md`; if it is not,
-that is a bug — file it on the `cli` repo.
-
-### 5. Re-run to pick up deltas
-
-Changes in Launch after the initial import? Re-run the same command:
-
-```bash
-qfg migrate --from launch --api-key $LAUNCH_API_KEY --dir ./quonfig-repo
-```
-
-The cursor in `.qf/import-state.json` ensures only new changes are fetched.
-Existing files are overwritten idempotently; the report reflects only the delta.
-
-### 6. When you are ready, switch to Flow B
-
-Sign up, then see [Flow B](#flow-b--cloud-push-all-sdks) below for how to push
-`./quonfig-repo` up to the cloud.
-
----
-
-## Flow B — Cloud push (all SDKs)
-
-Best for: browser SDK users (required), teams that want the Quonfig UI, and
-anyone ready to operate Quonfig as their source of truth.
-
-### 1. Sign up and log in
-
-Sign up at [quonfig.com](https://quonfig.com), then authenticate the CLI:
+### 2. Log in from the CLI
 
 ```bash
 qfg login
 ```
 
-### 2. Create the cloud workspace
+This opens a browser, has you confirm the device, and saves a token per org you
+belong to. When it finishes, login prints your default org slug **and the next
+command to run** — copy that line, you'll use it in step 3:
 
-The CLI does not auto-create the workspace on first push — create it explicitly
-so you control the slug and the owning org:
+```
+Successfully logged in!
+Logged in as: you@acme.com
 
-```bash
-qfg workspace create acme-prod --org acme-org
+No workspaces found in acme-org. Create one with: qfg workspace create <slug> --org acme-org
 ```
 
-`--org` accepts an org slug or UUID. The slug you pass becomes the workspace
-slug; combined with the org, the workspace is addressable as `acme-org/acme-prod`
-in every other CLI command.
+If you already have a workspace, login prints `Default workspace: acme-org/<slug>`
+instead — skip to step 4.
 
-### 3. Migrate to the cloud in one step
+### 3. Create the cloud workspace
 
-Use a single `qfg migrate --push` invocation. Point `--dir` at an empty
-directory or a path that does not exist yet — the migrator will clone the
-workspace into it, apply the data, and push:
+A workspace is one logical config repo (most teams have one per product or one
+per environment family). Pick a slug and run:
+
+```bash
+qfg workspace create acme-prod
+```
+
+The slug becomes the workspace's address: `acme-org/acme-prod`. You'll use that
+`<org>/<slug>` pin in every other CLI command.
+
+> **Multi-org users:** if you belong to more than one org, add
+> `--org <org-slug>`. The login output in step 2 listed your org slugs. You can
+> also see them on each org's settings page in the UI.
+
+### 4. Migrate in one step
+
+Point `--dir` at an empty directory or a path that does not exist yet — the
+migrator will clone the workspace into it, apply the data, and push:
 
 ```bash
 qfg migrate --from launch --api-key $LAUNCH_API_KEY \
@@ -213,13 +141,24 @@ between migrator runs. If the cloud has diverged (same file edited in both
 places), the push fails with a conflict rather than silently clobbering your UI
 changes. See [Troubleshooting](./troubleshooting.md#i-ran-it-twice-and-got-a-merge-conflict).
 
-### 4. Confirm in the UI
+The migrator also writes:
+
+- `MIGRATION_REPORT.md` — counts, identifier map, anything lossy or unsupported,
+  and a follow-up checklist split into "must fix before cutover" vs "review post-cutover"
+- `.qf/identifier-map.json` — a deterministic map of legacy keys to Quonfig keys
+  (used by `qfg migrate my-code` later)
+
+**Always read `MIGRATION_REPORT.md` before you trust the output.** See
+[What to expect in `MIGRATION_REPORT.md`](#what-to-expect-in-migration_reportmd)
+below for the warnings most customers hit.
+
+### 5. Confirm in the UI
 
 Open your workspace in app-quonfig. You should see every flag, config, and
 segment from Launch. Click around, flip a flag, verify the history view shows
 the migrator commit plus any edits you make.
 
-### 5. Mint an SDK key
+### 6. Mint an SDK key
 
 Cloud reads require a Quonfig SDK key — `qfg login` does not create one for you.
 Create one per environment:
@@ -232,7 +171,7 @@ qfg sdk-key create --environment production --type server --workspace acme-org/a
 browser SDK. The command prints the key once — store it in your secret manager
 immediately, you cannot retrieve it again later.
 
-### 6. Switch your SDK to read from the cloud
+### 7. Switch your SDK to read from the cloud
 
 All three SDKs (Node, Go, browser JavaScript) connect to `api-delivery` over SSE
 when initialized with a Quonfig SDK key. The init option is named **`sdkKey`**
@@ -269,7 +208,7 @@ const client = await init({
 > SDK derives api / SSE / telemetry URLs from `domain`. Without it, the SDK will
 > try to reach `quonfig.com` and you will see connection failures.
 
-### 7. Re-run to pick up deltas
+### 8. Re-run to pick up deltas
 
 Same command, same cursor. Clone-and-stack keeps UI edits intact:
 
@@ -279,6 +218,77 @@ qfg migrate --from launch --api-key $LAUNCH_API_KEY \
   --dir ./quonfig-repo \
   --push
 ```
+
+---
+
+## Alternative: local-only datadir (Node + Go, no signup)
+
+Best for: kicking the tires, diffing behavior against Launch before you sign up,
+offline / air-gapped development. **Node and Go only — browser SDK users need
+the cloud flow above.**
+
+No signup, no `qfg login`, no SDK key — the migrator writes files to disk and
+your SDK reads them directly.
+
+### 1. Run the migrator
+
+```bash
+qfg migrate --from launch --api-key $LAUNCH_API_KEY --dir ./quonfig-repo
+```
+
+This pulls every flag, config, and segment from Launch and writes them into
+`./quonfig-repo/` as Quonfig workspace files, plus the same `MIGRATION_REPORT.md`,
+`.qf/import-state.json`, and `.qf/identifier-map.json` described in step 4 above.
+
+### 2. Verify the migrated workspace
+
+```bash
+cd ./quonfig-repo && qfg verify
+```
+
+`qfg verify` catches schema problems, malformed files, and identifier collisions
+client-side — much faster than discovering them at SDK init time.
+
+### 3. Point your SDK at the directory
+
+**Node:**
+
+```typescript
+import { init } from '@quonfig/sdk';
+
+const client = await init({
+  datadir: './quonfig-repo',
+  environment: 'production',
+});
+```
+
+**Go:**
+
+```go
+import "github.com/quonfig/sdk-go/quonfig"
+
+client, err := quonfig.New(
+    quonfig.WithDatadir("./quonfig-repo"),
+    quonfig.WithEnvironment("production"),
+)
+```
+
+No API key, no network call — the SDK reads directly from the files the
+migrator wrote.
+
+### 4. Re-run to pick up deltas
+
+```bash
+qfg migrate --from launch --api-key $LAUNCH_API_KEY --dir ./quonfig-repo
+```
+
+The cursor in `.qf/import-state.json` ensures only new changes are fetched.
+
+### 5. When you are ready, switch to the cloud
+
+Sign up and follow the [recommended cloud flow](#migrate-to-quonfig-recommended)
+above. Use a fresh empty `--dir` for the cloud run — don't reuse the local-only
+directory, since `--push` needs to clone the cloud workspace's git repo into it.
 
 ---
 
@@ -302,8 +312,9 @@ migrator with `--reset` to re-import that workspace from scratch.
 ### Cross-type key collisions
 
 Quonfig requires globally-unique keys across all types (config, feature_flag,
-segment). Reforge does not — the same key can exist as both a config and a
-feature_flag at the same time. When the migrator sees this, it **keeps the
+segment). Launch lets you migrate from Feature Flag to Config; for configs
+that came into existence like this, Quonfig will only retain the config
+history/audit trail. When the migrator sees this, it **keeps the
 config side and deletes the others**, recorded under "Resolved cross-type
 duplicates" in the report.
 
@@ -325,15 +336,16 @@ qfg migrate --from <source> [flags]
 | `--api-key <key>` | Legacy-system API key. Also read from `LAUNCH_API_KEY`. |
 | `--dir <path>` | Write to this local directory. Defaults to `./quonfig-repo` when cwd is not already a Quonfig workspace. |
 | `--workspace <org/slug>` | Cloud workspace to operate on. **Must be `org/slug` form** (e.g. `acme-org/acme-prod`); bare slugs are rejected. Requires `qfg login`. |
-| `--push` | After migrating locally, push to the cloud workspace (Flow B). Required to combine `--dir` and `--workspace`. |
+| `--push` | After migrating locally, push to the cloud workspace. Required to combine `--dir` and `--workspace`. |
 | `--dry-run` | Show what would happen; write nothing. |
 | `--since <timestamp>` | Override the delta cursor. |
 | `--reset` | Ignore the cursor and do a full re-import. |
 | `--recent <N>` | Import only the last N changes (useful for smoke tests). |
 
 > `--dir` and `--workspace` are mutually exclusive **unless `--push` is also
-> passed**. Use `--dir` alone for Flow A, `--workspace` alone for an in-place
-> cloud op, or all three (`--dir + --workspace + --push`) for Flow B.
+> passed**. Use `--dir` alone for the local-only alternative, `--workspace`
+> alone for an in-place cloud op, or all three (`--dir + --workspace + --push`)
+> for the recommended cloud migration.
 
 ### Force a full reimport
 
@@ -351,9 +363,6 @@ code-migration output stays stable.
 Quonfig's schema differs from Launch in a few places. The full list lives in
 `MIGRATION_REPORT.md` for your workspace, but expect to manually review:
 
-- Custom context adapters that transform user attributes before evaluation
-- Unusual rule shapes (nested OR/AND trees beyond two levels)
-- Scheduled changes and experiments — out of scope for v1
 - Identifier collisions on case-insensitive filesystems (the migrator fails
   loudly rather than silently clobbering)
 
@@ -362,5 +371,5 @@ Quonfig's schema differs from Launch in a few places. The full list lives in
 ## Next steps
 
 - [Troubleshooting common issues](./troubleshooting.md)
-- Migrate your call sites with `qfg migrate my-code` (Claude skill, see [CLI tool](../tools/cli.md))
+- Migrate your call sites — point your coding agent at `.qf/identifier-map.json` (the legacy → Quonfig key map the migrator writes alongside your workspace files) to rewrite Launch SDK call sites. `qfg migrate my-code` wraps this for Claude Code.
 - Swap your SDK: [Node](../sdks/node/node.md), [Go](../sdks/go.md), [JavaScript (browser)](../sdks/javascript.md)
