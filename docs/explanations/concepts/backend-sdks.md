@@ -4,6 +4,19 @@ sidebar_label: Backend SDKs
 sidebar_position: 1
 ---
 
+## Backend SDK keys (`qf_sk_…`)
+
+Backend SDKs authenticate with a **secret** SDK key — `sk` for **secret**. It must stay server-side; the rule data and the entire config payload travel with this key, so anyone who has it can read your raw targeting rules.
+
+```bash
+# .env — server-only, never expose to the browser
+QUONFIG_BACKEND_SDK_KEY=qf_sk_test_0654_0b5d67xxxxxxxxxx
+```
+
+Backend keys are paired with frontend keys (`qf_pk_…`) which are safe for the browser — see [Frontend SDKs](/docs/explanations/concepts/frontend-sdks#frontend-sdk-keys-qf_pk_). Use backend keys in Node, Go, Ruby, Python, Java, and other server runtimes.
+
+Generate backend keys from **Settings → SDK Keys** in the Quonfig dashboard.
+
 ## SDK Architecture
 
 The Quonfig server-side SDKs are all built with the following 3 goals in mind:

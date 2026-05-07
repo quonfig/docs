@@ -30,6 +30,22 @@ npx @quonfig/cli generate --dir ./my-config --targets react-ts
 
 Set `QUONFIG_DIR=./my-config` to avoid repeating `--dir`.
 
+**Prerequisites**
+
+- `pull` requires authentication. Either run `npx @quonfig/cli login` once (interactive OAuth, recommended for local dev) **or** export a `QUONFIG_API_KEY` (starts with `qf_uk_…`) plus `QUONFIG_WORKSPACE=<workspace-slug>` for headless / CI use. Generate a `qf_uk_` key from **Settings → API Keys** in the dashboard. Note: this is a *user* API key, not an SDK key — the `qf_sk_…` / `qf_pk_…` SDK keys do not work with the CLI.
+- `generate` does **not** call the network when `--dir` (or `QUONFIG_DIR`) points at a checkout from `pull`, so it can run in any environment.
+
+**Output**
+
+By default `generate --targets react-ts` writes two files under `./generated/`:
+
+```
+./generated/quonfig-client.ts        # the typed useQuonfig hook
+./generated/quonfig-client-types.d.ts # ambient declarations
+```
+
+Override the directory with `-o <path>`. Import the typed hook with `import { useQuonfig } from "./generated/quonfig-client"` (note: this replaces the default `useQuonfig` from `@quonfig/react`).
+
 **Note**: The `react-ts` target only includes configs with "Send to Client SDKs" enabled and all feature flags. If a config is missing from the generated types, check that setting in the Quonfig dashboard.
 
 :::
@@ -38,24 +54,43 @@ Set `QUONFIG_DIR=./my-config` to avoid repeating `--dir`.
 
 Use your favorite package manager to install `@quonfig/react` [npm](https://www.npmjs.com/package/@quonfig/react) | [github](https://github.com/QuonfigHQ/sdk-react)
 
+`@quonfig/react` declares `@quonfig/javascript` as a peer dependency, so install both:
+
 <Tabs groupId="lang">
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig/react
+npm install @quonfig/react @quonfig/javascript
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig/react
+yarn add @quonfig/react @quonfig/javascript
 ```
 
 </TabItem>
 </Tabs>
 
+:::note Why is `@quonfig/javascript` a peer dep?
+The React SDK is a thin wrapper around the JavaScript SDK and shares its module-level singleton with your app. Keeping `@quonfig/javascript` as a peer guarantees a single instance in your bundle — required for the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration) where you call `quonfig.init()` / `quonfig.extract()` directly from `@quonfig/javascript` on the server and `<QuonfigProvider initialFlags={…}>` on the client.
+:::
+
 TypeScript types are included with the package.
+
+## Frontend vs. server SDK keys
+
+Quonfig issues two kinds of SDK keys, and your React app should only ever ship the **frontend** one in client bundles:
+
+| Key kind | Prefix    | Use it in              | Env var (Next.js example)                |
+| -------- | --------- | ---------------------- | ---------------------------------------- |
+| Frontend | `qf_pk_…` | browser / React SDK    | `NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY`   |
+| Backend  | `qf_sk_…` | server / Node, Go, etc | `QUONFIG_BACKEND_SDK_KEY`                |
+
+`pk` = **public**, safe to expose. `sk` = **secret**, must never reach the browser. Generate both from **Settings → SDK Keys** in the Quonfig dashboard.
+
+For the deeper "why two keys" explanation see [How Frontend SDKs Work](/docs/explanations/concepts/frontend-sdks) and [How Backend SDKs Work](/docs/explanations/concepts/backend-sdks).
 
 ## Initialize the Client
 
@@ -66,14 +101,14 @@ First, wrap your component tree in the `QuonfigProvider`, e.g.
 <Tabs groupId="lang">
 <TabItem value="typegen" label="⭐ TypeScript + Generated Types (Recommended)">
 
-First, pull your workspace config and generate types:
+First, pull your workspace config and generate types (see the **TypeScript Support** tip near the top of the page for prerequisites and output details):
 
 ```bash
 npx @quonfig/cli pull --dir ./my-config
 npx @quonfig/cli generate --dir ./my-config --targets react-ts
 ```
 
-Then set up your provider (same as TypeScript):
+This writes `./generated/quonfig-client.ts` (the typed `useQuonfig` hook) and `./generated/quonfig-client-types.d.ts`. Then set up your provider (same as TypeScript):
 
 ```tsx
 import { QuonfigProvider } from "@quonfig/react";
@@ -86,7 +121,7 @@ const WrappedApp = (): ReactNode => {
   };
 
   return (
-    <QuonfigProvider sdkKey={"QUONFIG_FRONTEND_SDK_KEY"} onError={onError}>
+    <QuonfigProvider sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!} onError={onError}>
       <MyApp />
     </QuonfigProvider>
   );
@@ -107,7 +142,7 @@ const WrappedApp = (): ReactNode => {
   };
 
   return (
-    <QuonfigProvider sdkKey={"QUONFIG_FRONTEND_SDK_KEY"} onError={onError}>
+    <QuonfigProvider sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!} onError={onError}>
       <MyApp /> {/* All child components can now use useQuonfig hook */}
     </QuonfigProvider>
   );
@@ -126,7 +161,7 @@ const WrappedApp = () => {
   };
 
   return (
-    <QuonfigProvider sdkKey={"QUONFIG_FRONTEND_SDK_KEY"} onError={onError}>
+    <QuonfigProvider sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY} onError={onError}>
       <MyApp />
     </QuonfigProvider>
   );
@@ -324,7 +359,7 @@ const WrappedApp = (): ReactNode => {
 
   return (
     <QuonfigProvider
-      sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
+      sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!}
       // highlight-next-line
       contextAttributes={contextAttributes}
       onError={onError}
@@ -378,7 +413,7 @@ const WrappedApp = (): ReactNode => {
 
   return (
     <QuonfigProvider
-      sdkKey={"QUONFIG_FRONTEND_SDK_KEY"} // client SDK key
+      sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!} // client SDK key
       // highlight-next-line
       contextAttributes={contextAttributes} // targeting context for all flags
       onError={onError}
@@ -409,7 +444,7 @@ const WrappedApp = () => {
 
   return (
     <QuonfigProvider
-      sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
+      sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY}
       // highlight-next-line
       contextAttributes={contextAttributes}
       onError={onError}
@@ -754,7 +789,7 @@ If you're using [Quonfig for A/B testing](/docs/how-tos/experiment.md), you can 
 
 ```tsx
 <QuonfigProvider
-  sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
+  sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!}
   contextAttributes={contextAttributes}
   onError={onError}
   // highlight-start
@@ -776,7 +811,7 @@ If you're using [Quonfig for A/B testing](/docs/how-tos/experiment.md), you can 
 
 ```jsx
 <QuonfigProvider
-  sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
+  sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY}
   contextAttributes={contextAttributes}
   onError={onError}
   // highlight-start
