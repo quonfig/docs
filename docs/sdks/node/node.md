@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
 
   return rf.inContext(context, (contextRf) => {
     const welcomeMessage = contextRf.get("welcomeMessage");
-    const isFeatureEnabled = contextRf.isFeatureEnabled("newFeature");
+    const isFeatureEnabled = contextRf.isEnabled("newFeature");
 
     return NextResponse.json({
       welcomeMessage,
@@ -249,7 +249,7 @@ export async function GET(request) {
 
   return rf.inContext(context, (contextRf) => {
     const welcomeMessage = contextRf.get("welcomeMessage");
-    const isFeatureEnabled = contextRf.isFeatureEnabled("newFeature");
+    const isFeatureEnabled = contextRf.isEnabled("newFeature");
 
     return Response.json({
       welcomeMessage,
@@ -316,7 +316,7 @@ After the init completes you can use:
 
 ```typescript
 // Feature flags
-if (quonfig.isFeatureEnabled("some.feature.name")) {
+if (quonfig.isEnabled("some.feature.name")) {
   // returns boolean
   // Feature is enabled
 }
@@ -332,16 +332,23 @@ const booleanFlag: boolean | undefined = quonfig.get("feature.enabled"); // bool
 
 After the init completes you can use:
 
-- `quonfig.isFeatureEnabled('some.feature.name')` returns true or false
+- `quonfig.isEnabled('some.feature.name')` returns true or false
 - `quonfig.get('some.config.name')` returns a raw value
 
 </TabItem>
 </Tabs>
 
+:::note Migrating from earlier releases
+
+`isFeatureEnabled` is still available as a deprecated alias of `isEnabled` — both behave identically.
+New code should prefer `isEnabled`, which matches `@quonfig/javascript` and `@quonfig/react`.
+
+:::
+
 ## Context
 
 Quonfig supports [context](/docs/explanations/concepts/context) for intelligent rule-based
-evaluation of `get` and `isFeatureEnabled` based on the current request/device/user/etc.
+evaluation of `get` and `isEnabled` based on the current request/device/user/etc.
 
 Given
 
@@ -398,7 +405,7 @@ const context: Contexts = {
 You can pass this in to each call
 
 - `quonfig.get('some.config.name', context, defaultValue)` // context-aware config
-- `quonfig.isFeatureEnabled('some.feature.name', context, false)` // context-aware feature flag
+- `quonfig.isEnabled('some.feature.name', context, false)` // context-aware feature flag
 
 Or you can set the context in a block (perhaps surrounding evaluation of a web request)
 
@@ -410,7 +417,7 @@ quonfig.inContext(context, (rf) => {
     rf.get("some.config.name", optionalJustInTimeContext, defaultValue),
   ); // merged context
   console.log(
-    rf.isFeatureEnabled("some.feature.name", optionalJustInTimeContext, false),
+    rf.isEnabled("some.feature.name", optionalJustInTimeContext, false),
   ); // boolean result
 });
 ```
@@ -428,7 +435,7 @@ const context = {
 You can pass this in to each call
 
 - `quonfig.get('some.config.name', context, defaultValue)`
-- `quonfig.isFeatureEnabled('some.feature.name', context, false)`
+- `quonfig.isEnabled('some.feature.name', context, false)`
 
 Or you can set the context in a block (perhaps surrounding evaluation of a web request)
 
@@ -916,7 +923,7 @@ Set configuration values at runtime (useful for testing or dynamic overrides):
 quonfig.set("feature.beta", { bool: true });
 
 // The override persists until the next config update or restart
-const isEnabled = quonfig.isFeatureEnabled("feature.beta"); // true
+const isEnabled = quonfig.isEnabled("feature.beta"); // true
 ```
 
 ## Connection Management

@@ -29,7 +29,7 @@ async function getQuonfig(): Promise<Quonfig> {
 // In a Next.js Server Component or Route Handler:
 export default async function MyPage() {
   const quonfig = await getQuonfig();
-  const showBanner = quonfig.isFeatureEnabled("show-banner");
+  const showBanner = quonfig.isEnabled("show-banner");
 
   // flush telemetry after the response is sent, before Vercel freezes the function
   after(() => quonfig.flush());
@@ -188,7 +188,7 @@ export default async (req: Request, context: any) => {
   const quonfigContext: Contexts = { user: { key: userId } }; // create user context
 
   return quonfig.inContext(quonfigContext, (rf) => {
-    if (rf.isFeatureEnabled("my-flag")) { // context-aware feature flag
+    if (rf.isEnabled("my-flag")) { // context-aware feature flag
       // Your code here
     }
 
@@ -224,7 +224,7 @@ export default async (req, context) => {
   const quonfigContext = { user: { key: userId } };
 
   return quonfig.inContext(quonfigContext, (rf) => {
-    if (rf.isFeatureEnabled("my-flag")) {
+    if (rf.isEnabled("my-flag")) {
       // Your code here
     }
 

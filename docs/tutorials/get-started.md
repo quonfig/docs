@@ -143,7 +143,7 @@ await quonfig.init();
 
 // true for 5% of the users
 const context = new Map([["user", new Map([["key", Math.random()]])]]);
-quonfig.isFeatureEnabled("features.example-flag", context, false);
+quonfig.isEnabled("features.example-flag", context, false);
 
 // 100% of users in the beta group will return true
 const context = new Map([
@@ -155,7 +155,7 @@ const context = new Map([
     ]),
   ],
 ]);
-quonfig.isFeatureEnabled("features.example-flag", context, false);
+quonfig.isEnabled("features.example-flag", context, false);
 ```
 
 </TabItem>
