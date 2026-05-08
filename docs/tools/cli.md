@@ -37,6 +37,10 @@ See `qfg --help` for all the available commands. `qfg [COMMAND] --help` will giv
 
 `qfg` is designed for humans first, but all commands support a `--json` flag to output JSON instead.
 
+:::tip Need env vars in a build or migration step?
+For build steps, migrations, and one-shot scripts that read configuration from `process.env` before user code runs (e.g. `drizzle-kit migrate`, `next build`), use [`qfg run`](/docs/tools/qfg-run) to resolve Quonfig configs into env vars and exec a child process.
+:::
+
 ## Global Flags
 
 These flags are available for all commands:
@@ -627,6 +631,18 @@ Example:
 ```bash
 qfg override my.flag.name --value=true
 ```
+
+### run
+
+`qfg run` resolves Quonfig configs into environment variables and `exec`s a child command. Use this for build steps, migrations, and any tool that reads its config from `process.env` before user code runs (and therefore can't call the SDK).
+
+Example:
+```bash
+qfg run --env DATABASE_URL=db.url -- drizzle-kit migrate
+qfg run --env-file=.qfg.env -- next build
+```
+
+The `--` separator between `qfg run` flags and the child command is required. Auth/environment is binary — set either `QUONFIG_BACKEND_SDK_KEY` (Mode A) or use `qfg login` plus `--environment` / `QUONFIG_ENVIRONMENT` (Mode B), never both. See [Running commands with injected env](/docs/tools/qfg-run) for the full reference, package.json patterns, and the `instrumentation.ts` comparison.
 
 ## Troubleshooting
 

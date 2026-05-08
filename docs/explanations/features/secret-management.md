@@ -238,3 +238,7 @@ This will be the only secret you ever need to share amongst your developers goin
 ## How do secrets work in  CI?
 
 Because Quonfig secret management uses the regular dynamic configuration, you'll use the same techniques to run in continuous integration environments which may be offline. The full guide is available in [Testing](/docs/explanations/concepts/testing). The only thing you'll need to remember is to make `QUONFIG_SECRET_KEY_DEFAULT` available to processes in CI.
+
+:::tip Migrations and build steps
+For tools that read secrets from `process.env` *before* the SDK can initialize — `drizzle-kit migrate`, `next build`, `next-auth`'s `AUTH_SECRET`, and similar — use [`qfg run`](/docs/tools/qfg-run) to resolve Quonfig configs into env vars and exec the child process. Avoid hand-rolling a `with-quonfig-env.ts` wrapper script; `qfg run` handles the resolve, the env merge, and the binary auth/environment rule for you.
+:::
