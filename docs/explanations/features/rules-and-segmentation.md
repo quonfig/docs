@@ -69,6 +69,18 @@ JSON config operator names: `PROP_SEMVER_LESS_THAN`, `PROP_SEMVER_EQUAL`, `PROP_
 | `Property Is Semver Greater Than` | Use `Property Is Semver Greater Than` to target an attribute referring to a software version | If you set `Criteria Property` to `sdk.version` and `Criteria Value` to `2.0.0`, then the rule will match versions greater than `2.0.0` (e.g. `2.0.1`, `2.1.0`) | See note below on SDK version requirements for new rule operators |
 
 
+### Presence Rules
+
+Presence rules check whether a property is **set** on the evaluation context, regardless of its type or value. They take only a property name — no `Criteria Value`. A property counts as **present** when the dotted path resolves and the value is not `null`/`undefined`. Empty string `""`, `0`, and `false` are intentionally considered present (the question is "is the field set", not "is it truthy"). Missing intermediate keys in dotted paths count as not present.
+
+JSON config operator names: `IS_PRESENT`, `IS_NOT_PRESENT`.
+
+| Name          | Function                 | Example usage                                                              | Notes |
+|---------------|--------------------------|----------------------------------------------------------------------------|-------|
+| `Property Is Present` | Match when the property is set on the context | If you set `Criteria Property` to `user.id`, the rule matches any user whose context has a non-null `user.id` (including empty string or `0`) and skips users where `user.id` was never sent | See note below on SDK version requirements for new rule operators |
+| `Property Is Not Present` | Match when the property is missing or null on the context | If you set `Criteria Property` to `organization.domain`, the rule matches contexts that did not include `organization.domain` (or sent it as `null`); useful for "fall through" defaults for anonymous or partial contexts | See note below on SDK version requirements for new rule operators |
+
+
 ## SDK Compatibility
 
 The Quonfig-js and Quonfig-react SDKs evaluate rules remotely so any version will support the operaters with SDK Version requirements.
