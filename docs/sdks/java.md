@@ -84,7 +84,7 @@ quonfig.initFuture().get();
 
 ### Datadir mode (local development)
 
-To run the SDK against a local checkout of a Quonfig workspace directory (the `configs/`, `feature-flags/`, `segments/`, `log-levels/`, `schemas/` tree), use `datadir`. **`environment` is required in datadir mode** — set it via the builder or the `QUONFIG_ENVIRONMENT` env var.
+To run the SDK against a local checkout of a Quonfig workspace directory (the `configs/`, `feature-flags/`, `segments/`, `log-levels/` tree), use `datadir`. **`environment` is required in datadir mode** — set it via the builder or the `QUONFIG_ENVIRONMENT` env var.
 
 ```java
 Quonfig quonfig = new Quonfig(
