@@ -2,598 +2,461 @@
 title: Java
 ---
 
-:::warning Not yet available
-
-There is no official Quonfig Java SDK yet. The instructions below describe a planned API and are **not** currently usable — the Maven coordinates, classes, and method names on this page are aspirational and may change before release.
-
-If you need Java support, please let us know so we can prioritize. In the meantime, the [Go](./go.md), [Node](./node/node.md), [Python](./python.md), and [Ruby](./ruby.md) SDKs are production-ready.
-
-:::
-
 ## Install the latest version
 
-[Github](https://github.com/QuonfigHQ/sdk-java) | [Maven Repository](https://mvnrepository.com/artifact/com.quonfig/sdk)
+[GitHub](https://github.com/QuonfigHQ/sdk-java) | [Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java)
 
-```xml
-<dependency>
-    <groupId>com.quonfig</groupId>
-    <artifactId>sdk</artifactId>
-    <version>LATEST</version>
-</dependency>
-```
+Replace `0.0.1` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
 
-<details>
-<summary>
+<Tabs groupId="java-build">
+<TabItem value="gradle-kotlin" label="Gradle (Kotlin DSL)">
 
-#### Dependency-Reduced Version
-
-</summary>
-
-There's an optional uber-jar with shaded and relocated guava and failsafe dependencies
-
-```xml
-<dependency>
-    <groupId>com.quonfig</groupId>
-    <artifactId>sdk</artifactId>
-    <version>LATEST</version>
-    <classifier>uberjar</classifier>
-</dependency>
-```
-
-</details>
-
-## Initialize the client
-
-### Basic Usage
-
-```java
-import com.quonfig.sdk.Options;
-import com.quonfig.sdk.Sdk;
-
-final Sdk quonfig = new Sdk(new Options());
-```
-
-### Typical Usage
-
-We recommend using the `Sdk` as a singleton in your application. This is the most common way to use the SDK.
-
-```java
-import com.quonfig.sdk.Options;
-import com.quonfig.sdk.Sdk;
-
-// Micronaut Factory
-@Factory
-public class QuonfigFactory {
-
-  @Singleton
-  public Sdk quonfig() {
-    return new Sdk(new Options());
-  }
-
-  @Singleton
-  public FeatureFlagClient featureFlagClient(Sdk quonfig) {
-    return quonfig.featureFlagClient();
-  }
-
-  @Singleton
-  public ConfigClient configClient(Sdk quonfig) {
-    return quonfig.configClient();
-  }
+```kotlin
+dependencies {
+    implementation("com.quonfig:sdk-java:0.0.1")
 }
 ```
-
-## Feature Flags
-
-For boolean flags, you can use the `featureIsOn` convenience method:
-
-```java
-public class MyClass {
-  // assumes you have setup a singleton
-  @Inject
-  private FeatureFlagClient featureFlagClient;
-
-  public String test(String key){
-    boolean val = featureFlagClient.featureIsOn(key);
-    return "Feature flag value of %s is %s".formatted(key, val);
-  }
-}
-```
-
-Feature flags don't have to return just true or false. You can get other data types using typed methods:
-
-```java
-public class MyClass {
-  // assumes you have setup a singleton
-  @Inject
-  private FeatureFlagClient featureFlagClient;
-
-  public String test(String key){
-    // highlight-next-line
-    String val = featureFlagClient.getString(key, "default value");
-    return "Feature flag value of %s is %s".formatted(key, val);
-  }
-}
-```
-
-Available typed methods: `getString()`, `getLong()`, `getDouble()`, `getBoolean()`, `getStringList()`, `getJSON()`, and `getDuration()`.
-
-## Context
-
-To finely-target configuration rule evaluation, we accept contextual information globally, request-scoped (thread-locally) with the ContextStore which will affect all featureflag and config lookups.
-
-### Global Context
-
-Use global context for information that doesn't change - for example, your application's key, availability-zone etc. Set it in the client's options as below
-
-```java
-import com.quonfig.sdk.Options;
-import com.quonfig.sdk.Sdk;
-
-Context deploymentContext = Context
-  .newBuilder("application")
-  .put("key", "my-api")
-  .put("az", "1a")
-  .put("type", "web")
-  .build();
-
-Options options = new Options()
-  .setGlobalContext(ContextSet.from(deploymentContext));
-
-final Sdk quonfig = new Sdk(options);
-```
-
-### Thread-local (Request-scoped)
-
-```java
-// set the thread-local context
-quonfig.configClient().getContextStore().addContext(
-  Context.newBuilder("User")
-    .put("name", user.getName())
-    .put("key", user.getKey())
-    .build());
-
-// or using an autoclosable scope helper
-// this will replace any-existing threadlocal context until the try-with-resources block exits
-ContextHelper prefabContextHelper = new ContextHelper(
-  quonfig.configClient()
-);
-
-try (
-  ContextHelper.ContextScope ignored = prefabContextHelper.performWorkWithAutoClosingContext(
-    Context.newBuilder("User")
-      .put("name", user.getName())
-      .put("key", user.getKey())
-      .build());
-) {
-  // do config/flag operations
-}
-```
-
-When thread-local context is set, log levels and feature flags will evaluate in that context. Here are details on setting thread-local context:
-
-<Tabs groupId="lang">
-<TabItem value="micronaut" label="Micronaut">
-
-Add a [filter](https://github.com/QuonfigHQ/example-micronaut-app/blob/configure-prefab-context/src/main/java/com/example/prefab/ContextFilter.java) to add a Quonfig context based on the currently "logged in" user.
-
-```java
-@Filter(Filter.MATCH_ALL_PATTERN)
-public class ContextFilter implements HttpFilter {
-
-    private final ConfigClient configClient;
-
-    @Inject
-    ContextFilter(ConfigClient configClient) {
-        this.configClient = configClient;
-    }
-
-    @Override
-    public Publisher<? extends HttpResponse<?>> doFilter(HttpRequest<?> request, FilterChain chain) {
-
-        request.getUserPrincipal(Authentication.class).ifPresent(authentication ->
-                {
-                    User user = (User) authentication.getAttributes().get(ExampleAuthenticationProvider.USER_ATTR);
-                    configClient.getContextStore()
-                            .addContext(
-                              Context.newBuilder("user")
-                                .put("id", user.id())
-                                .put("country", user.country())
-                                .put("email", user.email())
-                                .build()
-                            );
-                }
-        );
-        return chain.proceed(request);
-    }
-
-    @Override
-    public int getOrder() {
-        return ServerFilterPhase.SECURITY.after() + 1;
-        // run after the DefaultLoginFilter
-    }
-}
-```
-
-Quonfig Context uses ThreadLocals by default. In event-based frameworks like micronaut, that won't work so configure the Quonfig Context store to use `ServerRequestContextStore` instead.
-
-```java
-options.setContextStore(new ServerRequestContextStore());
-```
-
-Learn more with the [Quonfig + Micronaut example app](https://github.com/QuonfigHQ/example-micronaut-app)
 
 </TabItem>
 
-<TabItem value="dropwizard" label="Dropwizard">
+<TabItem value="gradle-groovy" label="Gradle (Groovy DSL)">
 
-Use a `ContainerRequestFilter` to set the context for your request when the request begins
-
-```java
-public class ContextAddingRequestFilter implements ContainerRequestFilter {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ContextAddingRequestFilter.class);
-    private final ConfigClient configClient;
-
-    @Inject
-    public ContextAddingRequestFilter(ConfigClient configClient) {
-        this.configClient = configClient;
-    }
-
-    @Override
-    public void filter(ContainerRequestContext containerRequestContext) throws IOException {
-        final SecurityContext securityContext =
-                containerRequestContext.getSecurityContext();
-        if (securityContext != null) {
-            Principal principal = securityContext.getUserPrincipal();
-            if (principal instanceof User) {
-                User user = (User) principal;
-                LOGGER.info("will add pf context for {}", user);
-                configClient.getContextStore().addContext(
-                      Context.newBuilder("User")
-                        .put("name", user.getName())
-                        .build());
-            }
-        }
-    }
+```groovy
+dependencies {
+    implementation 'com.quonfig:sdk-java:0.0.1'
 }
 ```
 
-Then we'll add another `ContainerResponseFilter` to clear the context from the ThreadLocal when the request finishes.
+</TabItem>
 
-```java
-public class PrefabContexClearingResponseFilter implements ContainerResponseFilter {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PrefabContexClearingResponseFilter.class);
-    private final ConfigClient configClient;
+<TabItem value="maven" label="Maven">
 
-    @Inject
-    PrefabContexClearingResponseFilter(ConfigClient configClient) {
-        this.configClient = configClient;
-    }
-
-    @Override
-    public void filter(ContainerRequestContext containerRequestContext, ContainerResponseContext containerResponseContext) throws IOException {
-        configClient.getContextStore().clearContexts();
-        LOGGER.info("Cleared context");
-    }
-}
+```xml
+<dependency>
+    <groupId>com.quonfig</groupId>
+    <artifactId>sdk-java</artifactId>
+    <version>0.0.1</version>
+</dependency>
 ```
-
-Learn more with the [Quonfig + Dropwizard example app](https://github.com/QuonfigHQ/example-dropwizard-app)
 
 </TabItem>
 </Tabs>
 
-<details>
-<summary>
+**Requirements:** Java 17 or later.
 
-### Just-in-time Context
+## Initialize the client
 
-</summary>
+The Java SDK exposes a single client class, `com.quonfig.sdk.Quonfig`, configured with an immutable `Options` value built via `Options.builder()`.
 
-You can also provide context information inline when making a get request. If you provide just-in-time context to your FF or config evaluations, it will be merged with the global context.
+If you set `QUONFIG_BACKEND_SDK_KEY` in your environment, initialization is a one-liner:
 
 ```java
-featureFlagClient.featureIsOn(
-    "features.example-flag",
-    Context.newBuilder("customer")
-      .put("group", "beta")
-      .build()
-  )
+import com.quonfig.sdk.Options;
+import com.quonfig.sdk.Quonfig;
 
-String value = quonfig.configClient().getString(
-  "the.key",
-  "default-value",
-  Context.newBuilder("user")
-    .put("name", "james")
-    .put("tier", "gold")
-    .put("customerMonths", 12)
-    .build()
-)
+Quonfig quonfig = new Quonfig(Options.builder().build());
+```
+
+Or pass the SDK key explicitly:
+
+```java
+Quonfig quonfig = new Quonfig(
+    Options.builder()
+        .sdkKey(System.getenv("QUONFIG_BACKEND_SDK_KEY"))
+        .build()
+);
+```
+
+`Quonfig` implements `AutoCloseable`. We recommend using it as a singleton in your application and calling `quonfig.close()` on shutdown to stop the SSE stream and flush telemetry.
+
+### Initialization is asynchronous
+
+The constructor returns immediately and runs the initial config fetch on a background thread. The first call to any typed getter (`getString`, `getBoolean`, etc.) blocks on initialization, with a timeout controlled by `initTimeout` (default `10s`).
+
+If initialization fails or times out, getters return the caller's default value with `Reason.ERROR` — they do not throw. Use `quonfig.initFuture().get()` if you need to block explicitly during startup.
+
+```java
+Quonfig quonfig = new Quonfig(Options.builder().sdkKey("sdk-...").build());
+
+// Optional: block until the initial fetch completes
+quonfig.initFuture().get();
+```
+
+### Datadir mode (local development)
+
+To run the SDK against a local checkout of a Quonfig workspace directory (the `configs/`, `feature-flags/`, `segments/`, `log-levels/`, `schemas/` tree), use `datadir`. **`environment` is required in datadir mode** — set it via the builder or the `QUONFIG_ENVIRONMENT` env var.
+
+```java
+Quonfig quonfig = new Quonfig(
+    Options.builder()
+        .datadir("/path/to/your-workspace")
+        .environment("development")
+        .build()
+);
+```
+
+In datadir mode the SDK loads everything synchronously from disk; there is no background fetch and no SSE connection. Telemetry is still uploaded if an `sdkKey` is also set.
+
+### Domain and API URL configuration
+
+By default the SDK derives every service URL from a single domain (`quonfig.com`):
+
+- API: `https://primary.quonfig.com`, `https://secondary.quonfig.com`
+- SSE stream: `https://stream.primary.quonfig.com`, `https://stream.secondary.quonfig.com`
+- Telemetry: `https://telemetry.quonfig.com`
+
+Override the whole bundle by changing the domain (handy for self-hosted deployments and local proxies):
+
+```java
+Quonfig quonfig = new Quonfig(
+    Options.builder()
+        .sdkKey("sdk-...")
+        .domain("quonfig.example.com")
+        .build()
+);
+```
+
+Or set `QUONFIG_DOMAIN` in the environment. For local development with the bundled Caddy reverse proxy (`scripts/local-proxy/setup.sh` in the monorepo), set `QUONFIG_DOMAIN=quonfig-localhost` and the SDK will route to `primary.quonfig-localhost`, `stream.primary.quonfig-localhost`, etc.
+
+If you need to point individual services somewhere the derivation rule doesn't fit, override the URL lists directly:
+
+```java
+Options.builder()
+    .sdkKey("sdk-...")
+    .apiUrls(List.of("https://primary.example.com"))
+    .streamUrls(List.of("https://stream.primary.example.com"))
+    .telemetryUrl("https://telemetry.example.com")
+    .build();
+```
+
+## Feature Flags
+
+For boolean flags, use `featureIsOn`:
+
+```java
+import com.quonfig.sdk.eval.ContextSet;
+
+if (quonfig.featureIsOn("my.feature.name", new ContextSet())) {
+    // ...
+}
+```
+
+A flag that doesn't exist yet evaluates to `false`, so you can safely add `featureIsOn` checks before the flag is created.
+
+<details className="alert--info">
+<summary>
+Feature flags don't have to return just true or false.
+</summary>
+
+You can return any supported type using the typed getters described in [Dynamic Config](#dynamic-config) below.
+
+```java
+String variant = quonfig.getString("my.string.feature.name", "control");
 ```
 
 </details>
 
-See [contexts](/docs/explanations/concepts/context) for more information
+## Context
+
+Feature flags become more powerful when you give the evaluator [context](/docs/explanations/concepts/context) about the current user, team, request, or host. The Java SDK uses `com.quonfig.sdk.eval.ContextSet` to bundle one or more **named contexts** (e.g. `user`, `team`, `device`).
+
+```java
+import com.quonfig.sdk.eval.ContextSet;
+import java.util.Map;
+
+ContextSet ctx = new ContextSet()
+    .withNamedContext("user", Map.of(
+        "key", "user-123",
+        "email", "alice@example.com"
+    ))
+    .withNamedContext("team", Map.of(
+        "key", "team-abc",
+        "plan", "pro"
+    ));
+```
+
+Properties are looked up in rules using dotted notation: `user.email`, `team.plan`. The magic property `quonfig.current-time` (also `prefab.current-time` and `reforge.current-time`, kept for compatibility) resolves to the current wall-clock time in milliseconds since the epoch — useful for time-windowed rollouts.
+
+### Global Context
+
+A global context is merged into every evaluation. Use it for values that don't change at runtime (application name, region, host).
+
+```java
+ContextSet global = new ContextSet()
+    .withNamedContext("application", Map.of(
+        "key", "my-api",
+        "region", System.getenv("REGION")
+    ));
+
+Quonfig quonfig = new Quonfig(
+    Options.builder()
+        .sdkKey("sdk-...")
+        .globalContext(global)
+        .build()
+);
+```
+
+Global context is the least specific layer and is overridden by any per-call context that supplies the same key.
+
+### Bound Context (per-request)
+
+For web servers, bind context for the lifetime of a request via `withContext(...)`. The returned `BoundQuonfig` mirrors every typed getter, with the bound context pre-applied — no need to thread `ContextSet` through every call site.
+
+```java
+import com.quonfig.sdk.BoundQuonfig;
+
+ContextSet requestCtx = new ContextSet()
+    .withNamedContext("user", Map.of(
+        "key", currentUser.getId(),
+        "email", currentUser.getEmail()
+    ));
+
+BoundQuonfig boundQuonfig = quonfig.withContext(requestCtx);
+
+if (boundQuonfig.featureIsOn("my.feature.name")) {
+    // ...
+}
+```
+
+### Just-in-time Context
+
+You can also pass a `ContextSet` directly to any getter call. It merges with the global (and bound) context; per-call values win on key collision.
+
+```java
+ContextSet jitCtx = new ContextSet()
+    .withNamedContext("device", Map.of("mobile", true));
+
+boolean enabled = quonfig.featureIsOn("my.feature.name", jitCtx);
+```
 
 ## Dynamic Config
 
-Use typed methods to retrieve configuration values:
+Config values are read with typed getters that take a key and a default. The default is returned whenever the config is missing, unevaluable, or the wrong type — getters never throw.
 
 ```java
-// Get a string config value with a default
-String value = quonfig.configClient().getString("the.key", "default-value");
-System.out.println(value);
+import java.time.Duration;
+import java.util.List;
 
-// Get a long config value with a default
-long count = quonfig.configClient().getLong("max.count", 100L);
+String backend       = quonfig.getString("backend.url", "https://api.example.com");
+Boolean newCheckout  = quonfig.getBoolean("checkout.v2", Boolean.FALSE);
+Long maxJobsPerSec   = quonfig.getInt("max-jobs-per-second", 10L);
+Double sampleRate    = quonfig.getDouble("trace.sample-rate", 0.1);
+List<String> regions = quonfig.getStringList("regions", List.of("us-east"));
+Duration cacheTtl    = quonfig.getDuration("cache.ttl", Duration.ofSeconds(30));
+Object slackConfig   = quonfig.getJson("slack.bot.config", Map.of());
 ```
 
-Available typed methods: `getString()`, `getLong()`, `getDouble()`, `getBoolean()`, `getStringList()`, `getJSON()`, and `getDuration()`.
+:::note Integers are returned as `Long`
 
-### Live Values
+`getInt` returns a boxed `Long`, not `Integer`. Quonfig stores int configs as 64-bit values everywhere; widening at the SDK boundary avoids silent overflow.
 
-Live values are a convenient and clear way to use configuration throughout your system. Inject a Quonfig client and get live values for the configuration keys you need.
+:::
 
-In code, `.get()` will return the value. These values will update automatically when the configuration is updated in Quonfig.
+Each getter has a context-bearing overload:
 
 ```java
-import java.util.function.Supplier;
+ContextSet ctx = new ContextSet().withNamedContext("user", Map.of("plan", "pro"));
+Long maxJobs = quonfig.getInt("max-jobs-per-second", 10L, ctx);
+```
 
-class MyClass {
+### Evaluation details (reason, variant, errors)
 
-  private Supplier<String> sampleString;
-  private Supplier<Long> sampleLong;
+Each typed getter has a `getXDetails(...)` variant that returns an `EvaluationDetails<T>` instead of just the value. Use it when you need the resolution `Reason`, the synthetic OpenFeature `variant` identifier, the matching rule index, or the error code on failure.
 
-  @Inject
-  public MyClass(ConfigClient configClient) {
-    this.sampleString = configClient.liveString("sample.string");
-    this.sampleLong = configClient.liveLong("sample.long");
-  }
+```java
+import com.quonfig.sdk.EvaluationDetails;
+import com.quonfig.sdk.Reason;
 
-  public String test(){
-    return "I got %s and %d from Quonfig.".formatted(sampleString.get(), sampleLong.get());
-  }
+EvaluationDetails<String> details = quonfig.getStringDetails(
+    "backend.url", "https://api.example.com", ctx);
+
+if (details.reason() == Reason.ERROR) {
+    log.warn("backend.url evaluation failed: {} ({})",
+        details.errorMessage(), details.errorCode());
 }
 ```
+
+`EvaluationDetails<T>` carries:
+
+| Field             | Description                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `value()`         | The typed value (or your default on `DEFAULT` / `ERROR`).                                            |
+| `reason()`        | `STATIC`, `TARGETING_MATCH`, `SPLIT`, `DEFAULT`, `ERROR`, or `UNKNOWN`.                              |
+| `variant()`       | OpenFeature-style identifier — `"static"`, `"targeting:<n>"`, `"split:<n>"`, or `"default"`.         |
+| `variantIndex()`  | The selected weighted-bucket index on `SPLIT`; `null` otherwise.                                     |
+| `errorCode()`     | `FLAG_NOT_FOUND`, `TYPE_MISMATCH`, or `GENERAL` on `ERROR`; `null` otherwise.                        |
+| `errorMessage()`  | Companion to `errorCode()`.                                                                          |
+| `metadata()`      | `configId`, `configKey`, `configType`, optional `ruleIndex`, `weightedValueIndex`, `environment`.    |
 
 ## Dynamic Log Levels
 
-The Quonfig SDK provides seamless integration with popular Java logging frameworks, enabling you to dynamically manage log levels across your application in real-time without restarting.
+Log levels in Quonfig are stored as `log_level` configs. The SDK consults them via `shouldLog(...)`, so changes pushed to Quonfig take effect immediately over SSE — no redeploy or polling.
 
-### Features
+`shouldLog(loggerPath, level [, ctx])` returns `true` when a record at `level` should be emitted for `loggerPath`. It always injects the logger path into the evaluation context as `quonfig-sdk-logging.key`, and uses one of two lookup strategies:
 
-- **Centrally manage log levels** - Control logging across your entire application from the Quonfig dashboard
-- **Real-time updates** - Change log levels without restarting your application
-- **Context-aware logging** - Different log levels for different loggers based on runtime context
-- **Performance** - Efficient filtering happens before log message construction
-- **Framework support** - Works with Logback and Log4j2
+- **Single-config dispatch** — when you set `loggerKey(...)` on `Options`, that one config is evaluated with `quonfig-sdk-logging.key=<loggerPath>` so a single config drives per-logger rules. This is the recommended pattern.
+- **Per-logger lookup** — when `loggerKey` is unset, the SDK looks up a config keyed by `loggerPath` itself, then walks up dotted parents (`com.example.MyClass` → `com.example` → `com` → `""`) until one matches.
 
-### Logback Integration
+If no log-level config is found at any level, `shouldLog` returns `true` — the SDK never silently swallows logs.
 
-Add the Logback integration dependency:
-
-```xml
-<dependency>
-    <groupId>com.quonfig</groupId>
-    <artifactId>sdk-logback</artifactId>
-    <version>LATEST</version>
-</dependency>
-```
-
-Install the filter during application startup:
+### Basic usage
 
 ```java
-import com.quonfig.sdk.Sdk;
 import com.quonfig.sdk.Options;
-import com.quonfig.sdk.logback.QuonfigLogbackTurboFilter;
+import com.quonfig.sdk.Quonfig;
+import org.slf4j.event.Level;
 
-public class MyApplication {
-    public static void main(String[] args) {
-        // Initialize the Quonfig SDK
-        Sdk sdk = new Sdk(new Options());
+Quonfig quonfig = new Quonfig(
+    Options.builder()
+        .sdkKey("sdk-...")
+        .loggerKey("log-level.my-app")
+        .build()
+);
 
-        // Install the Logback turbo filter
-        QuonfigLogbackTurboFilter.install(sdk.loggerClient());
-
-        // Now all your logging will respect Quonfig log levels
-    }
+if (quonfig.shouldLog("com.example.auth", Level.DEBUG)) {
+    // ...
 }
 ```
 
-**Compatibility:** Logback 1.2.x, 1.3.x, 1.4.x, and 1.5.x
+### Rule example
 
-### Log4j2 Integration
-
-Add the Log4j2 integration dependency:
-
-```xml
-<dependency>
-    <groupId>com.quonfig</groupId>
-    <artifactId>sdk-log4j2</artifactId>
-    <version>LATEST</version>
-</dependency>
-```
-
-Install the filter during application startup:
-
-```java
-import com.quonfig.sdk.Sdk;
-import com.quonfig.sdk.Options;
-import com.quonfig.sdk.log4j2.QuonfigLog4j2Filter;
-
-public class MyApplication {
-    public static void main(String[] args) {
-        // Initialize the Quonfig SDK
-        Sdk sdk = new Sdk(new Options());
-
-        // Install the Log4j2 filter
-        QuonfigLog4j2Filter.install(sdk.loggerClient());
-
-        // Now all your logging will respect Quonfig log levels
-    }
-}
-```
-
-**Compatibility:** Log4j2 2.x
-
-### Configuration
-
-Create a `LOG_LEVEL_V2` config in your Quonfig dashboard with key `log-levels.default`:
+Create a `log_level` config keyed `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
 
 ```yaml
-# Default to INFO for all loggers
+# Default to INFO for every logger in this app
 default: INFO
 
-# Set specific packages to DEBUG
 rules:
+  # Bump a subsystem to DEBUG
   - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example.services"
+      quonfig-sdk-logging.key:
+        starts-with: "com.example.auth"
     value: DEBUG
 
-  # Only log errors in noisy third-party library
+  # Silence a chatty third-party package
   - criteria:
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.thirdparty.noisy"
+      quonfig-sdk-logging.key:
+        starts-with: "org.apache.kafka"
     value: ERROR
-```
 
-You can customize the config key name using the `setLoggerKey` option. This is useful if you have multiple applications sharing the same Quonfig project and want to isolate log level configuration per application:
-
-```java
-Options options = new Options().setLoggerKey("myapp.log.levels");
-Sdk sdk = new Sdk(options);
-```
-
-The SDK automatically includes `lang: "java"` in the evaluation context, which you can use in your rules to create Java-specific log level configurations:
-
-```yaml
-# Different log levels for Java vs other languages
-rules:
-  - criteria:
-      quonfig-sdk-logging.lang: java
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example"
-    value: DEBUG
-
-  - criteria:
-      quonfig-sdk-logging.lang: python
-      quonfig-sdk-logging.logger-path:
-        starts-with: "myapp"
-    value: INFO
-```
-
-### Targeted Log Levels
-
-You can use [rules and segmentation](/docs/explanations/features/rules-and-segmentation) to change your log levels based on the current user/request/device context. This allows you to increase log verbosity for specific users, environments, or conditions without affecting your entire application.
-
-The log level evaluation has access to **all context** that is available during evaluation, not just the `quonfig-sdk-logging` context. This means you can create rules combining:
-
-- **SDK logging context** (`quonfig-sdk-logging.*`) - Logger name and language
-- **Global context** - Application name, environment, availability zone, etc.
-- **Thread-local context** - User, team, device, request information from request-scoped context
-
-For example, you can create rules like:
-
-```yaml
-# Enable DEBUG logs only for specific application in staging
-rules:
-  - criteria:
-      application.key: "myapp"
-      application.environment: "staging"
-      quonfig-sdk-logging.logger-path:
-        starts-with: "com.example"
-    value: DEBUG
-
-  # Enable DEBUG logs for a specific user across all applications
+  # Turn DEBUG on for one developer, everywhere
   - criteria:
       user.email: "developer@example.com"
     value: DEBUG
-
-  # Lower verbosity in production
-  - criteria:
-      application.environment: "production"
-    value: WARN
 ```
 
-This allows you to increase log verbosity for specific users, specific applications, particular environments, or any combination of conditions without affecting your entire system.
+Because the evaluator sees your full context — global, bound, and the injected logger key — you can combine logger rules with user, environment, or request context to crank verbosity up for one user, one staging deploy, or one bad request, without touching anyone else.
 
-### How It Works
+### Wiring `shouldLog` into your logger
 
-Once installed, the integration automatically intercepts **all** logging calls across your entire application:
+The SDK does not ship a Logback `TurboFilter` or Log4j2 `Filter` today. To gate a log call manually, wrap the call site:
 
-- Works with **all loggers** (no need to configure individual loggers)
-- Works with **all appenders** (console, file, syslog, etc.)
-- Filters happen **before** log messages are formatted (performance benefit)
-- No modification of your existing logging configuration needed
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
-For more details, see:
-- [Logback Integration README](https://github.com/QuonfigHQ/sdk-java/blob/main/logback/README.md)
-- [Log4j2 Integration README](https://github.com/QuonfigHQ/sdk-java/blob/main/log4j2/README.md)
+private static final Logger log = LoggerFactory.getLogger(MyService.class);
+private static final String LOGGER_PATH = MyService.class.getName();
+
+void doWork() {
+    if (quonfig.shouldLog(LOGGER_PATH, Level.DEBUG)) {
+        log.debug("expensive thing happened: {}", expensiveDescription());
+    }
+}
+```
+
+`Level` here is `org.slf4j.event.Level`, which the SDK accepts directly and compares against the resolved config value (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`).
 
 ## Telemetry
 
-By default, Quonfig uploads telemetry that enables a number of useful features. You can alter or disable this behavior using the following options:
+By default Quonfig uploads telemetry that powers the dashboard's evaluation counts, context-shape detection, and example-context capture. Tune or disable via `Options`:
 
-| Name                       | Description                                                                                                                           | Default          |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                       | true             |
-| collectLoggerCounts        | Send counts of logger usage back to Quonfig to power log-levels configuration screen                                                   | true             |
-| contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts | PERIODIC_EXAMPLE |
-
-If you want to change any of these options, you can pass an `options` object when initializing the Quonfig client.
+| Name                          | Description                                                                                                                  | Default            |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `disableTelemetry`            | Disable all telemetry uploads.                                                                                               | `false`            |
+| `collectEvaluationSummaries`  | Send aggregate counts of config/flag evaluation results back to Quonfig.                                                     | `true`             |
+| `contextUploadMode`           | How named-context data is reported. One of `NONE`, `SHAPES` (names + types only), `PERIODIC_EXAMPLE` (full sample, redacted). | `PERIODIC_EXAMPLE` |
 
 ```java
-Options options = new Options()
-  .setCollectEvaluationSummaries(true)
-  .setCollectLoggerCounts(true)
-  .setContextUploadMode(Options.CollectContextMode.PERIODIC_EXAMPLE);
+import com.quonfig.sdk.telemetry.ContextUploadMode;
+
+Quonfig quonfig = new Quonfig(
+    Options.builder()
+        .sdkKey("sdk-...")
+        .collectEvaluationSummaries(true)
+        .contextUploadMode(ContextUploadMode.SHAPES)
+        .build()
+);
 ```
+
+To disable everything:
+
+```java
+Options.builder()
+    .sdkKey("sdk-...")
+    .disableTelemetry(true)
+    .build();
+```
+
+`quonfig.flush()` drains any pending telemetry synchronously — useful from short-lived processes (CLI, batch job) before exit. `quonfig.close()` stops the SSE client, telemetry reporter, and background threads.
 
 ## Testing
 
-Quonfig suggests testing with generous usage of Mockito. We also provide a useful `FixedValue` for testing Live Values.
+`Quonfig` is a regular class with no static state. The cleanest way to unit-test code that reads configs is to point a `Quonfig` instance at a small datadir of test fixtures:
 
 ```java
-@Test
-void testQuonfig(){
-  ConfigClient mockConfigClient = mock(ConfigClient.class);
-  when(mockConfigClient.liveString("sample.string")).thenReturn(FixedValue.of("test value"));
-  when(mockConfigClient.liveLong("sample.long")).thenReturn(FixedValue.of(123L));
-
-  MyClass myClass = new MyClass(mockConfigClient);
-
-  // test business logic
-
-}
+Quonfig testQuonfig = new Quonfig(
+    Options.builder()
+        .datadir("src/test/resources/quonfig-fixtures")
+        .environment("test")
+        .disableTelemetry(true)
+        .build()
+);
 ```
+
+For finer-grained tests, mock `Quonfig` (or `BoundQuonfig`) with your favorite mocking library and stub the typed getters directly.
 
 ## Reference
 
 ### Options
 
 ```java
-Options options = new Options()
-  .setConfigOverrideDir(System.getProperty("user.home"))
-  .setSdkKey(System.getenv("QUONFIG_BACKEND_SDK_KEY"))
-  .setPrefabDatasource(Options.Datasources.ALL) // Option: Datasources.LOCAL_ONLY
-  .setOnInitializationFailure(Options.OnInitializationFailure.RAISE) // Option Options.OnInitializationFailure.UNLOCK
-  .setInitializationTimeoutSec(10)
-  .setGlobalContext(ContextSet.from(Context
-      .newBuilder("application")
-      .put("key", "my-api")
-      .put("az", "1a")
-      .put("type", "web")
-      .build())
-   );
+import com.quonfig.sdk.Options;
+import com.quonfig.sdk.telemetry.ContextUploadMode;
+import java.time.Duration;
+import java.util.List;
+
+Options options = Options.builder()
+    .sdkKey(System.getenv("QUONFIG_BACKEND_SDK_KEY"))
+    .domain("quonfig.com")
+    .environment("production")
+    .globalContext(global)
+    .initTimeout(Duration.ofSeconds(10))
+    .loggerKey("log-level.my-app")
+    .collectEvaluationSummaries(true)
+    .contextUploadMode(ContextUploadMode.PERIODIC_EXAMPLE)
+    .build();
 ```
 
 #### Option Definitions
 
-| Name                       | Description                                                                                                                           | Default          |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                       | true             |
-| collectLoggerCounts        | Send counts of logger usage back to Quonfig to power log-levels configuration screen                                                   | true             |
-| contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts | PERIODIC_EXAMPLE |
-| onInitializationFailure    | Choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup                                | RAISE (crash)    |
-| prefabDatasources          | Use either only-local data or local + API data                                                                                        | ALL              |
-| globalContext              | set a static context to be used as the base layer in all configuration evaluation                                                     | EMPTY            |
+| Name                          | Description                                                                                                                                | Default                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| `sdkKey`                      | Your Quonfig SDK key. Required for HTTP+SSE mode. Falls back to `QUONFIG_BACKEND_SDK_KEY` env var.                                         | (env var)                              |
+| `domain`                      | Base domain used to derive `apiUrls`, `streamUrls`, and `telemetryUrl`. Falls back to `QUONFIG_DOMAIN` env var.                            | `quonfig.com`                          |
+| `apiUrls`                     | Explicit API base URLs. Takes precedence over `domain`.                                                                                    | `[https://primary.<domain>, https://secondary.<domain>]` |
+| `streamUrls`                  | Explicit SSE stream base URLs. Defaults to `apiUrls` rewritten with a `stream.` prefix on each host.                                        | derived from `apiUrls`                 |
+| `telemetryUrl`                | Explicit telemetry endpoint.                                                                                                               | `https://telemetry.<domain>`           |
+| `environment`                 | Environment name to evaluate against. Required in datadir mode. Falls back to `QUONFIG_ENVIRONMENT` env var.                               | (env var)                              |
+| `datadir`                     | Path to a Quonfig workspace directory. Switches the client to datadir mode (no HTTP fetch, no SSE).                                        | `null`                                 |
+| `initTimeout`                 | How long the initial config fetch and any later getter call will wait for init to complete.                                                | `10s`                                  |
+| `globalContext`               | A `ContextSet` merged into every evaluation as the base layer.                                                                             | empty                                  |
+| `onConfigUpdate`              | `Runnable` invoked after every successful config-store swap (initial load + each SSE envelope).                                            | `null`                                 |
+| `onSseConnectionStateChange`  | `Consumer<Boolean>` invoked when the SSE connection's connected state changes.                                                             | `null`                                 |
+| `loggerKey`                   | Config key consulted by `shouldLog(...)`. When set, enables single-config dispatch via injected `quonfig-sdk-logging.key`.                  | `null`                                 |
+| `disableTelemetry`            | Disable all telemetry uploads.                                                                                                             | `false`                                |
+| `collectEvaluationSummaries`  | Send aggregate evaluation counts to Quonfig.                                                                                               | `true`                                 |
+| `contextUploadMode`           | `NONE`, `SHAPES`, or `PERIODIC_EXAMPLE`.                                                                                                   | `PERIODIC_EXAMPLE`                     |
+| `telemetryFlushInterval`      | How often the background reporter flushes pending telemetry.                                                                               | `60s`                                  |
+| `telemetryMaxInterval`        | Maximum back-off between telemetry flushes after repeated failures.                                                                        | `600s`                                 |
