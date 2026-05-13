@@ -6,22 +6,22 @@ Note: right now, this is a thin wrapper around the [React Client](./react.md). I
 
 ## Install the latest version
 
-Use your favorite package manager to install `@quonfig/react-native` [npm](https://www.npmjs.com/package/@quonfig/react-native) | [github](https://github.com/QuonfigHQ/react-native)
+Use your favorite package manager to install `@quonfig/react-native` [npm](https://www.npmjs.com/package/@quonfig/react-native) | [github](https://github.com/quonfig/sdk-react-native)
 
-You will also need to install `base-64` and `react-native-get-random-values` as dependencies.
+`@quonfig/react-native` is a thin polyfill wrapper around [`@quonfig/react`](./react.md), which is declared as a peer dependency. You will also need to install `base-64` and `react-native-get-random-values`. Install all four together:
 
 <Tabs groupId="lang">
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig/react-native base-64 react-native-get-random-values
+npm install @quonfig/react-native @quonfig/react base-64 react-native-get-random-values
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig/react-native base-64 react-native-get-random-values
+yarn add @quonfig/react-native @quonfig/react base-64 react-native-get-random-values
 ```
 
 </TabItem>
@@ -44,7 +44,7 @@ const WrappedApp = () => {
   };
 
   return (
-    <QuonfigProvider apiKey={"QUONFIG_FRONTEND_SDK_KEY"} onError={onError}>
+    <QuonfigProvider sdkKey={"QUONFIG_FRONTEND_SDK_KEY"} onError={onError}>
       <MyApp />
     </QuonfigProvider>
   );
@@ -78,7 +78,7 @@ You can also use `get` to access flags with other data types.
 ```jsx
 const { get } = useQuonfig();
 
-const flagVlaue = get("my-string-flag");
+const flagValue = get("my-string-flag");
 ```
 
 ## Using Context
@@ -127,7 +127,7 @@ The Quonfig client needs to load your feature flags from the [Quonfig CDN](/docs
 const { get, isEnabled, loading } = useQuonfig();
 
 console.log(loading); // true
-console.log(get("my-string-flag)); // undefined for all flags
+console.log(get("my-string-flag")); // undefined for all flags
 console.log(isEnabled("my-boolean-flag")); // false for all flags
 ```
 
@@ -138,7 +138,7 @@ Here are some suggestions for how to handle the loading state.
 For a single page application, you likely already display a spinner or skeleton component while fetching data from your own backend. In this case, we recommend checking whether Quonfig is loaded in the logic for displaying this state. That way you can ensure that Quonfig is always loaded before the rest of your component tree renders, and you will not need to check for `loading` when evaluating individual flags.
 
 ```jsx
-const MyPageComponent (myData, myDataIsLoading) => {
+const MyPageComponent = ({ myData, myDataIsLoading }) => {
   // highlight-start
   const { loading: quonfigIsLoading } = useQuonfig();
 
@@ -160,8 +160,8 @@ However, if you have SEO concerns, such as when using a tool like Docusaurus, yo
 You can get a `loading` value back each time you call the `useQuonfig` hook and use it to render a spinner or other loading state only for the part of the page that is affected by your flag. This can be a good choice if you are swapping between two different UI treatments and don't want your users to see the page flicker from one to the other after the initial render.
 
 ```jsx
-const MyComponent () => {
-  const {get, loading} = useQuonfig();
+const MyComponent = () => {
+  const { get, loading } = useQuonfig();
 
   if (loading) {
     return <MySpinnerComponent />
@@ -182,9 +182,9 @@ const MyComponent () => {
 If your feature flag is choosing between rendering something and rendering nothing, it may be acceptable to have that content pop-in once Quonfig finishes loading. This works because `isEnabled` will always return false until the Quonfig client is loaded.
 
 ```jsx
-const MyComponent () => {
+const MyComponent = () => {
   // highlight-next-line
-  const {isEnabled} = useQuonfig();
+  const { isEnabled } = useQuonfig();
 
   return (
     <div>
@@ -209,7 +209,7 @@ If you're using Quonfig for A/B testing, you can supply code for tracking experi
 
 ```jsx
 <QuonfigProvider
-  apiKey={"QUONFIG_FRONTEND_SDK_KEY"}
+  sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
   contextAttributes={contextAttributes}
   onError={onError}
   // highlight-start
