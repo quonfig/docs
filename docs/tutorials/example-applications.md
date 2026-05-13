@@ -6,15 +6,15 @@ sidebar_position: 4
 
 ## Ruby
 
-- [Rails](https://github.com/QuonfigHQ/example-rails-app)
-- [BulletTrain](https://github.com/QuonfigHQ/example-ruby-bullet-train)
+- [Rails](https://github.com/quonfig/example-rails-app)
+- [BulletTrain](https://github.com/quonfig/example-ruby-bullet-train)
 
 ## Java
 
 We have runnable example apps walking through installation, configuration and usage for these containers:
 
-- [DropWizard](https://github.com/QuonfigHQ/example-dropwizard-app/)
-- [Micronaut](https://github.com/QuonfigHQ/example-micronaut-app/)
+- [DropWizard](https://github.com/quonfig/example-dropwizard-app/)
+- [Micronaut](https://github.com/quonfig/example-micronaut-app/)
 
 ### Micronaut Up and Running Walkthrough Video
 

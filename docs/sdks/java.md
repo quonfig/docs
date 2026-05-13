@@ -4,7 +4,7 @@ title: Java
 
 ## Install the latest version
 
-[GitHub](https://github.com/QuonfigHQ/sdk-java) | [Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java)
+[GitHub](https://github.com/quonfig/sdk-java) | [Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java)
 
 Replace `0.0.1` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
 

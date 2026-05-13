@@ -40,7 +40,7 @@ const config = {
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: "QuonfigHQ", // Usually your GitHub org/user name.
+  organizationName: "quonfig", // Usually your GitHub org/user name.
   projectName: "docs", // Usually your repo name.
 
   trailingSlash: false,
@@ -75,7 +75,7 @@ const config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            "https://github.com/QuonfigHQ/docs/tree/main/",
+            "https://github.com/quonfig/docs/tree/main/",
         },
         blog: false,
         theme: {
@@ -146,7 +146,7 @@ const config = {
             items: [
               {
                 label: "GitHub",
-                href: "https://github.com/QuonfigHQ",
+                href: "https://github.com/quonfig",
               },
             ],
           },

@@ -52,7 +52,7 @@ Override the directory with `-o <path>`. Import the typed hook with `import { us
 
 ## Install the latest version
 
-Use your favorite package manager to install `@quonfig/react` [npm](https://www.npmjs.com/package/@quonfig/react) | [github](https://github.com/QuonfigHQ/sdk-react)
+Use your favorite package manager to install `@quonfig/react` [npm](https://www.npmjs.com/package/@quonfig/react) | [github](https://github.com/quonfig/sdk-react)
 
 `@quonfig/react` declares `@quonfig/javascript` as a peer dependency, so install both:
 
@@ -639,7 +639,7 @@ The Quonfig client needs to load your feature flags from the [Quonfig CDN](/docs
 const { get, isEnabled, getDuration, loading } = useQuonfig();
 
 console.log(loading); // true
-console.log(get("my-string-flag)); // undefined for all flags
+console.log(get("my-string-flag")); // undefined for all flags
 console.log(getDuration("my-timeframe-flag")); // undefined for all flags
 console.log(isEnabled("my-boolean-flag")); // false for all flags
 ```
@@ -759,9 +759,9 @@ const MyComponent = () => {
 If your feature flag is choosing between rendering something and rendering nothing, it may be acceptable to have that content pop-in once Quonfig finishes loading. This works because `isEnabled` will always return false until the Quonfig client is loaded.
 
 ```jsx
-const MyComponent () => {
+const MyComponent = () => {
   // highlight-next-line
-  const {isEnabled} = useQuonfig();
+  const { isEnabled } = useQuonfig();
 
   return (
     <div>
@@ -1038,7 +1038,7 @@ For SSR frameworks like Next.js, Remix, or custom React SSR setups, you can elim
 This approach uses the underlying `@quonfig/javascript` client's `extract` and `hydrate` methods, which are accessible through the React hook.
 
 :::info
-A fully working example is available as an [Example Launch Next.js](https://github.com/QuonfigHQ/example-launch-nextjs) application.
+A fully working example is available as an [Example Launch Next.js](https://github.com/quonfig/example-launch-nextjs) application.
 :::
 
 ### Overview
@@ -1501,7 +1501,7 @@ const MyComponent = () => {
 
 :::info Custom Hook Requirements
 
-Please reference the current [`createQuonfigHook`](https://github.com/QuonfigHQ/sdk-react/blob/main/src/QuonfigProvider.tsx#L105-L128) implementation for additional details.
+Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/main/src/QuonfigProvider.tsx#L105-L128) implementation for additional details.
 
 You must implement `get` method + expose the javascript `quonfig` property directly in custom implementations.
 :::

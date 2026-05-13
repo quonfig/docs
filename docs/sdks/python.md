@@ -3,7 +3,7 @@ title: Python
 ---
 
 ## Getting Started with the Python SDK
-[Github](https://github.com/QuonfigHQ/sdk-python) | [PyPI](https://pypi.org/project/sdk-quonfig/)
+[Github](https://github.com/quonfig/sdk-python) | [PyPI](https://pypi.org/project/sdk-quonfig/)
 
 
 Add `sdk-quonfig` to your package dependencies

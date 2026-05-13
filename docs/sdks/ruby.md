@@ -3,7 +3,7 @@ title: Ruby
 ---
 
 ## Install the latest version
-[Github](https://github.com/QuonfigHQ/sdk-ruby) | [Ruby Gems](https://rubygems.org/gems/sdk-quonfig)
+[Github](https://github.com/quonfig/sdk-ruby) | [Ruby Gems](https://rubygems.org/gems/sdk-quonfig)
 
 
 ```ruby

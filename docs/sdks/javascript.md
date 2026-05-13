@@ -10,7 +10,7 @@ If you're using React, consider using our [React Client] instead, which also pro
 
 ## Install the latest version
 
-Use your favorite package manager to install `@quonfig/javascript` [npm](https://www.npmjs.com/package/@quonfig/javascript) | [github](https://github.com/QuonfigHQ/sdk-javascript)
+Use your favorite package manager to install `@quonfig/javascript` [npm](https://www.npmjs.com/package/@quonfig/javascript) | [github](https://github.com/quonfig/sdk-javascript)
 
 <Tabs groupId="lang">
 <TabItem value="npm" label="npm">

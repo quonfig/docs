@@ -4,16 +4,16 @@ title: Go
 
 ## Install the latest version
 
-[Github](https://github.com/QuonfigHQ/sdk-go) | [pkg](https://pkg.go.dev/github.com/QuonfigHQ/sdk-go)
+[Github](https://github.com/quonfig/sdk-go) | [pkg](https://pkg.go.dev/github.com/quonfig/sdk-go)
 
 
 ```bash
-go get github.com/QuonfigHQ/sdk-go@latest
+go get github.com/quonfig/sdk-go@latest
 ```
 
 ## Initialize Client
 
-Add `quonfig "github.com/QuonfigHQ/sdk-go"` to your imports.
+Add `quonfig "github.com/quonfig/sdk-go"` to your imports.
 
 Then, initialize the client with your SDK key:
 
@@ -26,7 +26,7 @@ sdk, err := quonfig.NewSdk(quonfig.WithSdkKey(sdkKey))
 We recommend using the SDK client as a singleton in your application.
 
 ```go
-import quonfig "github.com/QuonfigHQ/sdk-go"
+import quonfig "github.com/quonfig/sdk-go"
 
 var quonfigSdk quonfig.ClientInterface
 
@@ -198,7 +198,7 @@ Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app
 import (
     "log/slog"
     "os"
-    quonfig "github.com/QuonfigHQ/sdk-go"
+    quonfig "github.com/quonfig/sdk-go"
 )
 
 client, _ := quonfig.NewClient(
@@ -248,7 +248,7 @@ The SDK ships a `slog.Handler` that wraps any inner handler and gates each recor
 import (
     "log/slog"
     "os"
-    quonfig "github.com/QuonfigHQ/sdk-go"
+    quonfig "github.com/quonfig/sdk-go"
 )
 
 client, _ := quonfig.NewClient(
