@@ -17,7 +17,7 @@ By the end you'll have:
 - A server component reading a feature flag from local files
 
 If you'd rather see the bigger picture first, read the
-[Open Source / Fully Local how-to](../how-tos/open-source-local).
+[Open Source / Fully Local how-to](/docs/how-tos/open-source-local).
 
 ## Prerequisites
 

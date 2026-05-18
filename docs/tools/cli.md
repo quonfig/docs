@@ -23,7 +23,7 @@ local-only commands — `qfg init`, `qfg verify`, `qfg generate`,
 `qfg config-schema`, and `qfg migrate` — work without an account. If you
 just want to use Quonfig as a local git-backed config store, you can skip
 this section entirely. See the
-[Open Source / Fully Local how-to](../how-tos/open-source-local) for that
+[Open Source / Fully Local how-to](/docs/how-tos/open-source-local) for that
 path.
 
 To use the hosted features, authenticate with Quonfig:
@@ -220,7 +220,7 @@ After `qfg init`, the next things you'll run are
 [`qfg verify`](#verify) (validation) and [`qfg generate`](#generate)
 (typed SDK client). You can then point any Quonfig SDK at this directory
 with `datadir` and you're done — see
-[Open Source / Fully Local](../how-tos/open-source-local).
+[Open Source / Fully Local](/docs/how-tos/open-source-local).
 
 ### verify
 
@@ -310,7 +310,7 @@ It can read from either:
 - **A local directory.** Explicitly via `--dir`/`QUONFIG_DIR`, or
   auto-detected: if neither flag is set and the current directory (or an
   ancestor) contains a `quonfig.json`, `generate` uses that. **No login
-  required** — this is the path the [Open Source / Fully Local](../how-tos/open-source-local) workflow uses.
+  required** — this is the path the [Open Source / Fully Local](/docs/how-tos/open-source-local) workflow uses.
 - **The API.** When no local workspace can be found and `--workspace` is
   given (or active credentials are set), `generate` mints a Gitea read
   token, clones the workspace into a temp dir, generates from it, and cleans

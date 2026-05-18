@@ -85,11 +85,11 @@ If you want to use Quonfig with no account at all — config as JSON in a git
 repo, no API key, no network connection — the recommended pattern for React
 apps is **server-side evaluation + SSR**, not the standalone React SDK.
 
-In a Next.js app you'd use [`@quonfig/node`](./node/node) in [local datadir
-mode](./node/node#local-datadir-mode-no-account-required) inside a server
+In a Next.js app you'd use [`@quonfig/node`](/docs/sdks/node) in [local datadir
+mode](/docs/sdks/node#local-datadir-mode-no-account-required) inside a server
 component, evaluate the flags there, and pass the values down to the
 client. The walkthrough is in the
-[Next.js + TypeScript (Fully Local) tutorial](../tutorials/nextjs-typescript-local).
+[Next.js + TypeScript (Fully Local) tutorial](/docs/tutorials/nextjs-typescript-local).
 
 The React SDK described on the rest of this page targets the
 hosted/streaming use case: it connects to `app.quonfig.com` (or a local

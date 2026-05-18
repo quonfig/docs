@@ -140,9 +140,9 @@ entirely — there's no workspace to attribute it to and nowhere to POST it.
 If you have an `sdkKey`, telemetry still runs in datadir mode so dogfood
 deployments can self-report.
 
-See the [Next.js + TypeScript (Fully Local) tutorial](../../tutorials/nextjs-typescript-local)
+See the [Next.js + TypeScript (Fully Local) tutorial](/docs/tutorials/nextjs-typescript-local)
 for a complete walkthrough, or the
-[Open Source / Fully Local how-to](../../how-tos/open-source-local)
+[Open Source / Fully Local how-to](/docs/how-tos/open-source-local)
 for the mental model.
 
 ## Next.js API Routes (Singleton Pattern)
