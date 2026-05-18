@@ -193,7 +193,7 @@ export default async function Home() {
 npm run dev
 ```
 
-Visit <http://localhost:3000>. The page renders using the value of
+Visit [http://localhost:3000](http://localhost:3000). The page renders using the value of
 `example.dark-mode` from your local JSON file. Flip the boolean in
 `quonfig/feature-flags/example.dark-mode.json` and reload — Next.js's dev
 server picks up the change.
