@@ -17,7 +17,16 @@ npm install -g @quonfig/cli
 
 ## Authentication
 
-First, authenticate with Quonfig:
+Authentication is **only required for server-backed commands** — `qfg pull`,
+`qfg push`, `qfg create`, `qfg list`, `qfg get`, `qfg set-default`, etc. The
+local-only commands — `qfg init`, `qfg verify`, `qfg generate`,
+`qfg config-schema`, and `qfg migrate` — work without an account. If you
+just want to use Quonfig as a local git-backed config store, you can skip
+this section entirely. See the
+[Open Source / Fully Local how-to](../how-tos/open-source-local) for that
+path.
+
+To use the hosted features, authenticate with Quonfig:
 
 ```bash
 qfg login
@@ -175,6 +184,68 @@ typed.get('build.dark-mode');             // same value, key autocompleted
 
 ## Commands
 
+### init
+
+`qfg init` scaffolds a new Quonfig workspace in the current directory, or
+refreshes an existing one. **Fully offline — no login required.**
+
+It creates:
+
+- A git repo (or reuses an existing one) with a pre-commit `qfg verify` hook
+- The workspace directory layout: `configs/`, `feature-flags/`, `segments/`,
+  `log-levels/`, `schemas/`
+- A `quonfig.json` describing the workspace and its environments
+- A managed `README.md`, `CLAUDE.md`, and `AGENTS.md` that explain the
+  local-only workflow to humans and AI agents
+- Optionally, one sample of each config type (with `--samples`) so you have
+  working files to copy from
+
+Options:
+- `--samples` — drop in one example feature flag, config, and segment
+- `--workspace <org/slug>` — pin the workspace identity (only matters if
+  you later run `qfg push` against a hosted account)
+- `--dir <path>` — initialize in a path other than the current directory
+
+Examples:
+```bash
+# Scaffold a brand-new workspace with samples
+mkdir my-config && cd my-config
+qfg init --samples
+
+# Refresh templates in an existing workspace (idempotent — safe to re-run)
+qfg init
+```
+
+After `qfg init`, the next things you'll run are
+[`qfg verify`](#verify) (validation) and [`qfg generate`](#generate)
+(typed SDK client). You can then point any Quonfig SDK at this directory
+with `datadir` and you're done — see
+[Open Source / Fully Local](../how-tos/open-source-local).
+
+### verify
+
+`qfg verify` validates every JSON file in a Quonfig workspace against the
+canonical schema and against cross-file rules. **Fully offline.**
+
+It checks:
+- JSON syntax and schema conformance (field names, value types, operator enums)
+- Filename matches the `key` field
+- No duplicate keys across the workspace
+- Segment references (`IN_SEG` / `NOT_IN_SEG`) resolve to real segments
+- Schema references (`schemaKey`) resolve to real schemas
+- Variant-only configs only emit declared variants
+
+Examples:
+```bash
+# Verify the current directory
+qfg verify
+
+# Verify a specific workspace path
+qfg verify ./my-config
+```
+
+A pre-commit git hook is installed by `qfg init` to run this automatically.
+
 ### generate-new-hex-key
 
 `qfg generate-new-hex-key` generates a cryptographically secure hex key suitable for encrypting config values with the `--secret` flag.
@@ -236,12 +307,19 @@ git -C ./my-config push
 
 It can read from either:
 
-- **A local directory** (default when `--dir`/`QUONFIG_DIR` is set) — pair with `qfg pull` to keep a checked-in copy of the workspace files.
-- **The API** (when no local directory is given) — `generate` mints a Gitea read token, clones the workspace into a temp dir, generates from it, and cleans up. Use this in CI or one-shot scripts where you don't want to keep a working copy on disk.
+- **A local directory.** Explicitly via `--dir`/`QUONFIG_DIR`, or
+  auto-detected: if neither flag is set and the current directory (or an
+  ancestor) contains a `quonfig.json`, `generate` uses that. **No login
+  required** — this is the path the [Open Source / Fully Local](../how-tos/open-source-local) workflow uses.
+- **The API.** When no local workspace can be found and `--workspace` is
+  given (or active credentials are set), `generate` mints a Gitea read
+  token, clones the workspace into a temp dir, generates from it, and cleans
+  up. Use this in CI or one-shot scripts where you don't want to keep a
+  working copy on disk.
 
 Options:
-- `--dir <path>` - Path to local config directory (defaults to `QUONFIG_DIR` env var). When unset, `generate` fetches the workspace in-memory.
-- `--workspace <slug-or-id>` - Workspace to fetch when running without `--dir`. Required if `QUONFIG_API_KEY` is set without `QUONFIG_WORKSPACE`.
+- `--dir <path>` - Path to local config directory (defaults to `QUONFIG_DIR` env var). When unset, `generate` walks up from cwd looking for `quonfig.json`; if it finds one, it uses that. Otherwise it falls back to fetching from the API.
+- `--workspace <slug-or-id>` - Workspace to fetch when running without a local workspace. Required if `QUONFIG_API_KEY` is set without `QUONFIG_WORKSPACE`. Passing `--workspace` skips the cwd auto-detect and goes straight to the API path.
 - `--targets <targets>` - Specify target platforms: `react-ts` (default) or `node-ts`
 - `--output-directory <dir>` - Custom output directory
 

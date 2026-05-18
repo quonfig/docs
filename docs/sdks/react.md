@@ -79,6 +79,22 @@ The React SDK is a thin wrapper around the JavaScript SDK and shares its module-
 
 TypeScript types are included with the package.
 
+## No-account / fully local React
+
+If you want to use Quonfig with no account at all — config as JSON in a git
+repo, no API key, no network connection — the recommended pattern for React
+apps is **server-side evaluation + SSR**, not the standalone React SDK.
+
+In a Next.js app you'd use [`@quonfig/node`](./node/node) in [local datadir
+mode](./node/node#local-datadir-mode-no-account-required) inside a server
+component, evaluate the flags there, and pass the values down to the
+client. The walkthrough is in the
+[Next.js + TypeScript (Fully Local) tutorial](../tutorials/nextjs-typescript-local).
+
+The React SDK described on the rest of this page targets the
+hosted/streaming use case: it connects to `app.quonfig.com` (or a local
+proxy) over SSE for real-time flag updates and requires a frontend SDK key.
+
 ## Frontend vs. server SDK keys
 
 Quonfig issues two kinds of SDK keys, and your React app should only ever ship the **frontend** one in client bundles:

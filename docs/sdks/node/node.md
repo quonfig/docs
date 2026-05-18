@@ -110,6 +110,41 @@ await quonfig.init();
 </TabItem>
 </Tabs>
 
+## Local datadir mode (no account required)
+
+The SDK can run entirely against a local directory of JSON config files —
+no SDK key, no SSE connection, no telemetry POSTs. Use this when you want
+Quonfig as a self-contained git-backed config store, when running tests,
+or when developing offline.
+
+```typescript
+import { Quonfig } from "@quonfig/node";
+import path from "node:path";
+
+const quonfig = new Quonfig({
+  // Point the SDK at a local Quonfig workspace directory.
+  // (Same shape as what `qfg init` creates.)
+  datadir: path.join(process.cwd(), "quonfig"),
+  // Pick which environment overrides to apply.
+  environment: process.env.QUONFIG_ENVIRONMENT ?? "development",
+  // Nothing to stream from / poll without a server.
+  enableSSE: false,
+  fallbackPollEnabled: false,
+});
+
+await quonfig.init();
+```
+
+With `datadir` set and **no** `sdkKey` provided, the SDK skips telemetry
+entirely — there's no workspace to attribute it to and nowhere to POST it.
+If you have an `sdkKey`, telemetry still runs in datadir mode so dogfood
+deployments can self-report.
+
+See the [Next.js + TypeScript (Fully Local) tutorial](../../tutorials/nextjs-typescript-local)
+for a complete walkthrough, or the
+[Open Source / Fully Local how-to](../../how-tos/open-source-local)
+for the mental model.
+
 ## Next.js API Routes (Singleton Pattern)
 
 For Next.js API routes and other serverless environments, use the singleton pattern to avoid re-initialization on every request:
