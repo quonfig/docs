@@ -332,7 +332,7 @@ qfg migrate --from <source> [flags]
 
 | Flag | Purpose |
 | --- | --- |
-| `--from <source>` | Required. `launch` is the supported source today; `launchdarkly` and `flagsmith` are stubbed. |
+| `--from <source>` | Required. `launch`, `launchdarkly`, and `flagsmith` are supported. |
 | `--api-key <key>` | Legacy-system API key. Also read from `LAUNCH_API_KEY`. |
 | `--dir <path>` | Write to this local directory. Defaults to `./quonfig-repo` when cwd is not already a Quonfig workspace. |
 | `--workspace <org/slug>` | Cloud workspace to operate on. **Must be `org/slug` form** (e.g. `acme-org/acme-prod`); bare slugs are rejected. Requires `qfg login`. |
