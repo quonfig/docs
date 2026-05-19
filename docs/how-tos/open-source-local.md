@@ -8,6 +8,12 @@ whole system — feature flags, configs, segments, type-safe SDK clients — wit
 **no Quonfig account, no API key, and no network connection**. This page walks
 through that path end-to-end.
 
+:::info Browser / React Native SDK? Read this first
+This page covers **server-side** SDKs that read a datadir directly from the
+filesystem. Browser and React Native SDKs have no filesystem — use
+[`qfg serve`](/docs/how-tos/qfg-serve) to expose the same datadir to them over HTTP.
+:::
+
 ## What you get without an account
 
 - `qfg init` — scaffold a workspace (git repo + the right directory layout)
