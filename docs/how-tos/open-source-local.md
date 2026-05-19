@@ -216,27 +216,29 @@ Quonfig.init(
 <TabItem value="python" label="Python">
 
 ```python
-from quonfig import Options, Client
+from quonfig import Quonfig
 
-client = Client(Options(
+client = Quonfig(
     datadir="./my-config",
     data_dir_auto_reload=True,
-))
+)
+client.init()
 ```
 
 </TabItem>
 <TabItem value="java" label="Java">
 
 ```java
-import cloud.quonfig.client.Options;
-import cloud.quonfig.client.QuonfigCloudClient;
+import com.quonfig.sdk.Options;
+import com.quonfig.sdk.Quonfig;
 
-var client = new QuonfigCloudClient(
+Options opts =
     Options.builder()
         .datadir("./my-config")
         .dataDirAutoReload(true)
-        .build()
-);
+        .build();
+
+Quonfig client = new Quonfig(opts);
 ```
 
 </TabItem>
