@@ -140,11 +140,143 @@ export const quonfig = new Quonfig({
 await quonfig.init();
 ```
 
+If you want the SDK to pick up edits to the datadir without restarting the
+process, see [Auto-reload on file changes](#auto-reload-on-file-changes) below.
+
 ### 6. Use plain git for distribution
 
 Your `my-config` directory is a regular git repo. Push it to GitHub, GitLab,
 self-hosted Gitea, an S3 bucket, anywhere. Your build pulls the latest before
 `npm run build` and embeds it via `datadir`. That's the whole deployment loop.
+
+## Auto-reload on file changes
+
+When the SDK is pointed at a `datadir`, you can opt it into watching that
+directory and re-loading configs in process as soon as a file changes — no
+restart needed. This is **off by default**: you must explicitly turn it on.
+
+### What it does
+
+The SDK registers a filesystem watcher on the `datadir`. When a `.json` file
+is added, changed, or removed, the SDK re-reads the directory, re-parses the
+new state, and atomically swaps it into the live evaluator. In-flight
+evaluations finish against the old state; new evaluations see the new state.
+
+Semantics worth knowing:
+
+- **Debounced (~200ms).** A burst of writes (e.g. `git pull` rewriting many
+  files at once) coalesces into a single reload.
+- **Parse-then-swap.** If the new state fails to parse — a malformed JSON file
+  mid-edit, a broken schema, etc. — the SDK logs the error and keeps serving
+  the previous good state. A typo in your editor will never poison the running
+  config.
+- **Clean shutdown.** The watcher stops when the client shuts down; there are
+  no leaked file descriptors or background threads on `client.close()` / equivalent.
+
+### How to enable
+
+<Tabs groupId="lang">
+<TabItem value="node" label="Node">
+
+```ts
+import { Quonfig } from "@quonfig/node";
+
+const quonfig = new Quonfig({
+  datadir: "./my-config",
+  dataDirAutoReload: true,
+});
+await quonfig.init();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+import "github.com/quonfig/sdk-go/pkg/quonfig"
+
+client, err := quonfig.NewClient(
+    quonfig.WithDataDir("./my-config"),
+    quonfig.WithDataDirAutoReload(true),
+)
+```
+
+</TabItem>
+<TabItem value="ruby" label="Ruby">
+
+```ruby
+Quonfig.init(
+  Quonfig::Options.new(
+    datadir: "./my-config",
+    data_dir_auto_reload: true,
+  )
+)
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from quonfig import Quonfig
+
+client = Quonfig(
+    datadir="./my-config",
+    data_dir_auto_reload=True,
+)
+client.init()
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+import com.quonfig.sdk.Options;
+import com.quonfig.sdk.Quonfig;
+
+Options opts =
+    Options.builder()
+        .datadir("./my-config")
+        .dataDirAutoReload(true)
+        .build();
+
+Quonfig client = new Quonfig(opts);
+```
+
+</TabItem>
+</Tabs>
+
+### When to enable it
+
+- **Local development** with the `datadir` checked out from git — edit a JSON
+  file, save, see the new value on the next evaluation without bouncing your
+  dev server.
+- **Self-hosted servers** where you `git pull` the `datadir` on a schedule
+  (cron, systemd timer, etc.) — auto-reload turns each pull into a live config
+  update.
+- **CI jobs** that mutate the `datadir` mid-run — useful for tests that want
+  to flip a flag and observe the system without re-initializing the SDK.
+
+### When NOT to enable it
+
+- **Read-only / immutable filesystems** — many container images, AWS Lambda,
+  and similar sandboxes don't allow registering inotify (or equivalent)
+  watchers. The SDK degrades gracefully if registration fails (you keep your
+  initial datadir snapshot), but you're paying initialization cost for nothing.
+- **Build-time-embedded workflows** — if your `datadir` is bundled into the
+  image at build time and never changes at runtime, there's nothing to watch.
+- **Performance-sensitive production paths** where you'd rather control reload
+  timing explicitly — e.g. via a deploy that restarts the process, or via SSE
+  delivery from a hosted Quonfig account.
+
+### Default
+
+Off. The watcher is never registered unless `dataDirAutoReload` (or its
+language equivalent) is explicitly set to `true`.
+
+### Fork-safety (Ruby)
+
+Forking servers like Puma and Unicorn need an extra hook to re-initialize the
+Quonfig client (and its file watcher) per worker. See the
+[Puma & Unicorn notes in the Ruby SDK docs](/docs/sdks/ruby#special-considerations-with-forking-servers-like-puma--unicorn-that-use-workers).
 
 ## Working with AI agents
 
