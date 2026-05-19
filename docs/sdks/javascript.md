@@ -386,7 +386,6 @@ it("shows the turbo button when the feature is enabled", () => {
 | `timeout`                  | number   | `10000`                | Initialization request timeout in ms                                                         |
 | `loggerKey`                | string   | `undefined`            | The `log_level` config key consulted by `shouldLog({loggerPath})`. Required for the `loggerPath` form. |
 | `collectEvaluationSummaries` | boolean | `true`                | Send evaluation summary telemetry to Quonfig                                                 |
-| `collectLoggerNames`       | boolean  | `false`                | Send logger-name telemetry (counts per logger path) to Quonfig                               |
 | `collectContextMode`       | string   | `"PERIODIC_EXAMPLE"`   | Context telemetry mode: `"PERIODIC_EXAMPLE"`, `"SHAPE_ONLY"`, or `"NONE"`                   |
 | `afterEvaluationCallback`  | function | `undefined`            | Callback invoked after each flag/config evaluation                                           |
 

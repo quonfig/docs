@@ -1610,5 +1610,4 @@ While `loading` is true, `isEnabled` will return `false` and `getDuration`/`get`
 | `timeout`                    | no       | `number`          | initialization timeout in milliseconds (default 10000)                        |
 | `onError`                    | no       | `(error) => void` | callback invoked on initialization failure                                    |
 | `collectEvaluationSummaries` | no       | `boolean`         | opt out of evaluation summary telemetry (default `true`)                      |
-| `collectLoggerNames`         | no       | `boolean`         | collect logger name telemetry (default `false`)                               |
 | `afterEvaluationCallback`    | no       | `(key, value, contexts) => void` | callback invoked after each flag evaluation               |

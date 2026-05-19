@@ -1014,9 +1014,6 @@ const quonfig = new Quonfig({
   // Control evaluation summaries (default: true)
   collectEvaluationSummaries: true,
 
-  // Control logger usage tracking (default: true)
-  collectLoggerCounts: true,
-
   // Control context data collection (default: "periodicExample")
   contextUploadMode: "SHAPE_ONLY", // or "NONE" or "periodicExample"
 });
@@ -1036,7 +1033,6 @@ const quonfig = new Quonfig({
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | apiUrls                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                       | `["https://primary.quonfig.com"]` |
 | collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                | true              |
-| collectLoggerCounts        | Send counts of logger usage back to Quonfig to power the log-level configuration screen                                         | true              |
 | contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in quonfig contexts) or periodically send full example contexts | "periodicExample" |
 | defaultLevel               | Level to be used as the min-verbosity for a `loggerPath` if no value is configured in Quonfig                                   | "warn"            |
 | enableSSE                  | Whether or not we should listen for live changes from Quonfig                                                                   | true              |
