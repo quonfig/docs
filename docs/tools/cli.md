@@ -301,6 +301,30 @@ git -C ./my-config commit -m "feat: target beta cohort"
 git -C ./my-config push
 ```
 
+### serve
+
+`qfg serve` reads a local datadir and exposes it over the HTTP wire
+protocol the browser and React Native SDKs already speak. Use it when
+you want browser-side feature flags powered by a checked-in datadir —
+server-side SDKs read a datadir directly, so they don't need this.
+
+```bash
+qfg serve --datadir ./our-config --environment development
+# → http://127.0.0.1:6580
+```
+
+Options:
+- `--datadir <path>` - Path to the workspace (defaults to `./our-config`, then `./.quonfig`, then `QUONFIG_DIR`)
+- `--environment <slug>` - Environment to evaluate (defaults to `development` / `QUONFIG_ENVIRONMENT`)
+- `--port <n>` - TCP port (default `6580`)
+- `--host <addr>` - Bind address (default `127.0.0.1`; non-loopback requires `--allow-non-loopback`)
+- `--frontend-sdk-key <key>` - If set, require `Authorization: Basic 1:<key>` on every request
+- `--cors-origin <url>` - Allowed CORS origin (repeatable; default `*`)
+- `--watch` / `--no-watch` - Reload the envelope when the datadir changes (default on)
+
+See [Serve a Datadir to Browser SDKs](/docs/how-tos/qfg-serve) for the
+full how-to, including SDK init snippets and production positioning.
+
 ### generate
 
 `qfg generate` creates TypeScript definitions and type-safe clients for your Quonfig configuration.
