@@ -253,7 +253,7 @@ Quonfig client = new Quonfig(opts);
 ```csharp
 using Quonfig.Sdk;
 
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     Datadir = "./my-config",
     Environment = "development",

@@ -78,14 +78,20 @@ If you set `QUONFIG_BACKEND_SDK_KEY` in your environment, initialization is a on
 ```csharp
 using Quonfig.Sdk;
 
-await using var client = new Quonfig(new QuonfigOptions());
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions());
 await client.InitAsync();
 ```
+
+:::note Why `Quonfig.Sdk.Quonfig`?
+
+The client type `Quonfig` lives in the `Quonfig.Sdk` namespace, so the bare name `Quonfig` collides with the root `Quonfig` namespace (`error CS0118: 'Quonfig' is a namespace but is used like a type`). The examples below fully-qualify the constructor as `new Quonfig.Sdk.Quonfig(...)`. If you prefer the short name, add a `using` alias: `using QuonfigClient = Quonfig.Sdk.Quonfig;`.
+
+:::
 
 Or pass the SDK key explicitly:
 
 ```csharp
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     SdkKey = Environment.GetEnvironmentVariable("QUONFIG_BACKEND_SDK_KEY"),
 });
@@ -104,7 +110,7 @@ If initialization fails or times out, the `OnInitFailure` option decides what ha
 - `OnInitFailure.ReturnDefaults` — `InitAsync()` returns; subsequent getter calls fall back to the caller's `defaultValue` until the background fetch eventually succeeds.
 
 ```csharp
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     SdkKey = "sdk-...",
     InitTimeout = TimeSpan.FromSeconds(10),
@@ -118,7 +124,7 @@ await client.InitAsync();
 To run the SDK against a local checkout of a Quonfig workspace directory (the `configs/`, `feature-flags/`, `segments/`, `log-levels/` tree), use `Datadir`. **`Environment` is required in datadir mode** — set it on `QuonfigOptions` or via the `QUONFIG_ENVIRONMENT` env var.
 
 ```csharp
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     Datadir = "/path/to/your-workspace",
     Environment = "development",
@@ -131,7 +137,7 @@ In datadir mode the SDK loads everything synchronously from disk; there is no ba
 To pick up edits to the workspace without restarting the process, opt into auto-reload — see [Auto-reload on file changes](/docs/how-tos/open-source-local#auto-reload-on-file-changes).
 
 ```csharp
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     Datadir = "/path/to/your-workspace",
     Environment = "development",
@@ -146,7 +152,7 @@ await client.InitAsync();
 For build-time embedding (or tests), point `Datafile` at a single serialized envelope. The SDK loads it synchronously and makes no network calls.
 
 ```csharp
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     Datafile = "/path/to/envelope.json",
 });
@@ -166,7 +172,7 @@ By default the SDK derives every service URL from a single domain (`quonfig.com`
 You can override the URL lists directly on `QuonfigOptions`:
 
 ```csharp
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     SdkKey = "sdk-...",
     ApiUrls = new[] { "https://primary.example.com" },
@@ -243,7 +249,7 @@ var global = new ContextSet
     },
 };
 
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     SdkKey = "sdk-...",
     GlobalContext = global,
@@ -351,12 +357,18 @@ if (details.Reason == Reason.Error)
 | Field             | Description                                                                                          |
 | ----------------- | ---------------------------------------------------------------------------------------------------- |
 | `Value`           | The typed value (or your default on `Default` / `Error`).                                            |
-| `Reason`          | `Static`, `TargetingMatch`, `Split`, `Default`, `Error`, or `Unknown`.                               |
-| `Variant`         | OpenFeature-style identifier — `"static"`, `"targeting:<n>"`, `"split:<n>"`, or `"default"`.         |
-| `VariantIndex`    | The selected weighted-bucket index on `Split`; `null` otherwise.                                     |
+| `Reason`          | `Static`, `TargetingMatch`, `Default`, `Error`, or `Unknown` (see note on `Split` below).            |
+| `Variant`         | OpenFeature-style identifier — `"static"`, `"targeting:<n>"`, or `"default"`.                        |
+| `VariantIndex`    | Reserved for weighted splits — always `null` in `0.0.1`.                                              |
 | `ErrorCode`       | `FlagNotFound`, `TypeMismatch`, or `General` on `Error`; `null` otherwise.                           |
 | `ErrorMessage`    | Companion to `ErrorCode`.                                                                            |
-| `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex`, `weightedValueIndex`, `environment`.    |
+| `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex`, `environment`.                          |
+
+:::note Weighted splits report `TargetingMatch` in `0.0.1`
+
+The `Reason` enum and `VariantIndex` field include a `Split` variant (`"split:<n>"`) for OpenFeature parity, but the `0.0.1` evaluator never emits it: weighted-value configs resolve to the correct value and report `Reason.TargetingMatch` with `VariantIndex == null`. The dedicated split reason/index is reserved for a later release.
+
+:::
 
 ## ASP.NET Core integration
 
@@ -417,47 +429,62 @@ If no log-level config is found at any level, `ShouldLog` returns `true` — the
 
 ### Microsoft.Extensions.Logging integration
 
-The `Quonfig.Sdk.Extensions.Logging` package wires `ShouldLog` into the BCL logging pipeline. Register the filter when configuring logging:
+The `Quonfig.Sdk.Extensions.Logging` package wires `ShouldLog` into the BCL logging pipeline by wrapping the providers already registered on the `ILoggingBuilder`:
 
 ```bash
 dotnet add package Quonfig.Sdk.Extensions.Logging --version 0.0.1
 ```
 
+`AddQuonfigFilter(quonfig)` takes the client instance and must be called **last** in the logging setup — it snapshots and wraps every `ILoggerProvider` registered up to that point. Because it needs the instance at logging-config time, construct the client up front and register the same instance with DI:
+
 ```csharp
+using Quonfig.Sdk;
 using Quonfig.Sdk.Extensions.Logging;
 
-builder.Services.AddLogging(logging =>
-{
-    logging.AddQuonfigFilter();
-});
+var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddQuonfig(opts =>
+// Construct the client up front so the one instance drives both the logging
+// filter and DI.
+var quonfig = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
-    opts.SdkKey = builder.Configuration["Quonfig:SdkKey"];
-    opts.LoggerKey = "log-level.my-app";
+    SdkKey = builder.Configuration["Quonfig:SdkKey"],
+    LoggerKey = "log-level.my-app",
 });
+builder.Services.AddSingleton<IQuonfig>(quonfig);
+
+// Add LAST, after the default console/debug providers are wired.
+builder.Logging.AddQuonfigFilter(quonfig);
 ```
 
-Every `ILogger<T>` call site is automatically gated by Quonfig: the logger category name is used as `loggerPath`, the requested level becomes `desired`, and the SDK answers with the current ruleset.
+Every `ILogger<T>` call site is then automatically gated by Quonfig: the logger category name is used as `loggerPath`, the requested level becomes `desired`, and the SDK answers with the current ruleset. (This is exactly how the [`test-net`](https://github.com/quonfig/test-net) sample wires it.) When you also use `Quonfig.Sdk.AspNetCore`, register the singleton as above and let `AddQuonfig(...)` mirror the same options — that way the `IHostedService` still drives `InitAsync`/`CloseAsync` on the instance you handed to the filter.
 
 ### Serilog integration
 
-For Serilog, use `Quonfig.Sdk.Serilog`. It manages a set of `LoggingLevelSwitch` instances keyed by source context and re-evaluates them whenever the config envelope changes (the SDK fires `OnConfigChange` after every successful install).
+For Serilog, use `Quonfig.Sdk.Serilog`. The `QuonfigLoggingLevelSwitchProvider` manages a set of Serilog `LoggingLevelSwitch` instances keyed by source context and re-evaluates them whenever the config envelope changes (it subscribes to the SDK's `OnConfigChange`, which fires after every successful install).
 
 ```bash
 dotnet add package Quonfig.Sdk.Serilog --version 0.0.1
 ```
 
+The provider resolves levels via `IQuonfig.GetLogLevel(...)`, so the config key is configured by `LoggerKey` on the **client** options — you don't pass a key to the provider. `GetSwitch(category)` returns (and caches) the switch for a source context; pass an empty string for the root switch used by `MinimumLevel.ControlledBy`:
+
 ```csharp
 using Serilog;
+using Serilog.Events;
 using Quonfig.Sdk.Serilog;
 
+// `client` is a Quonfig instance whose options set LoggerKey = "log-level.my-app".
+var levelSwitches = new QuonfigLoggingLevelSwitchProvider(
+    client,
+    defaultLevel: LogEventLevel.Information);
+
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.ControlledBy(QuonfigSerilog.RootLevelSwitch(client, "log-level.my-app"))
-    .Enrich.WithQuonfigDynamicLevel(client, "log-level.my-app")
+    .MinimumLevel.ControlledBy(levelSwitches.GetSwitch(string.Empty)) // root switch
     .WriteTo.Console()
     .CreateLogger();
 ```
+
+To control a specific source context, request its switch with `levelSwitches.GetSwitch("Acme.Web.Auth")` and apply it with `Serilog`'s `MinimumLevel.Override`. Every switch the provider hands out is refreshed automatically when the Quonfig config changes — no enricher or per-event hook required. Call `levelSwitches.Dispose()` on shutdown to unsubscribe from `OnConfigChange`.
 
 ### Rule example
 
@@ -532,7 +559,7 @@ By default Quonfig uploads telemetry that powers the dashboard's evaluation coun
 | `ContextUploadMode`           | How named-context data is reported. One of `None`, `ShapesOnly` (names + types), or `PeriodicExample` (full sample, redacted). | `ShapesOnly`  |
 
 ```csharp
-await using var client = new Quonfig(new QuonfigOptions
+await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     SdkKey = "sdk-...",
     CollectEvaluationSummaries = true,
@@ -558,7 +585,7 @@ new QuonfigOptions
 `Quonfig` is a regular class with no static state. The cleanest way to unit-test code that reads configs is to point a `Quonfig` instance at a small datadir of test fixtures:
 
 ```csharp
-await using var testClient = new Quonfig(new QuonfigOptions
+await using var testClient = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     Datadir = "TestData/quonfig-fixtures",
     Environment = "test",

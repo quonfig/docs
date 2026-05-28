@@ -112,13 +112,15 @@ public class CheckoutController : ControllerBase
 }
 ```
 
-You can still pass a just-in-time `ContextSet` to any call when you have
-information that wasn't on `HttpContext` yet — per-call values win over
-the bound context when they share a key:
+When you have information that wasn't on `HttpContext` yet, layer it on with
+`WithContext(...)`, which returns a new bound view with the extra context merged
+in — per-call values win over the existing bound context when they share a key.
+(`IBoundQuonfig` getters don't take a `ContextSet` argument directly; chain
+`WithContext` instead.)
 
 ```csharp
 var jitCtx = new ContextSet { ["experiment"] = new() { ["bucket"] = bucket } };
-_quonfig.IsFeatureEnabled("pricing.experiment", jitCtx);
+_quonfig.WithContext(jitCtx).IsFeatureEnabled("pricing.experiment");
 ```
 
 ## Background work
@@ -155,7 +157,7 @@ public class TestFixture : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IQuonfig>();
-            services.AddSingleton<IQuonfig>(_ => new Quonfig(new QuonfigOptions
+            services.AddSingleton<IQuonfig>(_ => new Quonfig.Sdk.Quonfig(new QuonfigOptions
             {
                 Datadir = "TestData/quonfig-fixtures",
                 Environment = "test",
