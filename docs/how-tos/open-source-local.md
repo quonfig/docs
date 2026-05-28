@@ -248,6 +248,21 @@ Quonfig client = new Quonfig(opts);
 ```
 
 </TabItem>
+<TabItem value="dotnet" label=".NET">
+
+```csharp
+using Quonfig.Sdk;
+
+await using var client = new Quonfig(new QuonfigOptions
+{
+    Datadir = "./my-config",
+    Environment = "development",
+    DatadirAutoReload = true,
+});
+await client.InitAsync();
+```
+
+</TabItem>
 </Tabs>
 
 ### When to enable it
