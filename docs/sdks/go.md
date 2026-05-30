@@ -378,7 +378,7 @@ client, err := quonfig.NewSdk(quonfig.WithConfigs(configs))
 
 ```go
 client, err := quonfig.NewSdk(
-    quonfig.WithSdkKey(os.Getenv("QUONFIG_SDK_KEY")), // or use QUONFIG_BACKEND_SDK_KEY env var
+    quonfig.WithSdkKey(os.Getenv("QUONFIG_BACKEND_SDK_KEY")), // or omit — auto-loaded from QUONFIG_BACKEND_SDK_KEY
     quonfig.WithGlobalContext(globalContext),
     quonfig.WithCollectEvaluationSummaries(true),
     quonfig.WithContextTelemetryMode(quonfig.ContextTelemetryMode.PeriodicExample),

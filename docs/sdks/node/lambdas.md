@@ -16,7 +16,7 @@ let quonfig: Quonfig | null = null;
 async function getQuonfig(): Promise<Quonfig> {
   if (!quonfig) {
     const client = new Quonfig({
-      sdkKey: process.env.QUONFIG_SDK_KEY!,
+      sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
       enableSSE: true,
       enablePolling: true,
     });
