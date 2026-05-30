@@ -18,7 +18,7 @@ Add `quonfig "github.com/quonfig/sdk-go"` to your imports.
 Then, initialize the client with your SDK key:
 
 ```go
-sdk, err := quonfig.NewSdk(quonfig.WithSdkKey(sdkKey))
+sdk, err := quonfig.NewClient(quonfig.WithSdkKey(sdkKey))
 ```
 
 ### Typical Usage
@@ -32,7 +32,7 @@ var quonfigSdk quonfig.ClientInterface
 
 func init() {
     // Note: WithSdkKey is not needed if QUONFIG_BACKEND_SDK_KEY env var is set
-    sdk, err := quonfig.NewSdk()
+    sdk, err := quonfig.NewClient()
     if err != nil {
         panic(err)
     }
@@ -50,7 +50,7 @@ to the hostname, so you don't configure it separately. A fallback
 exists. Override the list with `WithAPIURLs`:
 
 ```go
-sdk, err := quonfig.NewSdk(
+sdk, err := quonfig.NewClient(
     quonfig.WithSdkKey(sdkKey),
     quonfig.WithAPIURLs([]string{"https://primary.quonfig.com"}),
 )
@@ -97,7 +97,7 @@ globalContext := quonfig.NewContextSet().
     })
 
 
-sdk, err := quonfig.NewSdk(
+sdk, err := quonfig.NewClient(
     quonfig.WithSdkKey(sdkKey),
     quonfig.WithGlobalContext(globalContext),
 )
@@ -168,7 +168,7 @@ The [`qfg override`](/docs/tools/cli#override) CLI flips a flag for *your* devel
 Enable injection:
 
 ```go
-sdk, err := quonfig.NewSdk(
+sdk, err := quonfig.NewClient(
     quonfig.WithSdkKey(sdkKey),
     quonfig.WithQuonfigUserContext(true), // opt in
 )
@@ -311,7 +311,7 @@ By default, Quonfig uploads telemetry that enables a number of useful features. 
 If you want to change any of these options, you can pass options when initializing the Quonfig SDK:
 
 ```go
-sdk, err := quonfig.NewSdk(
+sdk, err := quonfig.NewClient(
     quonfig.WithSdkKey(sdkKey),
     quonfig.WithCollectEvaluationSummaries(true),
     quonfig.WithContextTelemetryMode(quonfig.ContextTelemetryMode.PeriodicExample),
@@ -326,7 +326,7 @@ Available context telemetry modes:
 To disable all telemetry at once:
 
 ```go
-sdk, err := quonfig.NewSdk(
+sdk, err := quonfig.NewClient(
     quonfig.WithAllTelemetryDisabled(),
 )
 ```
@@ -340,7 +340,7 @@ For offline development, testing, or air-gapped environments, you can use datafi
 When using offline sources, you must provide the `WithProjectEnvID` to identify which environment's configuration you're using:
 
 ```go
-sdk, err := quonfig.NewSdk(
+sdk, err := quonfig.NewClient(
     quonfig.WithProjectEnvID(123456789), // Your project environment ID
     quonfig.WithOfflineSources([]string{
         "datafile:///path/to/your/datafile.json",
@@ -369,7 +369,7 @@ configs := map[string]interface{}{
 	},
 }
 
-client, err := quonfig.NewSdk(quonfig.WithConfigs(configs))
+client, err := quonfig.NewClient(quonfig.WithConfigs(configs))
 ```
 
 ## Reference
@@ -377,7 +377,7 @@ client, err := quonfig.NewSdk(quonfig.WithConfigs(configs))
 ### Options
 
 ```go
-client, err := quonfig.NewSdk(
+client, err := quonfig.NewClient(
     quonfig.WithSdkKey(os.Getenv("QUONFIG_BACKEND_SDK_KEY")), // or omit — auto-loaded from QUONFIG_BACKEND_SDK_KEY
     quonfig.WithGlobalContext(globalContext),
     quonfig.WithCollectEvaluationSummaries(true),
