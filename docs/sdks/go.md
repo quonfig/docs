@@ -28,7 +28,7 @@ We recommend using the SDK client as a singleton in your application.
 ```go
 import quonfig "github.com/quonfig/sdk-go"
 
-var quonfigSdk quonfig.ClientInterface
+var quonfigSdk *quonfig.Client
 
 func init() {
     // Note: WithSdkKey is not needed if QUONFIG_BACKEND_SDK_KEY env var is set
@@ -61,7 +61,7 @@ sdk, err := quonfig.NewClient(
 For boolean flags, you can use the `FeatureIsOn` function:
 
 ```go
-enabled, ok := sdk.FeatureIsOn("my.feature.name", quonfig.ContextSet{})
+enabled, ok := sdk.FeatureIsOn("my.feature.name", quonfig.NewContextSet())
 ```
 
 Flags that don't exist yet are considered off, so you can happily add `FeatureIsOn` checks to your code before the flag is created.
@@ -74,8 +74,8 @@ Feature flags don't have to return just true or false.
 You can get other data types using `Get*` functions:
 
 ```go
-value, ok, err := sdk.GetStringValue("my.string.feature.name", quonfig.ContextSet{})
-value, ok, err := sdk.GetJSONValue("my.json.feature.name", quonfig.ContextSet{})
+value, ok, err := sdk.GetStringValue("my.string.feature.name", quonfig.NewContextSet())
+value, ok, err := sdk.GetJSONValue("my.json.feature.name", quonfig.NewContextSet())
 ```
 
 </details>
@@ -117,15 +117,17 @@ requestContext := quonfig.NewContextSet().
     })
 
 boundSdk := sdk.WithContext(requestContext)
-enabled, ok := boundSdk.FeatureIsOn("my.feature.name", quonfig.ContextSet{})
+enabled, ok := boundSdk.FeatureIsOn("my.feature.name")
 ```
 
 ### Just-in-time Context
 
 You can also pass context when evaluating individual flags or config values.
+Just-in-time context is passed to the unbound client's `FeatureIsOn`/`Get*`
+methods (the context-bound client returned by `WithContext` takes only a key):
 
 ```go
-enabled, ok := boundSdk.FeatureIsOn("my.feature.name", quonfig.NewContextSet().
+enabled, ok := sdk.FeatureIsOn("my.feature.name", quonfig.NewContextSet().
     WithNamedContextValues("team", map[string]interface{}{
         "name":  currentTeam.GetName(),
         "email": currentTeam.GetEmail(),
@@ -137,11 +139,11 @@ enabled, ok := boundSdk.FeatureIsOn("my.feature.name", quonfig.NewContextSet().
 Config values are available via the `Get*` functions:
 
 ```go
-value, ok, err := sdk.GetJSONValue("slack.bot.config", quonfig.ContextSet{})
+value, ok, err := sdk.GetJSONValue("slack.bot.config", quonfig.NewContextSet())
 
-value, ok, err := sdk.GetStringValue("some.string.config", quonfig.ContextSet{})
+value, ok, err := sdk.GetStringValue("some.string.config", quonfig.NewContextSet())
 
-value, ok, err := sdk.GetFloatValue("some.float.config", quonfig.ContextSet{})
+value, ok, err := sdk.GetFloatValue("some.float.config", quonfig.NewContextSet())
 ```
 
 <details>
@@ -151,13 +153,21 @@ value, ok, err := sdk.GetFloatValue("some.float.config", quonfig.ContextSet{})
 
 </summary>
 
-Here we ask for the value of a config named `max-jobs-per-second`, and we specify `10` as a default value if no value is available.
+The `Get*` functions return a `found` boolean alongside the value, so you can
+supply your own default when a config isn't available. Here we ask for the value
+of a config named `max-jobs-per-second`, falling back to `10` if it's missing.
 
 ```go
-value, wasFound := sdk.GetIntValueWithDefault("max-jobs-per-second", 10, quonfig.ContextSet{})
+maxJobsPerSecond, found, err := sdk.GetIntValue("max-jobs-per-second", quonfig.NewContextSet())
+if err != nil {
+    // handle the error (e.g. log it) — value is unusable
+}
+if !found {
+    maxJobsPerSecond = 10 // default
+}
 ```
 
-If `max-jobs-per-second` is available, `wasFound` will be `true` and `value` will be the value of the config. If `max-jobs-per-second` is not available, `wasFound` will be `false` and `value` will be `10`.
+If `max-jobs-per-second` is available, `found` will be `true` and `maxJobsPerSecond` will be the value of the config. If it's not available, `found` will be `false` and we fall back to `10`.
 
 </details>
 
@@ -314,14 +324,14 @@ If you want to change any of these options, you can pass options when initializi
 sdk, err := quonfig.NewClient(
     quonfig.WithSdkKey(sdkKey),
     quonfig.WithCollectEvaluationSummaries(true),
-    quonfig.WithContextTelemetryMode(quonfig.ContextTelemetryMode.PeriodicExample),
+    quonfig.WithContextTelemetryMode(quonfig.ContextTelemetryPeriodicExample),
 )
 ```
 
 Available context telemetry modes:
-- `quonfig.ContextTelemetryMode.None` - Don't upload any context information
-- `quonfig.ContextTelemetryMode.Shapes` - Upload only context shapes (names and data types)
-- `quonfig.ContextTelemetryMode.PeriodicExample` - Periodically send full example contexts (default)
+- `quonfig.ContextTelemetryNone` - Don't upload any context information
+- `quonfig.ContextTelemetryShapes` - Upload only context shapes (names and data types)
+- `quonfig.ContextTelemetryPeriodicExample` - Periodically send full example contexts (default)
 
 To disable all telemetry at once:
 
@@ -381,7 +391,7 @@ client, err := quonfig.NewClient(
     quonfig.WithSdkKey(os.Getenv("QUONFIG_BACKEND_SDK_KEY")), // or omit — auto-loaded from QUONFIG_BACKEND_SDK_KEY
     quonfig.WithGlobalContext(globalContext),
     quonfig.WithCollectEvaluationSummaries(true),
-    quonfig.WithContextTelemetryMode(quonfig.ContextTelemetryMode.PeriodicExample),
+    quonfig.WithContextTelemetryMode(quonfig.ContextTelemetryPeriodicExample),
 )
 ```
 
