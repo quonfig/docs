@@ -347,22 +347,52 @@ rules:
 
 Because the evaluator sees your full context — global, bound, and the injected logger key — you can combine logger rules with user, environment, or request context to crank verbosity up for one user, one staging deploy, or one bad request, without touching anyone else.
 
-### Wiring `shouldLog` into your logger
+### Wiring Quonfig into Logback (recommended)
 
-The SDK does not ship a Logback `TurboFilter` or Log4j2 `Filter` today. To gate a log call manually, wrap the call site:
+The `sdk-java-logback` module ships a `TurboFilter` that gates **every** Logback logger dynamically from Quonfig — no per-call-site `if (shouldLog)` wrapping. Add the dependency (you bring your own Logback; the module declares it `provided`):
+
+```kotlin
+implementation("com.quonfig:sdk-java-logback:0.0.4")
+implementation("ch.qos.logback:logback-classic:1.5.18")
+```
+
+Install the filter once at startup, right after constructing the client:
+
+```java
+import com.quonfig.sdk.Quonfig;
+import com.quonfig.sdk.logback.QuonfigLogbackTurboFilter;
+
+Quonfig quonfig = new Quonfig(options); // options.loggerKey("log-level.my-app")
+QuonfigLogbackTurboFilter.install(quonfig);
+```
+
+From then on, ordinary SLF4J calls are gated for you — records below the level Quonfig resolves for the logger's name are dropped, those at or above are emitted:
 
 ```java
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
 
-private static final Logger log = LoggerFactory.getLogger(MyService.class);
-private static final String LOGGER_PATH = MyService.class.getName();
+private static final Logger log = LoggerFactory.getLogger("my-app");
 
 void doWork() {
-    if (quonfig.shouldLog(LOGGER_PATH, Level.DEBUG)) {
-        log.debug("expensive thing happened: {}", expensiveDescription());
-    }
+    log.debug("expensive thing happened: {}", expensiveDescription()); // dropped unless Quonfig allows DEBUG
+    log.warn("heads up");                                              // emitted at a WARN floor
+}
+```
+
+When Quonfig has no opinion for a logger path the filter returns `NEUTRAL`, so that logger's own threshold and any other filters still apply — installing the filter never silences loggers Quonfig doesn't configure. A reference wiring (driving every level TRACE→ERROR through the real filter and asserting the gate) lives in `test/test-java`.
+
+> Log4j2 users: the parallel `sdk-java-log4j2` module ships an equivalent filter.
+
+### Gating a single call site manually
+
+If you don't use Logback (or want to guard one expensive call), consult `shouldLog` directly:
+
+```java
+import org.slf4j.event.Level;
+
+if (quonfig.shouldLog("com.example.auth", Level.DEBUG)) {
+    log.debug("expensive thing happened: {}", expensiveDescription());
 }
 ```
 
