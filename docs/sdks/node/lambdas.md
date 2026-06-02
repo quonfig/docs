@@ -18,7 +18,7 @@ async function getQuonfig(): Promise<Quonfig> {
     const client = new Quonfig({
       sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
       enableSSE: true,
-      enablePolling: true,
+      fallbackPollEnabled: true,
     });
     await client.init();
     quonfig = client;
@@ -134,7 +134,7 @@ import { QuonfigTypesafeNode } from "./generated/quonfig-server";
 const baseQuonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
   enableSSE: false, // we don't want any background process in our function
-  enablePolling: false, // we'll handle updates ourselves
+  fallbackPollEnabled: false, // we'll handle updates ourselves
   contextUploadMode: "none", // turn off background telemetry
   collectEvaluationSummaries: false, // turn off background telemetry
 });
@@ -173,7 +173,7 @@ import { Quonfig, type Contexts } from "@quonfig/node";
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!, // server SDK key
   enableSSE: false, // we don't want any background process in our function
-  enablePolling: false, // we'll handle updates ourselves
+  fallbackPollEnabled: false, // we'll handle updates ourselves
   contextUploadMode: "none", // turn off background telemetry
   collectEvaluationSummaries: false, // turn off background telemetry
 });
@@ -208,7 +208,7 @@ import { Quonfig } from "@quonfig/node";
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
   enableSSE: false, // we don't want any background process in our function
-  enablePolling: false, // we'll handle updates ourselves
+  fallbackPollEnabled: false, // we'll handle updates ourselves
   contextUploadMode: "none", // turn off background telemetry
   collectEvaluationSummaries: false, // turn off background telemetry
 });
