@@ -173,20 +173,20 @@ If `max-jobs-per-second` is available, `found` will be `true` and `maxJobsPerSec
 
 ## Developer overrides (`qfg override`)
 
-The [`qfg override`](/docs/tools/cli#override) CLI flips a flag for *your* developer machine without affecting anyone else. It does this by writing a top-priority rule on the flag keyed on the property `quonfig-user.email`. The SDK only injects that property when you opt in, so the rule is dead code in production by construction (a server that never opted in has no `quonfig-user.email` on its eval context, and the rule cannot fire).
+The [`qfg override`](/docs/tools/cli#override) CLI flips a flag for *your* developer machine without affecting anyone else. It does this by writing a top-priority rule on the flag keyed on the property `quonfig-user.email`. The SDK injects that property automatically whenever the `qfg login` token file is present, so the rule is dead code in production by construction (a server that never ran `qfg login` has no `quonfig-user.email` on its eval context, and the rule cannot fire).
 
-Enable injection:
+Injection is **on by default** — when `~/.quonfig/tokens.json` (written by `qfg login`) exists, the SDK reads it on init and merges `quonfig-user.email = <userEmail>` into the global context. Customer-supplied `quonfig-user` keys (set via `WithGlobalContext`) win on collision. If the file is missing or unparseable the SDK is a no-op — init still succeeds.
+
+To opt out (e.g. on a shared box where `qfg login` has run):
 
 ```go
 sdk, err := quonfig.NewClient(
     quonfig.WithSdkKey(sdkKey),
-    quonfig.WithQuonfigUserContext(true), // opt in
+    quonfig.WithQuonfigUserContext(false), // opt out
 )
 ```
 
-Or set `QUONFIG_DEV_CONTEXT=true` in the environment — useful for local `.envrc`/`.env` so production deploys never accidentally inject anything.
-
-When enabled, the SDK reads `~/.quonfig/tokens.json` (written by `qfg login`) on init and merges `quonfig-user.email = <userEmail>` into the global context. Customer-supplied `quonfig-user` keys (set via `WithGlobalContext`) win on collision. If the file is missing or unparseable the SDK is a no-op — init still succeeds.
+Or set `QUONFIG_DEV_CONTEXT=false` in the environment. Precedence: the explicit option wins, then `QUONFIG_DEV_CONTEXT`, then the default (`true`).
 
 Telemetry note: `quonfig-user.email` flows through telemetry like any other context attribute. It only appears in dev-machine telemetry because production never injects it.
 
@@ -411,4 +411,4 @@ client, err := quonfig.NewClient(
 | WithOnInitializationFailure    | Choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup                               | RAISE (crash)    |
 | WithInitializationTimeoutSeconds | Timeout for initial config fetch                                                                                                    | 10               |
 | WithLoggerKey                  | The `log_level` config key consulted by `ShouldLogPath` and the slog adapter. No default — set it to enable the `loggerPath` convenience. | `""`             |
-| WithQuonfigUserContext         | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into the global context. Pairs with `qfg override`. Env var `QUONFIG_DEV_CONTEXT=true` also enables. Default off so production never injects. | false            |
+| WithQuonfigUserContext         | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into the global context. Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Pass `false` or set `QUONFIG_DEV_CONTEXT=false` to opt out. | on (token-gated) |

@@ -78,25 +78,36 @@ qfg login
 
 **2. Run your app with an SDK key as normal** (`QUONFIG_BACKEND_SDK_KEY=qf_sk_…`).
 
-**3. Turn on dev-context injection** so the SDK reads your saved login identity
+**3. Nothing to turn on — dev-context injection is on by default.** Every
+backend SDK automatically reads your saved login identity
 (`~/.quonfig/tokens.json`) and injects `{ "quonfig-user": { email } }` into
-every evaluation. This is **opt-in** — set the env var, or pass the constructor
-option:
+every evaluation. The gate is simply *the token file's presence*: if it's there
+(you ran `qfg login`), your email is injected; if it isn't (production), nothing
+is. So there's no flag to flip for the normal path.
+
+If you ever need to **opt out** — on a shared box where `qfg login` has run but
+you don't want a developer's email on the context — set the env var or pass the
+constructor option:
 
 ```bash
-export QUONFIG_DEV_CONTEXT=true   # works for every SDK that supports injection
+export QUONFIG_DEV_CONTEXT=false   # works for every backend SDK
 ```
 
-| Backend SDK | How to enable |
+| Backend SDK | How to opt out |
 |---|---|
-| Node | `QUONFIG_DEV_CONTEXT=true` or `new Quonfig({ enableQuonfigUserContext: true })` |
-| Go | `QUONFIG_DEV_CONTEXT=true` or `WithQuonfigUserContext(true)` |
-| Python | `QUONFIG_DEV_CONTEXT=true` or `Options(enable_quonfig_user_context=True)` |
-| Ruby | `QUONFIG_DEV_CONTEXT=true` or `enable_quonfig_user_context: true` |
+| Node | `QUONFIG_DEV_CONTEXT=false` or `new Quonfig({ enableQuonfigUserContext: false })` |
+| Go | `QUONFIG_DEV_CONTEXT=false` or `WithQuonfigUserContext(false)` |
+| Python | `QUONFIG_DEV_CONTEXT=false` or `Options(enable_quonfig_user_context=False)` |
+| Ruby | `QUONFIG_DEV_CONTEXT=false` or `enable_quonfig_user_context: false` |
+| Java | `QUONFIG_DEV_CONTEXT=false` or `.enableQuonfigUserContext(false)` |
+| .NET | `QUONFIG_DEV_CONTEXT=false` or `EnableQuonfigUserContext = false` |
+
+Precedence is the same everywhere: the explicit constructor option wins, then
+`QUONFIG_DEV_CONTEXT` (`true`/`false`), then the default (`true`).
 
 Any backend SDK can also just pass `quonfig-user.email` on the context directly
 (see [Frontends: pass the context yourself](#frontends-pass-the-context-yourself)) —
-that always works, whether or not auto-injection is wired up.
+that always works regardless of the injection setting.
 
 **4. Set an override** and run your app:
 
@@ -104,12 +115,13 @@ that always works, whether or not auto-injection is wired up.
 qfg override my.flag true
 ```
 
-:::tip Why is this opt-in?
-The SDK only injects your email when you ask it to. Default-on would mean any
-machine that ever ran `qfg login` (a shared CI runner, a staging box) starts
-emitting a developer's email into evaluation context and telemetry, and could
-silently activate overrides off your laptop. Keeping it opt-in keeps the
-"dead in prod" guarantee honest.
+:::tip Why is default-on safe?
+The injection is gated on the `qfg login` token file, which **production never
+has** — a production server doesn't run `qfg login`, so there's no identity to
+read and nothing is injected. That's the same "dead in prod by construction"
+guarantee, now without a setup step to forget. On the rare shared machine where
+`qfg login` *has* run but you don't want injection (a CI runner, a staging box),
+set `QUONFIG_DEV_CONTEXT=false` to opt out.
 :::
 
 ## Frontends: pass the context yourself
