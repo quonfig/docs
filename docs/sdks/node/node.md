@@ -875,9 +875,9 @@ Access raw configuration metadata and structure:
 // Get raw config with full metadata (no evaluation)
 const rawConfig = quonfig.rawConfig("api.retry.count");
 if (rawConfig) {
-  console.log("Config type:", rawConfig.configType);
+  console.log("Config type:", rawConfig.type);
   console.log("Value type:", rawConfig.valueType);
-  console.log("Rules:", rawConfig.rows);
+  console.log("Rules:", rawConfig.default);
 }
 
 // Get the raw value that matches a given context, without unwrapping it
