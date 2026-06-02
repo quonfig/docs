@@ -3,7 +3,7 @@ title: Ruby
 ---
 
 ## Install the latest version
-[Github](https://github.com/quonfig/sdk-ruby) | [Ruby Gems](https://rubygems.org/gems/sdk-quonfig)
+[Github](https://github.com/quonfig/sdk-ruby) | [Ruby Gems](https://rubygems.org/gems/quonfig)
 
 
 ```ruby
@@ -13,7 +13,7 @@ context = {
   user: {
     key: 123,
     email: "alice@example.com"
-  }
+  },
   team: {
     key: 456,
     name: "AliceCorp"
@@ -546,15 +546,15 @@ For more control, you can initialize your client with options. Here are the defa
 options = Quonfig::Options.new(
   sdk_key: ENV['QUONFIG_BACKEND_SDK_KEY'],
   api_urls: ['https://primary.quonfig.com'], # or ENV['QUONFIG_API_URLS'] (comma-separated). SSE URL is derived by prepending 'stream.'
-  on_no_default: ON_NO_DEFAULT::RAISE, # options :raise, :warn_and_return_nil,
-  initialization_timeout_sec: 10, # how long to wait before on_init_failure
-  on_init_failure: ON_INITIALIZATION_FAILURE::RAISE, # choose to crash or continue with local data only if unable to fetch config data from prefab at startup
-  datafile: ENV['QUONFIG_DATAFILE'] || ENV['PREFAB_DATAFILE'],
+  on_no_default: ON_NO_DEFAULT::RAISE, # ON_NO_DEFAULT::RAISE (:raise) or RETURN_NIL (:return_nil)
+  initialization_timeout_sec: 10, # how long to wait before on_init_failure (alias for init_timeout_ms)
+  on_init_failure: ON_INITIALIZATION_FAILURE::RAISE, # choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup
+  datadir: ENV['QUONFIG_DIR'], # local workspace dir for offline/datadir mode
   logger_key: nil, # the `log_level` config key consulted by `should_log?(logger_path:, ...)`, e.g. "log-level.my-app"
   enable_quonfig_user_context: nil, # inject quonfig-user.email from ~/.quonfig/tokens.json (qfg login). Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set false or QUONFIG_DEV_CONTEXT=false to opt out.
   collect_max_paths: DEFAULT_MAX_PATHS,
   collect_sync_interval: nil,
-  context_upload_mode: :periodic_example, # :periodic_example, :shape_only, :none
+  context_upload_mode: :periodic_example, # :periodic_example, :shapes_only, :none
   context_max_size: DEFAULT_MAX_EVAL_SUMMARIES,
   collect_evaluation_summaries: true, # send counts of config/flag evaluation results back to Quonfig to view in web app
   collect_max_evaluation_summaries: DEFAULT_MAX_EVAL_SUMMARIES,
