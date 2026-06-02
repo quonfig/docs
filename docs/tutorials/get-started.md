@@ -10,14 +10,6 @@ Let's discover **Quonfig in less than 5 minutes**.
 
 Getting setup with Quonfig should take you 5 minutes, but only if we start right now ;)
 
-## Dashboard
-
-After signing up, you'll see an onboarding dashboard. We've created your first workspace for you.
-
-![image](/img/docs/getting-started/dashboard.png)
-
-Most organizations will only want a single workspace.
-
 ## Environments
 
 Click on environments to view environments. We've added `Development`, `Staging` and `Production` for you.
