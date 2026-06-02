@@ -32,7 +32,7 @@ yarn add @quonfig/javascript
 We recommend using [jsDelivr][jsDelivr] for a minified/bundled version.
 
 ```
-<script src="https://cdn.jsdelivr.net/npm/@quonfig/javascript@0.0.3/dist/quonfig.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@quonfig/javascript@0.0.17/dist/quonfig.bundle.js"></script>
 ```
 
 See the <a href="#context">context</a> section for more information on how to initialize with the `<script>` tag and a user context.
@@ -48,16 +48,16 @@ Initialize `quonfig` with your SDK key:
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
-import { quonfig, Context } from "@quonfig/javascript";
+import { quonfig } from "@quonfig/javascript";
 
 const options = {
   sdkKey: "YOUR_SDK_KEY",
-  context: new Context({
+  context: {
     user: {
       email: "test@example.com",
     },
     device: { mobile: true },
-  }),
+  },
 };
 
 await quonfig.init(options);
@@ -126,22 +126,22 @@ You can also use:
 
 ## Context
 
-`Context` accepts an object with keys that are context names and key value pairs with attributes describing the context. You can use this to write targeting rules, e.g. [segment] your users.
+Context is a plain object whose keys are context names, each mapping to attributes describing that context. You can use this to write targeting rules, e.g. [segment] your users.
 
 <Tabs groupId="lang">
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
 // highlight-next-line
-import { quonfig, Context } from "@quonfig/javascript";
+import { quonfig } from "@quonfig/javascript";
 
 const options = {
   sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
   // highlight-start
-  context: new Context({
+  context: {
     user: { key: "abcdef", email: "test@example.com" },
     device: { key: "hijklm", mobile: true },
-  }),
+  },
   // highlight-end
 };
 
@@ -154,16 +154,15 @@ await quonfig.init(options);
 
 ```javascript
 // `quonfig` is available globally on the window object
-// `Context` is available globally as `window.quonfigNamespace.Context`
 const options = {
   sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
   // highlight-start
-  context: new quonfigNamespace.Context({
+  context: {
     user: {
       email: "test@example.com",
     },
     device: { mobile: true },
-  }),
+  },
   // highlight-end
 };
 
@@ -230,11 +229,11 @@ The browser SDK evaluates log levels against the **context snapshot captured at 
 ### Basic usage
 
 ```javascript
-import { quonfig, Context } from "@quonfig/javascript";
+import { quonfig } from "@quonfig/javascript";
 
 await quonfig.init({
   sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
-  context: new Context({ user: { email: "test@example.com" } }),
+  context: { user: { email: "test@example.com" } },
   loggerKey: "log-level.my-app",
 });
 
@@ -274,9 +273,7 @@ Because the evaluator sees the full init-time context — not just `quonfig-sdk-
 Because evaluation is pinned to the context snapshot captured at init, flip verbosity for a specific user by calling `updateContext` — this refetches and re-evaluates:
 
 ```javascript
-await quonfig.updateContext(
-  new Context({ user: { email: "developer@example.com" } })
-);
+await quonfig.updateContext({ user: { email: "developer@example.com" } });
 // subsequent shouldLog calls see the new context
 ```
 
@@ -288,14 +285,14 @@ If you're using [Quonfig for A/B testing](/docs/how-tos/experiment.md), you can 
 <TabItem value="javascript" label="JavaScript">
 
 ```javascript
-import { quonfig, Context } from "@quonfig/javascript";
+import { quonfig } from "@quonfig/javascript";
 
 const options = {
   sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
-  context: new Context({
+  context: {
     user: { key: "abcdef", email: "test@example.com" },
     device: { key: "hijklm", mobile: true },
-  }),
+  },
   // highlight-start
   afterEvaluationCallback: (key, value) => {
     // call your analytics tool here...in this example we are sending data to posthog
@@ -378,7 +375,7 @@ it("shows the turbo button when the feature is enabled", () => {
 | option                     | type     | default                | description                                                                                  |
 | -------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------- |
 | `sdkKey`                   | string   | required               | Your Quonfig SDK key                                                                         |
-| `context`                  | Context  | `{}`                   | Initial context for evaluation                                                               |
+| `context`                  | Contexts | required               | Initial context for evaluation. A plain object keyed by context name (e.g. `{ user: { key, email }, device: { mobile } }`). |
 | `domain`                   | string   | `"quonfig.com"`        | Single knob that flips api + telemetry URLs in lockstep. e.g. `domain: "quonfig-staging.com"` resolves api to `https://primary.quonfig-staging.com` (+ secondary) and telemetry to `https://telemetry.quonfig-staging.com`. Highest-precedence default; overridden only by explicit `apiUrls` / `apiUrl` / `telemetryUrl`. |
 | `apiUrls`                  | string[] | derived from `domain`  | Ordered list of API base URLs to try (failover order). Escape hatch for deploys that don't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`. |
 | `apiUrl`                   | string   | `undefined`            | Convenience alias for callers with a single API base URL. Normalized to `apiUrls = [apiUrl]`. `apiUrls` wins if both are set. |
