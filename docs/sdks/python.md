@@ -3,15 +3,19 @@ title: Python
 ---
 
 ## Getting Started with the Python SDK
-[Github](https://github.com/quonfig/sdk-python) | [PyPI](https://pypi.org/project/sdk-quonfig/)
+[Github](https://github.com/quonfig/sdk-python) | [PyPI](https://pypi.org/project/quonfig/)
 
 
-Add `sdk-quonfig` to your package dependencies
+Add `quonfig` to your package dependencies
+
+```bash
+pip install quonfig
+```
 
 ```python
 # pyproject.toml
 [tool.poetry.dependencies]
-sdk-quonfig = "1.1.0"
+quonfig = "^0.0.21"
 ```
 
 ## Initialize Client
@@ -19,11 +23,22 @@ sdk-quonfig = "1.1.0"
 If you set `QUONFIG_BACKEND_SDK_KEY` as an environment variable, initializing the client is as easy as
 
 ```python
-from sdk_quonfig import QuonfigSDK, Options
+from quonfig import Quonfig
 
-sdk = QuonfigSDK(Options())
-
+client = Quonfig()
+client.init()
 ```
+
+You can also pass the SDK key explicitly:
+
+```python
+from quonfig import Quonfig
+
+client = Quonfig(sdk_key="sdk-...")
+client.init()
+```
+
+`init()` returns the client, so `client = Quonfig(sdk_key="sdk-...").init()` works too.
 Unless your options are configured to run using only local data, the client will attempt to connect to
 the remote CDN.
 
@@ -37,23 +52,23 @@ the remote CDN.
 Webservers like gunicorn can be configured to either use threads or fork child process workers. When forking, the Quonfig SDK client must be re-created in order to continue to fetch updated configuration.
 
 ```python
-from sdk_quonfig import QuonfigSDK, Options
+from quonfig import Quonfig
 
 # gunicorn configuration hook
 def post_worker_init(worker):
-    global sdk
-    sdk = QuonfigSDK(Options())
+    global client
+    client = Quonfig().init()
 ```
 
 You may also do something like using uWSGI decorators
 
 ```python
-from sdk_quonfig import QuonfigSDK, Options
+from quonfig import Quonfig
 
 @uwsgidecorators.postfork
 def post_fork():
-    global sdk
-    sdk = QuonfigSDK(Options())
+    global client
+    client = Quonfig().init()
 ```
 
 
@@ -71,14 +86,14 @@ Here we ask for the value of a config named `max-jobs-per-second`, and we specif
 `10` as a default value if no value is available.
 
 ```python
-sdk.get("max-jobs-per-second", default=10) # => 10
+client.get("max-jobs-per-second", default=10) # => 10
 ```
 
-If no default is provided, the default behavior is to raise a `MissingDefaultException`.
+If no default is provided, the default behavior is to raise a `QuonfigKeyNotFoundError`.
 
 ```python
-# raises a `MissingDefaultException`
-sdk.get("max-jobs-per-second")
+# raises a `QuonfigKeyNotFoundError`
+client.get("max-jobs-per-second")
 ```
 
 <details>
@@ -87,16 +102,14 @@ Handling Undefined Configs
 </summary>
 
 If you would prefer your application return `None` instead of raising an error,
-you can set `on_no_default="RETURN_NONE"` when creating your Options object.
+you can set `on_no_default="warn"` (log a warning and return `None`) or
+`on_no_default="ignore"` (silently return `None`) when constructing the client.
 
 ```python
-from sdk_quonfig import QuonfigSDK, Options
+from quonfig import Quonfig
 
-options = Options(
-    on_no_default="RETURN_NONE"
-)
-sdk = QuonfigSDK(options)
-sdk.get("max-jobs-per-second") # => None
+client = Quonfig(sdk_key="sdk-...", on_no_default="warn").init()
+client.get("max-jobs-per-second") # => None
 ```
 
 </details>
@@ -113,10 +126,10 @@ Remember to sync your change to the API.
 
 ```python
 config_key = "my-first-int-config"
-print(config_key, sdk.get(config_key))
+print(config_key, client.get(config_key))
 
 ff_key = "my-first-feature-flag"
-print(ff_key, sdk.enabled(ff_key))
+print(ff_key, client.is_feature_enabled(ff_key))
 ```
 
 Run the code above and you should see:
@@ -143,8 +156,8 @@ for the current user (and/or team, request, etc)
 When initializing the client, you can set a global context that will be used for all evaluations. Use global context for information that doesn't change - for example, your application's key, availability zone, machine type, etc.
 
 ```python
-from sdk_quonfig import QuonfigSDK, Options
-import platform
+from quonfig import Quonfig
+import os, platform
 
 global_context = {
     "application": {
@@ -157,15 +170,14 @@ global_context = {
     }
 }
 
-options = Options(global_context=global_context)
-sdk = QuonfigSDK(options)
+client = Quonfig(sdk_key="sdk-...", global_context=global_context).init()
 ```
 
 Global context is the least specific context and will be overridden by more specific context passed in at the time of evaluation.
 
 ### Providing Context at Evaluation Time
 
-You can provide context when evaluating individual flags or config values:
+You can provide context when evaluating individual flags or config values via the `contexts=` keyword argument:
 
 ```python
 context = {
@@ -183,24 +195,23 @@ context = {
     }
 }
 
-result = sdk.enabled("my-first-feature-flag", context=context)
+result = client.is_feature_enabled("my-first-feature-flag", contexts=context)
 ```
 
 Feature flags don't have to return just true or false. You can get other data types using `get`:
 
 ```python
-sdk.get("ff-with-string", default="default-string", context=context)
-sdk.get("ff-with-int", default=5)
+client.get("ff-with-string", default="default-string", contexts=context)
+client.get("ff-with-int", default=5)
 ```
 
-### Thread-local context
+### Bound context
 
-To avoid having to pass a context explicitly to every call to `get` or `enabled`, it is possible to set a thread-local
-context that will be evaluated as the default argument to `context=` if none is given.
+To avoid having to pass a context explicitly to every call to `get` or `is_feature_enabled`, you can
+bind a context once with `with_context`, which returns a client wrapper that applies that context to
+every evaluation:
 
 ```python
-from sdk_quonfig import QuonfigSDK, Options, Context
-
 context = {
     "user": {
         "key": 123,
@@ -216,24 +227,21 @@ context = {
     }
 }
 
-shared_context = Context(context)
+bound = client.with_context(context)
 
-Context.set_current(shared_context)
+# these two calls are equivalent
+result1 = bound.is_feature_enabled("my-first-feature-flag")
+result2 = client.is_feature_enabled("my-first-feature-flag", contexts=context)
 
-# with this set, the following two client calls are equivalent
-
-result = sdk.enabled("my-first-feature-flag")
-result = sdk.enabled("my-first-feature-flag", context=context)
+result1 == result2 #=> True
 ```
 
 ### Scoped context
 
-It is also possible to scope a context for a particular block of code, without needing to set and unset
-the thread-local context
+It is also possible to scope a context for a particular block of code using the `scoped_context`
+context manager — calls inside the `with` block pick up the context automatically:
 
 ```python
-from sdk_quonfig import QuonfigSDK, Options
-
 context = {
     "user": {
         "key": 123,
@@ -249,12 +257,10 @@ context = {
     }
 }
 
-sdk = QuonfigSDK(Options())
+with client.scoped_context(context):
+    result1 = client.is_feature_enabled("my-first-feature-flag")
 
-with sdk.scoped_context(context):
-    result1 = sdk.enabled("my-first-feature-flag")
-
-result2 = sdk.enabled("my-first-feature-flag", context=context)
+result2 = client.is_feature_enabled("my-first-feature-flag", contexts=context)
 
 result1 == result2 #=> True
 ```
@@ -379,39 +385,35 @@ logger.debug("filtered by Quonfig")
 | `QuonfigLoggerFilter(client, logger_path=None)`       | `root.addFilter(QuonfigLoggerFilter(client))`                                | Stdlib `logging.Filter`. Reads the record's `name` into `quonfig-sdk-logging.key`.                                   |
 | `QuonfigLoggerProcessor(client, logger_path=None)`    | `structlog.configure(processors=[..., QuonfigLoggerProcessor(client)])`      | structlog processor. Requires `structlog` to be installed.                                                           |
 
-## Debugging
-
-At this time, it's not possible to dynamically control the loglevel of the Quonfig client itself. Instead control the Quonfig client's log level by changing the `bootstrap_loglevel` in the `Options` class at start up.
-
-By default this level is set to `Logging.WARNING`
-
 ## Testing
 
+Point the client at a local data directory instead of the remote CDN with `datadir`:
 
 ```python
-from sdk_quonfig import QuonfigSDK, Options
+from quonfig import Quonfig
 
-sdk = QuonfigSDK(Options(data_sources="LOCAL_ONLY"))
-sdk.get(...)
+client = Quonfig(datadir="path/to/quonfig-data").init()
+client.get(...)
 ```
 
 ## Reference
 
-### Available `Option` parameters
+### Available constructor parameters
 
-- `sdk_key` - your quonfig.com SDK key
-- `quonfig_api_url` - the API endpoint your SDK key has been created for (i.e. `https://primary.quonfig.com`)
-- `datafile` - datafile to load
-- `on_no_default` - one of `"RAISE"` (default) or `"RETURN_NONE"`. This determines how the client behaves when a request for
-  a config cannot find a value, and no default is supplied. These settings will, respectively, raise a `MissingDefaultException`,
-  or return `None`.
-- `on_connection_failure` - one of `"RETURN"` (default) or `"RAISE"`. This determines what should happen if the connection to
-  a remote datasource times out. These settings will, respectively, return whatever is in the local cache from the latest sync
-  from the remote source, or else raise an `InitializationTimeoutException`.
-- `collect_sync_interval` - how often to send telemetry to Quonfig (seconds, defaults to 30)
-- `collect_evaluation_summaries` - send aggregate data about config and feaure flag evaluations, results (defaults to True) **Evaluation Summary telemetry Implemented in v0.10+**
-- `collect_logs` - send aggregate logger volume data to Quonfig (defaults to True)
-- `context_upload_mode` - send context information to Quonfig. Values (from the `Options.ContextUploadMode` enum) are `NONE` (don't send any context data), `SHAPE_ONLY` to only send the schema of the contexts to Quonfig (field name, data types), `PERIODIC_EXAMPLE` to send the data types AND the actual contexts being used to Quonfig **Context telemetry Implemented in v0.10+**
-- `global_context` - an immutable global context to be used in all lookups. Use this for things like availability zone, machine type...
-- `on_ready_callback` - register a single method to be called when the client has loaded its first configuration and is ready for use
+All parameters are keyword arguments to `Quonfig(...)`.
+
+- `sdk_key` - your quonfig.com SDK key. Falls back to the `QUONFIG_BACKEND_SDK_KEY` environment variable.
+- `api_urls` - override the API endpoints your SDK key connects to (list of base URLs).
+- `datadir` - path to a local data directory to load config from instead of the remote CDN.
+- `environment` - which environment to evaluate (`production`, `staging`, `development`); falls back to `QUONFIG_ENVIRONMENT`.
+- `on_no_default` - one of `"error"` (default), `"warn"`, or `"ignore"`. Controls behavior when a config has no value and
+  no default is supplied: raise `QuonfigKeyNotFoundError`, log a warning and return `None`, or silently return `None`.
+- `on_init_failure` - one of `"raise"` (default), `"return"`, or `"return_zero_value"`. Controls what happens if the initial
+  fetch fails or times out.
+- `init_timeout_ms` - how long `init()` waits for the first successful fetch (defaults to `10000`).
+- `collect_evaluation_summaries` - send aggregate data about config and feature flag evaluations (defaults to `True`).
+- `context_upload_mode` - send context information to Quonfig. One of `"none"`, `"shapes_only"` (field names and types only),
+  or `"periodic_example"` (types plus example contexts; the default).
+- `global_context` - a global context to be used in all lookups. Use this for things like availability zone, machine type...
+- `fallback_poll_enabled` / `fallback_poll_interval_ms` - poll the CDN when the SSE stream is unavailable (defaults `True` / `60000`).
 - `logger_key` - the `log_level` config key consulted by `should_log(logger_path=...)`. No default — set it to enable the `logger_path` convenience (defaults to `None`).
