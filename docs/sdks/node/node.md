@@ -61,7 +61,7 @@ import { QuonfigTypesafeNode } from "./generated/quonfig-server";
 const baseQuonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
   enableSSE: true,
-  enablePolling: true,
+  fallbackPollEnabled: true,
 });
 
 await baseQuonfig.init();
@@ -86,7 +86,7 @@ import { Quonfig } from "@quonfig/node";
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
   enableSSE: true,
-  enablePolling: true,
+  fallbackPollEnabled: true,
 });
 
 await quonfig.init();
@@ -101,7 +101,7 @@ import { Quonfig } from "@quonfig/node";
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
   enableSSE: true,
-  enablePolling: true,
+  fallbackPollEnabled: true,
 });
 
 await quonfig.init();
@@ -166,7 +166,7 @@ async function getQuonfigClient(): Promise<QuonfigTypesafeNode> {
     const client = new Quonfig({
       sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
       enableSSE: true,
-      enablePolling: true,
+      fallbackPollEnabled: true,
     });
 
     await client.init();
@@ -214,7 +214,7 @@ async function getQuonfigClient(): Promise<Quonfig> {
     const client = new Quonfig({
       sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
       enableSSE: true,
-      enablePolling: true,
+      fallbackPollEnabled: true,
     });
 
     await client.init();
@@ -261,7 +261,7 @@ async function getQuonfigClient() {
     const client = new Quonfig({
       sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY,
       enableSSE: true,
-      enablePolling: true,
+      fallbackPollEnabled: true,
     });
 
     await client.init();
@@ -830,63 +830,32 @@ const personalizedMessage = personalizedContentObject.message({
 const someOtherField = personalizedContentObject.someOtherProperty;
 ```
 
-## Config Change Listeners
+## Reacting to Config Changes
 
-Monitor configuration changes in real-time using config change listeners:
-
-<Tabs groupId="lang">
-<TabItem value="typegen" label="⭐ TypeScript + Generated Types (Recommended)">
-
-```typescript
-// Add a listener for config changes
-const unsubscribe = quonfig.addConfigChangeListener((changes) => {
-  console.log("Configuration changed:", changes);
-
-  // React to specific config changes
-  changes.forEach((change) => {
-    if (change.key === "database.connection.pool.size") {
-      // Reconfigure database connection pool
-      updateDatabasePool(change.newValue);
-    }
-  });
-});
-
-// Remove the listener when done
-unsubscribe();
-```
-
-</TabItem>
-<TabItem value="typescript" label="TypeScript">
+To run code when configuration updates arrive (via SSE or a fallback poll), pass an
+`onConfigUpdate` callback in the constructor options. You can also observe the SSE
+connection state with `onSSEConnectionStateChange`.
 
 ```typescript
-import type { ConfigChangeCallback } from "@quonfig/node";
+const quonfig = new Quonfig({
+  sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
 
-const changeHandler: ConfigChangeCallback = (changes) => {
-  console.log("Configs changed:", changes);
-};
+  // Called after each successful config refresh
+  onConfigUpdate: () => {
+    console.log("Configuration updated; re-reading values");
+    updateDatabasePool(quonfig.getNumber("database.connection.pool.size"));
+  },
 
-const unsubscribe = quonfig.addConfigChangeListener(changeHandler);
-
-// Clean up when done
-unsubscribe();
-```
-
-</TabItem>
-<TabItem value="javascript" label="JavaScript">
-
-```js
-const unsubscribe = quonfig.addConfigChangeListener((changes) => {
-  console.log("Configs changed:", changes);
+  // Called when the live (SSE) connection state changes
+  onSSEConnectionStateChange: (state) => {
+    console.log("SSE connection state:", state);
+  },
 });
 
-// Clean up when done
-unsubscribe();
+await quonfig.init();
 ```
 
-</TabItem>
-</Tabs>
-
-Config change listeners are useful for:
+Reacting to config changes is useful for:
 
 - Updating application state when configs change
 - Triggering cache invalidation
@@ -903,20 +872,25 @@ Access raw configuration metadata and structure:
 <TabItem value="typegen" label="⭐ TypeScript + Generated Types (Recommended)">
 
 ```typescript
-// Get raw config with full metadata
-const rawConfig = quonfig.raw("api.retry.count");
+// Get raw config with full metadata (no evaluation)
+const rawConfig = quonfig.rawConfig("api.retry.count");
 if (rawConfig) {
   console.log("Config type:", rawConfig.configType);
   console.log("Value type:", rawConfig.valueType);
   console.log("Rules:", rawConfig.rows);
 }
+
+// Get the raw value that matches a given context, without unwrapping it
+const rawMatch = quonfig.getRawMatch("api.retry.count", {
+  user: { key: "user-123" },
+});
 ```
 
 </TabItem>
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-const rawConfig = quonfig.raw("api.retry.count");
+const rawConfig = quonfig.rawConfig("api.retry.count");
 console.log(rawConfig); // Full config object with metadata
 ```
 
@@ -924,7 +898,7 @@ console.log(rawConfig); // Full config object with metadata
 <TabItem value="javascript" label="JavaScript">
 
 ```js
-const rawConfig = quonfig.raw("api.retry.count");
+const rawConfig = quonfig.rawConfig("api.retry.count");
 console.log(rawConfig); // Full config object with metadata
 ```
 
@@ -940,49 +914,27 @@ const allKeys = quonfig.keys();
 console.log(allKeys); // ["config.one", "config.two", "feature.flag", ...]
 ```
 
-### Default Context
+### Health Accessors
 
-Access the default context for the current environment:
-
-```typescript
-const defaultCtx = quonfig.defaultContext();
-console.log("Default context:", defaultCtx);
-```
-
-### Runtime Configuration Override
-
-Set configuration values at runtime (useful for testing or dynamic overrides):
+Inspect the SDK's connection state and last successful refresh:
 
 ```typescript
-// Override a config value at runtime
-quonfig.set("feature.beta", { bool: true });
-
-// The override persists until the next config update or restart
-const isEnabled = quonfig.isEnabled("feature.beta"); // true
+console.log("Connection state:", quonfig.connectionState());
+console.log("Last refresh:", quonfig.lastSuccessfulRefresh());
 ```
 
 ## Connection Management
 
-### Manual Updates
+Configuration stays current automatically: the SDK listens for live changes over SSE
+and falls back to polling when the stream is unavailable. There is no manual "update now"
+call — use `onConfigUpdate` (see [Reacting to Config Changes](#reacting-to-config-changes))
+to run code when new config arrives.
 
-Force immediate configuration updates:
-
-```typescript
-// Force an update now
-await quonfig.updateNow();
-
-// Update only if configs are stale (older than 5 minutes)
-quonfig.updateIfStalerThan(5 * 60 * 1000); // 5 minutes in ms
-```
-
-### Connection Control
+### Shutdown
 
 ```typescript
-// Stop polling for updates (SSE continues if enabled)
-quonfig.stopPolling();
-
 // Properly close all connections and clean up resources
-quonfig.close(); // Stops SSE, clears timeouts, disables telemetry
+await quonfig.close(); // Drains telemetry, stops SSE, clears timeouts
 ```
 
 **Important**: Always call `quonfig.close()` when shutting down your application to ensure proper
@@ -991,21 +943,8 @@ cleanup of connections and prevent memory leaks.
 ## Telemetry
 
 Quonfig automatically collects telemetry data to help you understand how your configurations are
-being used. The telemetry system includes several components:
-
-### Telemetry Components
-
-```typescript
-// Access telemetry components
-console.log("Evaluation summaries:", quonfig.telemetry?.evaluationSummaries);
-console.log("Context shapes:", quonfig.telemetry?.contextShapes);
-console.log("Example contexts:", quonfig.telemetry?.exampleContexts);
-console.log("Known loggers:", quonfig.telemetry?.knownLoggers);
-```
-
-### Configuration
-
-Control telemetry collection via constructor options:
+being used. Telemetry is sent in the background; there is no public accessor for it on the
+client. Control collection via constructor options:
 
 ```typescript
 const quonfig = new Quonfig({
@@ -1014,16 +953,16 @@ const quonfig = new Quonfig({
   // Control evaluation summaries (default: true)
   collectEvaluationSummaries: true,
 
-  // Control context data collection (default: "periodicExample")
-  contextUploadMode: "SHAPE_ONLY", // or "NONE" or "periodicExample"
+  // Control context data collection (default: "periodic_example")
+  contextUploadMode: "shapes_only", // or "none" or "periodic_example"
 });
 ```
 
 **Context Upload Modes:**
 
-- `"periodicExample"` - Sends both context structure and example values
-- `"SHAPE_ONLY"` - Sends only context keys and types, no values
-- `"NONE"` - Disables context collection entirely
+- `"periodic_example"` - Sends both context structure and example values
+- `"shapes_only"` - Sends only context keys and types, no values
+- `"none"` - Disables context collection entirely
 
 ## Reference
 
@@ -1033,9 +972,10 @@ const quonfig = new Quonfig({
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | apiUrls                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                       | `["https://primary.quonfig.com"]` |
 | collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                | true              |
-| contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in quonfig contexts) or periodically send full example contexts | "periodicExample" |
+| contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in quonfig contexts) or periodically send full example contexts. One of `"none"`, `"shapes_only"`, `"periodic_example"` | "periodic_example" |
 | defaultLevel               | Level to be used as the min-verbosity for a `loggerPath` if no value is configured in Quonfig                                   | "warn"            |
 | enableSSE                  | Whether or not we should listen for live changes from Quonfig                                                                   | true              |
-| enablePolling              | Whether or not we should poll for changes from Quonfig                                                                          | true              |
+| fallbackPollEnabled        | Poll for changes only when the SSE stream is unavailable (replaces the deprecated `enablePolling`, which polled in parallel with SSE) | true              |
+| fallbackPollIntervalMs     | How often to poll, in ms, when the fallback poller is active                                                                    | 60000             |
 | loggerKey                  | The `log_level` config key consulted by `shouldLog({loggerPath})`. No default — set it to enable the `loggerPath` convenience.          | `undefined`       |
 | enableQuonfigUserContext   | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into `globalContext`. Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set `false` or `QUONFIG_DEV_CONTEXT=false` to opt out. | `null` (on)       |
