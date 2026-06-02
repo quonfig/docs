@@ -481,6 +481,8 @@ qfg override my.flag true --env=staging       # operate in a specific env
 
 Overrides on `production` are accepted but inert for SDK clients that don't set `quonfig-user.email` in their context (most production SDKs don't), so the CLI prints a soft warning when you target `production`.
 
+For the full picture — how the override rule is stored, how SDKs inject your identity from `qfg login`, the per-SDK setup, and how to use overrides from frontends — see [Personal Overrides](/docs/explanations/features/personal-overrides).
+
 ### Targeting rules
 
 Quonfig evaluates a flag by walking its rules in order. The CLI gives you three ways to change what those rules return:
@@ -691,48 +693,6 @@ aws s3api get-object \
 ```
 
 As you'd expect, you can similarly use `qfg` in a pipeline with `xargs` and similar.
-
-### info
-
-`qfg info NAME` will show details about an item in Quonfig. Example output:
-
-```
-qfg info aws.bucket
-
-https://app.cloud/account/projects/XYZ/configs/aws.bucket
-
-- Default: false
-- Staging: true
-- Production: [see rules] https://app.cloud/account/projects/XYZ/configs/aws.bucket?environment=588
-
-Evaluations over the last 24 hours:
-
-Production: 34,789
-- 33% - false
-- 67% - true
-
-Staging: 17,138
-- 100% - true
-
-Development: 7
-- 100% - false
-```
-
-### list
-
-`qfg list` will show the names of items in your Quonfig account. You can pass flags to filter this to only show items of a specific type (e.g. segments).
-
-### override
-
-`qfg override` lets you override the value for a config or feature flag for your quonfig.com user. This is especially helpful for testing both sides of a feature flag.
-
-Are you using a backend key for your server code and a frontend key for your UI? No problem; this override will apply to any environment using an SDK key created by your quonfig.com user.
-
-Example:
-
-```bash
-qfg override my.flag.name --value=true
-```
 
 ### run
 

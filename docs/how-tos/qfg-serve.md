@@ -14,7 +14,7 @@ can't consume the same checked-in workspace.
 
 `qfg serve` is the bridge. It reads a datadir on disk and exposes it over
 the same HTTP wire protocol the browser SDKs already speak to
-`api-delivery` in production. Point your SDK at `http://localhost:6580`
+the delivery API in production. Point your SDK at `http://localhost:6580`
 and the existing client code works unmodified.
 
 ## 5-minute setup
@@ -141,7 +141,7 @@ for server-side reads. `qfg serve` is the browser-side equivalent.
 The browser SDKs intentionally send no custom headers so the GET stays a
 CORS [simple request](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#simple_requests)
 and avoids preflight. `qfg serve` defaults `Access-Control-Allow-Origin`
-to `*`, matching api-delivery in production.
+to `*`, matching the delivery API in production.
 
 If you bind to a non-loopback host with `--allow-non-loopback`, pass one
 or more `--cors-origin <url>` flags explicitly:
@@ -174,7 +174,7 @@ If you need any of:
 - Multi-region scaling
 - A UI for non-engineers to flip flags
 
-…use a hosted Quonfig account or `api-delivery`. See
+…use a hosted Quonfig account or the delivery API. See
 [Open Source / Fully Local](/docs/how-tos/open-source-local) for the
 broader local story and [Offline Mode](/docs/how-tos/offline-mode) for
 the datafile path.
@@ -194,7 +194,7 @@ browser-SDK-can't-read-a-datadir gap:
 - **No TLS.** Browsers carve `http://localhost:*` out of mixed-content
   rules, so HTTP is fine for local dev. For non-localhost HTTPS frontends,
   terminate TLS at a reverse proxy.
-- **No bundled app-quonfig UI.** Edit JSON files directly, then `qfg verify`.
+- **No bundled Quonfig web UI.** Edit JSON files directly, then `qfg verify`.
 
 If you hit a real production use case that needs any of these, file a
 bead — `qfg serve` is designed to be small now and grow only when the

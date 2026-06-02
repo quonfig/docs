@@ -14,16 +14,12 @@ To prevent accidentally leaking sensitive config information, frontend SDKs do n
 
 ## Frontend SDK keys (`qf_pk_…`)
 
-Frontend SDKs authenticate with a **public** SDK key — `pk` for **public**. It is safe to ship in browser bundles because the server only returns evaluated values to it (never your raw rules — see [evaluation happens server side](#frontend-architecture) below).
-
-```bash
-# .env.local — example values, never commit real keys
-NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY=qf_pk_test_0654_263fc3xxxxxxxxxx
-```
-
-The framework prefix (`NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`, etc.) is what makes the value visible to client code; the variable name itself is a convention. Do **not** ship a backend `qf_sk_…` key from the browser — see [Backend SDKs](/docs/explanations/concepts/backend-sdks#backend-sdk-keys-qf_sk_) for that side.
-
-Generate frontend keys from **Settings → SDK Keys** in the Quonfig dashboard.
+Frontend SDKs (browser, React, React Native) authenticate with a **frontend SDK
+key** (`qf_pk_…`), generated from the **SDK Keys** page in the dashboard. It is
+safe to ship in browser bundles because the server only returns evaluated values
+to it — never your raw rules (see [evaluation happens server side](#frontend-architecture)
+below). For how it differs from the backend key and the other credentials, see
+[Keys & Credentials](/docs/explanations/concepts/keys-and-credentials).
 
 The frontend architecture has different goals and operating characteristics from the backend SDKs. The goals of the clients are:
 

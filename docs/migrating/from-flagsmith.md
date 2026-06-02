@@ -48,7 +48,7 @@ for the local-only flow — it works the same way with Flagsmith.
 > **Browser-SDK note.** The local-only `--dir` flow only works for
 > server-side SDKs (Node, Go). Browser apps must use the `--push` cloud
 > flow because the browser SDK loads config over SSE from
-> `api-delivery` and has no datadir mode. See
+> the delivery API and has no datadir mode. See
 > [from-launch](./from-launch.md#warning-browser-sdk-limitation-read-this-first)
 > for details.
 

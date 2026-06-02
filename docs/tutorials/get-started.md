@@ -22,18 +22,20 @@ Most organizations will only want a single workspace.
 
 Click on environments to view environments. We've added `Development`, `Staging` and `Production` for you.
 
-## API Keys
+## Get your SDK key
 
-Our clients will need to connect to the Quonfig APIs. To do that they'll need SDK Keys. Quonfig has 2 different types of SDK Keys.
+Your app connects to Quonfig with an **SDK key**, found on the **SDK Keys**
+page. A workspace shares **one development SDK key** across the whole team —
+SDK keys carry no identity, so there's no such thing as a personal one. Grab
+your workspace's development key (or create it if the workspace doesn't have one
+yet).
 
-- **Backend SDK** keys are used for the server side SDKs. These keys will have access to all information for their respective environment.
-- **Frontend SDK** keys are used in mobile applications or websites. These keys will allow the clients to evaluate feature flags for a single user, but will not expose the raw flag data. It will also not receive Configs, unless they are marked "send to front end".
+We're building a server example, so use the **backend** key (`qf_sk_…`); browser
+and mobile apps use a **frontend** key (`qf_pk_…`).
 
-:::info
-Only use Frontend SDK Keys in code that gets shipped to end users.
-:::
-
-Let's create a Backend Key for now.
+For how SDK keys differ from `qfg login` and API keys — and why one shared
+development key is the intended setup — see
+[Keys & Credentials](/docs/explanations/concepts/keys-and-credentials).
 
 ![image](/img/docs/getting-started/add-project-api-key.png)
 

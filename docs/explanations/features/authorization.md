@@ -9,13 +9,13 @@ Quonfig authorization has two independent axes:
 1. **Config access** — which configs a user can edit, based on a tiered hierarchy.
 2. **Admin** — whether a user can manage the workspace (members, billing, environments). Independent of config editing.
 
-Roles and permissions are stored in WorkOS at the organization scope. A user's role applies uniformly to every workspace in that org.
+Roles and permissions are stored at the organization scope. A user's role applies uniformly to every workspace in that org.
 
 ## Roles
 
 | Role | Slug | What it grants |
 |------|------|----------------|
-| Member | `member` | Default read-only floor. View workspaces, configs, and history. Auto-assigned by WorkOS. |
+| Member | `member` | Default read-only floor. View workspaces, configs, and history. Auto-assigned. |
 | Admin | `admin` | Manage members, billing, environments, SDK keys, and integrations. Does **not** grant config edit. |
 | Support | `support` | Edit `support`-tier configs. |
 | Engineer | `engineer` | Edit `support` and `standard`-tier configs. |
@@ -47,7 +47,7 @@ A protected environment does **not** lock down all configs in that environment �
 | `protected-env` | `config.edit.protected` (when editing the protected env or the default value); otherwise `config.edit.standard` |
 | `protected-all-envs` | `config.edit.protected` (always) |
 
-WorkOS does not need separate roles for `protected-env` vs `protected-all-envs`. Both require `config.edit.protected`; Quonfig's app-layer check decides whether the specific edit is allowed in the target environment.
+There are no separate roles for `protected-env` vs `protected-all-envs`. Both require `config.edit.protected`; Quonfig's app-layer check decides whether the specific edit is allowed in the target environment.
 
 ## Admin is orthogonal to config edit
 
@@ -57,4 +57,4 @@ This separation lets an EM manage their team without being on the hook for editi
 
 ## Where authorization is enforced
 
-All checks run in the application layer (the Node backend), against the user's WorkOS permissions claim. UI/oRPC writes, CLI `qfg push`, and any other write path go through the same `canEdit()` decision. Direct git pushes are rare and are bounded by repo-level access in Gitea plus structural validation in pre-receive hooks; per-file authorization at the git layer is not enforced today.
+All checks run in the application layer (the Node backend), against the user's permissions claim. UI/oRPC writes, CLI `qfg push`, and any other write path go through the same `canEdit()` decision. Direct git pushes are rare and are bounded by repo-level access in Gitea plus structural validation in pre-receive hooks; per-file authorization at the git layer is not enforced today.

@@ -23,10 +23,10 @@ both systems in sync while you cut over.
 | --- | --- | --- |
 | `sdk-node` | :white_check_mark: supported | :white_check_mark: supported (`WithDatadir`) |
 | `sdk-go` | :white_check_mark: supported | :white_check_mark: supported (`WithDatadir`) |
-| `sdk-javascript` (browser) | :white_check_mark: supported (SSE from `api-delivery`) | :x: **not supported** — browsers cannot read a local directory |
+| `sdk-javascript` (browser) | :white_check_mark: supported (SSE from the delivery API) | :x: **not supported** — browsers cannot read a local directory |
 
 If your app ships to browsers via `sdk-javascript`, you **must** use the cloud
-flow. The browser SDK loads configuration from `api-delivery` over SSE and has
+flow. The browser SDK loads configuration from the delivery API over SSE and has
 no datadir mode — this is architectural, not a roadmap gap. Trying to point the
 browser SDK at a local directory will not work.
 
@@ -154,7 +154,7 @@ below for the warnings most customers hit.
 
 ### 5. Confirm in the UI
 
-Open your workspace in app-quonfig. You should see every flag, config, and
+Open your workspace in the Quonfig app. You should see every flag, config, and
 segment from Launch. Click around, flip a flag, verify the history view shows
 the migrator commit plus any edits you make.
 
@@ -173,7 +173,7 @@ immediately, you cannot retrieve it again later.
 
 ### 7. Switch your SDK to read from the cloud
 
-All three SDKs (Node, Go, browser JavaScript) connect to `api-delivery` over SSE
+All three SDKs (Node, Go, browser JavaScript) connect to the delivery API over SSE
 when initialized with a Quonfig SDK key. The init option is named **`sdkKey`**
 (not `apiKey` — `apiKey` will be silently ignored and the SDK will fail to
 authenticate with a 401).
