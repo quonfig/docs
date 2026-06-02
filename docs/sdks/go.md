@@ -343,44 +343,23 @@ sdk, err := quonfig.NewClient(
 
 ## Offline and Testing Modes
 
-### Offline Sources (Datafiles)
+### Local Data Directory (Datafiles)
 
-For offline development, testing, or air-gapped environments, you can use datafiles instead of connecting to the Quonfig API. See [Testing with DataFiles](/docs/explanations/concepts/testing#testing-with-datafiles) for more information on generating and using datafiles.
+For offline development, testing, or air-gapped environments, you can load configuration from a local Quonfig workspace directory on disk instead of connecting to the Quonfig API. See [Testing with DataFiles](/docs/explanations/concepts/testing#testing-with-datafiles) for more information on generating local data.
 
-When using offline sources, you must provide the `WithProjectEnvID` to identify which environment's configuration you're using:
+Point the SDK at the workspace directory with `WithDataDir`, and select which environment to evaluate with `WithEnvironment`:
 
 ```go
 sdk, err := quonfig.NewClient(
-    quonfig.WithProjectEnvID(123456789), // Your project environment ID
-    quonfig.WithOfflineSources([]string{
-        "datafile:///path/to/your/datafile.json",
-    }),
+    quonfig.WithDataDir("/path/to/quonfig-workspace"),
+    quonfig.WithEnvironment("production"), // or "staging", "development"
 )
 ```
 
 **Important notes:**
-- `WithOfflineSources` excludes the default API and SSE sources - the SDK will only use the sources you specify
-- Telemetry is automatically disabled when using offline sources
-- You can find your project environment ID in the Quonfig UI or from your datafile metadata
-
-### In-Memory Configs (Testing)
-
-If you need to test multiple scenarios that depend on a single config or feature key, you can set up an SDK with in-memory configs:
-
-```go
-configs := map[string]interface{}{
-	"string.key": "value",
-	"int.key":    int64(42),
-	"bool.key":   true,
-	"float.key":  3.14,
-	"slice.key":  []string{"a", "b", "c"},
-	"json.key": map[string]interface{}{
-		"nested": "value",
-	},
-}
-
-client, err := quonfig.NewClient(quonfig.WithConfigs(configs))
-```
+- `WithDataDir` loads entirely from disk — the SDK does not contact the API or open an SSE stream, and telemetry is effectively idle.
+- `WithEnvironment` (or the `QUONFIG_ENVIRONMENT` env var, which it overrides) selects which environment's values are evaluated from the local data.
+- To pick up edits to the directory while running, opt into `WithDataDirAutoReload(true)`.
 
 ## Reference
 
@@ -401,14 +380,13 @@ client, err := quonfig.NewClient(
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | WithSdkKey                     | Your Quonfig SDK key (not needed if QUONFIG_BACKEND_SDK_KEY env var is set)                                                           | from env var     |
 | WithAPIURLs                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                             | `["https://primary.quonfig.com"]` |
-| WithProjectEnvID               | Project environment ID (required when using WithOfflineSources)                                                                       | nil              |
-| WithOfflineSources             | Use offline data sources (datafiles) instead of API/SSE. Automatically disables telemetry. Requires WithProjectEnvID                  | nil              |
+| WithDataDir                    | Load configuration from a local Quonfig workspace directory instead of the API/SSE (offline/testing)                                  | "" (API mode)    |
+| WithEnvironment                | Which environment to evaluate when loading from a local data dir (overrides `QUONFIG_ENVIRONMENT`)                                     | from env var     |
 | WithGlobalContext              | Set a static context to be used as the base layer in all configuration evaluation                                                     | empty            |
 | WithCollectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                      | true             |
 | WithContextTelemetryMode       | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts | PERIODIC_EXAMPLE |
 | WithAllTelemetryDisabled       | Disable all telemetry (evaluation summaries and context telemetry)                                                                    | n/a              |
-| WithConfigs                    | Provide in-memory configs for testing                                                                                                 | nil              |
-| WithOnInitializationFailure    | Choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup                               | RAISE (crash)    |
-| WithInitializationTimeoutSeconds | Timeout for initial config fetch                                                                                                    | 10               |
+| WithOnInitFailure              | Behavior if the initial config fetch fails/times out: `quonfig.ReturnError` (default) or `quonfig.ReturnZeroValue`                     | ReturnError      |
+| WithInitTimeout                | Timeout for the initial config fetch, as a `time.Duration` (e.g. `10*time.Second`)                                                    | 10s              |
 | WithLoggerKey                  | The `log_level` config key consulted by `ShouldLogPath` and the slog adapter. No default — set it to enable the `loggerPath` convenience. | `""`             |
 | WithQuonfigUserContext         | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into the global context. Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Pass `false` or set `QUONFIG_DEV_CONTEXT=false` to opt out. | on (token-gated) |
