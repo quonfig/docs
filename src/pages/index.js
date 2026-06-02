@@ -89,6 +89,15 @@ function Langs() {
           />
           <span>Go</span>
         </Link>
+        <Link className={linkClasses} to="/docs/sdks/dotnet">
+          <img
+            src="/img/langs/dotnet.svg"
+            style={imgStyles}
+            className=""
+            alt=".NET"
+          />
+          <span>.NET</span>
+        </Link>
         <Link className={linkClasses} to="/docs/sdks/javascript">
           <img
             src="/img/langs/js.png"
@@ -106,6 +115,15 @@ function Langs() {
             alt="React"
           />
           <span>React</span>
+        </Link>
+        <Link className={linkClasses} to="/docs/category/openfeature-providers">
+          <img
+            src="/img/langs/openfeature.svg"
+            style={imgStyles}
+            className="dark:invert"
+            alt="OpenFeature"
+          />
+          <span>OpenFeature</span>
         </Link>
       </div>
       <div className="flex flex-col gap-4 md:gap-8 items-center">
