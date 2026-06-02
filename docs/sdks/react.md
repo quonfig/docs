@@ -852,7 +852,7 @@ If you're using [Quonfig for A/B testing](/docs/how-tos/experiment.md), you can 
 
 By default, Quonfig will collect summary counts of config and feature flag evaluations to help you understand how your configs and flags are being used in the real world. You can opt out of this behavior by passing `collectEvaluationSummaries={false}` when initializing `QuonfigProvider`.
 
-Quonfig also stores the context that you pass in. The context keys are used to power autocomplete in the rule editor, and the individual values power the Contexts page for troubleshooting targeting rules and individual flag overrides. If you want to change what Quonfig stores, you can pass a different value for `collectContextMode`.
+Quonfig also stores the context that you pass in. The context keys are used to power autocomplete in the rule editor, and the individual values power the Contexts page for troubleshooting targeting rules and individual flag overrides. If you want to change what Quonfig stores, set `collectContextMode` on the underlying [`@quonfig/javascript`](./javascript.md#telemetry) client — `QuonfigProvider` does not accept this prop. You can configure it by calling `quonfig.init({ collectContextMode: … })` directly (for example in the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration)).
 
 | `collectContextMode` value | Behavior                                                       |
 | -------------------------- | -------------------------------------------------------------- |
