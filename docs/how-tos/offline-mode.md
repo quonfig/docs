@@ -94,7 +94,7 @@ const WrappedApp = () => {
 </Tabs>
 
 [be]: ../explanations/architecture/resiliency
-[download]: ../tools/cli#download
+[download]: ../tools/cli#pull
 [serve]: ../tools/cli#serve
 [df]: ../explanations/concepts/datafiles
 [0ms]: ../explanations/concepts/zero-ms-frontend-feature-flags

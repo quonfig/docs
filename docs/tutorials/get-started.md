@@ -37,12 +37,13 @@ For how SDK keys differ from `qfg login` and API keys — and why one shared
 development key is the intended setup — see
 [Keys & Credentials](/docs/explanations/concepts/keys-and-credentials).
 
-![image](/img/docs/getting-started/add-project-api-key.png)
+![The Environments and SDK Keys page](/img/docs/getting-started/sdk-keys-page.png)
 
-OK! We're all set, copy this SDK Key down we'll use it in the next step. We only show you the SDK key once and only store a
-secure hash on our end. Don't worry if you lose it, you can easily create as many as you like, which makes key rotation a snap.
+Under your **development** environment, click **Add Backend Key**. Copy the key
+down now — we show it to you only once and store only a secure hash. If you lose
+it, just create another; making new keys is how you rotate them.
 
-![image](/img/docs/getting-started/api-key-created.png)
+![The one-time SDK key reveal dialog](/img/docs/getting-started/sdk-key-created.png)
 
 ## Adding a Feature Flag
 
