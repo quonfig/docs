@@ -552,11 +552,10 @@ const WelcomeMessage = (): ReactElement => {
   // Template functions are generated automatically
   // Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
   const welcomeText = welcomeMessageObject.message({
-      // Type-safe parameters
-      userName: 'Alice', // string type
-      appName: 'MyApp', // number type
-      creditsCount: 150, // string type
-    });
+    // Type-safe parameters
+    userName: "Alice", // string type
+    appName: "MyApp", // string type
+    creditsCount: 150, // number type
   });
 
   // Returns: Buy More Credits
@@ -582,13 +581,13 @@ import Mustache from "mustache";
 import type { ReactElement } from "react";
 
 const WelcomeMessage = (): ReactElement => {
-  const { get } = useQuonfig(); // get quonfig hook
+  const { get } = useQuonfig(); // pull the get() accessor off the hook
 
   // Get the configured object
-  const welcomeMessageObject = quonfig.get("welcome.message");
+  const welcomeMessageObject = get("welcome.message");
 
   // Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
-  const welcomeText = template
+  const welcomeText = welcomeMessageObject
     ? Mustache.render(welcomeMessageObject.message, {
         userName: "Alice",
         appName: "MyApp",
@@ -597,7 +596,7 @@ const WelcomeMessage = (): ReactElement => {
     : "Welcome!";
 
   // Returns: Buy More Credits
-  const welcomeCta = welcomeMessageObject.cta || "Buy More";
+  const welcomeCta = welcomeMessageObject?.cta || "Buy More";
 
   return (
     <div className="welcome-banner">
@@ -621,10 +620,10 @@ const WelcomeMessage = () => {
   const { get } = useQuonfig();
 
   // Get the configured object
-  const welcomeMessageObject = quonfig.get("welcome.message");
+  const welcomeMessageObject = get("welcome.message");
 
   // Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
-  const welcomeText = template
+  const welcomeText = welcomeMessageObject
     ? Mustache.render(welcomeMessageObject.message, {
         userName: "Alice",
         appName: "MyApp",
@@ -633,7 +632,7 @@ const WelcomeMessage = () => {
     : "Welcome!";
 
   // Returns: Buy More Credits
-  const welcomeCta = welcomeMessageObject.cta || "Buy More";
+  const welcomeCta = welcomeMessageObject?.cta || "Buy More";
 
   return (
     <div className="welcome-banner">
@@ -1088,7 +1087,7 @@ export default async function Page() {
   // Wait for flags to load
   await quonfig.init({
     sdkKey: process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!,
-    context: new Context(contextAttributes),
+    context: contextAttributes,
   });
 
   // Extract data for client hydration
@@ -1139,10 +1138,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   await quonfig.init({
     sdkKey: process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!,
-    context: new Context(contextAttributes),
+    context: contextAttributes,
   });
 
-  const initialFlags = serverQuonfig.extract();
+  const initialFlags = quonfig.extract();
 
   return {
     props: {
@@ -1177,10 +1176,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   await quonfig.init({
     sdkKey: process.env.QUONFIG_FRONTEND_SDK_KEY!,
-    context: new Context(contextAttributes),
+    context: contextAttributes,
   });
 
-  const initialFlags = serverQuonfig.extract();
+  const initialFlags = quonfig.extract();
 
   return json<LoaderData>({
     initialFlags,
@@ -1430,7 +1429,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
     await quonfig.init({
       sdkKey: process.env.QUONFIG_FRONTEND_SDK_KEY!,
-      context: new Context(contextAttributes),
+      context: contextAttributes,
     });
 
     const initialFlags = quonfig.extract();
