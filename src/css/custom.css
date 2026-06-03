@@ -80,3 +80,29 @@ summary h4 {
   line-height: 1.5rem;
   margin-bottom: 0;
 }
+
+/*
+ * Mobile hamburger drawer fixes.
+ *
+ * Navbar links are forced white to read against the dark top bar
+ * (--ifm-navbar-link-color: white, plus the text-white class on the Docs Home
+ * link). The mobile sidebar drawer has a light background, so those same links
+ * rendered white-on-white — the menu looked blank. Re-color the drawer links
+ * with the theme-aware menu color so they're readable in both modes.
+ */
+.navbar-sidebar .menu__link,
+.navbar-sidebar .menu__link.text-white,
+.navbar-sidebar .navbar__link {
+  color: var(--ifm-menu-color);
+}
+
+/*
+ * On mobile the "Create Account" CTA stayed pinned in the top bar and collided
+ * with the search button. Search is the priority there, so hide the top-bar CTA
+ * at the mobile breakpoint — it remains available inside the hamburger drawer.
+ */
+@media (max-width: 996px) {
+  .navbar__items--right .navbar-cta {
+    display: none;
+  }
+}

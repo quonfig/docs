@@ -15,7 +15,10 @@ const NavbarCta = () => {
     const cookieValue = getCookie("hasDashboardSession");
     if (cookieValue === "true") {
       return (
-        <Link className="navbar__link" href="https://app.launch.quonfig.com">
+        <Link
+          className="navbar__link navbar-cta"
+          href="https://app.launch.quonfig.com"
+        >
           Dashboard
         </Link>
       );
@@ -24,7 +27,7 @@ const NavbarCta = () => {
 
   return (
     <Link
-      className="navbar__link"
+      className="navbar__link navbar-cta"
       href="https://aunch.quonfig.com/"
     >
       Create Account
