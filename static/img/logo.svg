@@ -4,11 +4,7 @@
       <feGaussianBlur stdDeviation="3" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
-      <rect width="4" height="2" fill="rgba(0,0,0,0.15)" />
-    </pattern>
   </defs>
   <text x="20" y="75" font-family="Menlo, Monaco, Consolas, 'Courier New', monospace" font-size="72" fill="#39FF14" filter="url(#glow)" letter-spacing="-2">&gt;quonfig</text>
   <rect x="365" y="18" width="38" height="58" fill="#39FF14" filter="url(#glow)"/>
-  <rect x="0" y="0" width="460" height="100" fill="url(#scanlines)" />
 </svg>

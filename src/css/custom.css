@@ -92,17 +92,41 @@ summary h4 {
  */
 .navbar-sidebar .menu__link,
 .navbar-sidebar .menu__link.text-white,
-.navbar-sidebar .navbar__link {
+.navbar-sidebar .navbar__link,
+.navbar-sidebar__back {
   color: var(--ifm-menu-color);
 }
 
-/*
- * On mobile the "Create Account" CTA stayed pinned in the top bar and collided
- * with the search button. Search is the priority there, so hide the top-bar CTA
- * at the mobile breakpoint — it remains available inside the hamburger drawer.
- */
 @media (max-width: 996px) {
+  /*
+   * The "Create Account" CTA stayed pinned in the top bar and collided with the
+   * search button. Search is the priority there, so hide the top-bar CTA at the
+   * mobile breakpoint — it remains available inside the hamburger drawer.
+   */
   .navbar__items--right .navbar-cta {
     display: none;
+  }
+
+  /*
+   * Algolia's DocSearch button defaults to a translucent-white pill, which on
+   * our dark navbar reads as an ugly grey box with a faint icon. On mobile it
+   * collapses to just the icon, so make it a clean white magnifying glass on a
+   * transparent background — mirroring the white hamburger on the left so it's
+   * obviously "search".
+   */
+  .navbar .DocSearch-Button {
+    background: transparent;
+    color: #fff;
+    box-shadow: none;
+    padding: 0;
+  }
+  .navbar .DocSearch-Button:hover,
+  .navbar .DocSearch-Button:active,
+  .navbar .DocSearch-Button:focus {
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+  }
+  .navbar .DocSearch-Button .DocSearch-Search-Icon {
+    color: #fff;
   }
 }
