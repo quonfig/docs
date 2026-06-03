@@ -546,16 +546,17 @@ import type { ReactElement } from "react";
 const WelcomeMessage = (): ReactElement => {
   const quonfig = useQuonfig();
 
-  // Get the configured object
-  const welcomeMessageObject = quonfig.welcomeMessage;
+  // Get the configured object. A config with templated fields generates a
+  // method, so call it — note the parentheses.
+  const welcomeMessageObject = quonfig.welcomeMessage();
 
   // Template functions are generated automatically
-  // Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
+  // Returns: "Hello Alice! Welcome to MyApp. You have 150 credit(s) remaining."
   const welcomeText = welcomeMessageObject.message({
-    // Type-safe parameters
+    // Type-safe parameters — every Mustache variable is typed as `string`
     userName: "Alice", // string type
     appName: "MyApp", // string type
-    creditsCount: 150, // number type
+    creditsCount: "150", // string type (Mustache variables are always strings)
   });
 
   // Returns: Buy More Credits
@@ -586,12 +587,12 @@ const WelcomeMessage = (): ReactElement => {
   // Get the configured object
   const welcomeMessageObject = get("welcome.message");
 
-  // Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
+  // Returns: "Hello Alice! Welcome to MyApp. You have 150 credit(s) remaining."
   const welcomeText = welcomeMessageObject
     ? Mustache.render(welcomeMessageObject.message, {
         userName: "Alice",
         appName: "MyApp",
-        creditsCount: 150,
+        creditsCount: "150",
       })
     : "Welcome!";
 
@@ -622,12 +623,12 @@ const WelcomeMessage = () => {
   // Get the configured object
   const welcomeMessageObject = get("welcome.message");
 
-  // Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
+  // Returns: "Hello Alice! Welcome to MyApp. You have 150 credit(s) remaining."
   const welcomeText = welcomeMessageObject
     ? Mustache.render(welcomeMessageObject.message, {
         userName: "Alice",
         appName: "MyApp",
-        creditsCount: 150,
+        creditsCount: "150",
       })
     : "Welcome!";
 
@@ -645,6 +646,12 @@ const WelcomeMessage = () => {
 
 </TabItem>
 </Tabs>
+
+### Escaping and limitations
+
+- **HTML escaping**: `{{variable}}` HTML-escapes its output (Mustache's default), so values containing `&`, `<`, `>`, or `"` are encoded — e.g. `https://example.com/?a=1&b=2` renders as `https://example.com/?a=1&amp;b=2`. When you need the raw, unescaped string (common for URLs), use the triple-mustache `{{{variable}}}` in your configuration value.
+- **Variables are always strings**: every `{{variable}}` is typed as `string` in the generated parameters, regardless of any Zod schema on the surrounding object. Pass `"150"`, not `150`.
+- **Arrays and unions are not templated**: Mustache resolution applies only to string fields on plain objects. A templated string nested inside a JSON array or union is left as a plain string — no template function is generated for it.
 
 ## Dealing with Loading States
 

@@ -748,13 +748,12 @@ import {QuonfigTypesafeNode} from './generated/quonfig-server';
 const welcomeMessageObject = quonfig.welcomeMessage();
 
 // Template functions are generated automatically
-// Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
+// Returns: "Hello Alice! Welcome to MyApp. You have 150 credit(s) remaining."
 const welcomeText = welcomeMessageObject.message({
-    // Type-safe parameters
-    userName: 'Alice', // string type
-    appName: 'MyApp', // number type
-    creditsCount: 150, // string type
-  });
+  // Type-safe parameters — every Mustache variable is typed as `string`
+  userName: 'Alice', // string type
+  appName: 'MyApp', // string type
+  creditsCount: '150', // string type (Mustache variables are always strings)
 });
 
 // Returns: Buy More Credits
@@ -772,11 +771,11 @@ import Mustache from "mustache";
 // Get the configured object
 const welcomeMessageObject = quonfig.get("welcome.message");
 
-// Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
+// Returns: "Hello Alice! Welcome to MyApp. You have 150 credit(s) remaining."
 const welcomeText = Mustache.render(welcomeMessageObject.message, {
   userName: "Alice", // string type
-  appName: "MyApp", // number type
-  creditsCount: 150, // string type
+  appName: "MyApp", // string type
+  creditsCount: "150", // string type
 });
 
 // Returns: Buy More Credits
@@ -794,11 +793,11 @@ const Mustache = require("mustache");
 // Get the configured object
 const welcomeMessageObject = quonfig.get("welcome.message");
 
-// Returns: "Hello Alice! Welcome to MyApp. You have 150 credits remaining."
+// Returns: "Hello Alice! Welcome to MyApp. You have 150 credit(s) remaining."
 const welcomeText = Mustache.render(welcomeMessageObject.message, {
   userName: "Alice",
   appName: "MyApp",
-  creditsCount: 150,
+  creditsCount: "150",
 });
 
 // Returns: Buy More Credits
@@ -829,6 +828,12 @@ const personalizedMessage = personalizedContentObject.message({
 
 const someOtherField = personalizedContentObject.someOtherProperty;
 ```
+
+### Escaping and limitations
+
+- **HTML escaping**: `{{variable}}` HTML-escapes its output (Mustache's default), so values containing `&`, `<`, `>`, or `"` are encoded — e.g. `https://example.com/?a=1&b=2` renders as `https://example.com/?a=1&amp;b=2`. When you need the raw, unescaped string (common for URLs), use the triple-mustache `{{{variable}}}` in your configuration value.
+- **Variables are always strings**: every `{{variable}}` is typed as `string` in the generated parameters, regardless of any Zod schema on the surrounding object. Pass `'150'`, not `150`.
+- **Arrays and unions are not templated**: Mustache resolution applies only to string fields on plain objects. A templated string nested inside a JSON array or union is left as a plain string — no template function is generated for it.
 
 ## Reacting to Config Changes
 
