@@ -27,6 +27,27 @@ const config = {
         },
       };
     },
+    // Expose the resolved docs sidebar tree as global data so the mobile
+    // hamburger drawer can render the full table of contents on non-docs pages
+    // (home, 404, search), where the docs plugin's sidebar context is absent.
+    function homepageSidebarPlugin() {
+      return {
+        name: "quonfig-homepage-sidebar",
+        allContentLoaded({ allContent, actions }) {
+          // eslint-disable-next-line global-require
+          // Deep import needs the explicit .js extension: the package's
+          // "exports" map exposes "./lib/*" verbatim (no extension resolution).
+          const { toSidebarsProp } = require("@docusaurus/plugin-content-docs/lib/props.js");
+          const docsContent = allContent["docusaurus-plugin-content-docs"]?.default;
+          const versions = docsContent?.loadedVersions ?? [];
+          const version = versions.find((v) => v.isLast) ?? versions[0];
+          // toSidebarsProp() yields the same prop shape that <DocSidebarItems>
+          // consumes on real docs pages (doc links resolved to hrefs).
+          const docsSidebars = version ? toSidebarsProp(version) : {};
+          actions.setGlobalData({ docsSidebars });
+        },
+      };
+    },
   ],
   themes: ["@docusaurus/theme-mermaid"],
   // In order for Mermaid code blocks in Markdown to work,
