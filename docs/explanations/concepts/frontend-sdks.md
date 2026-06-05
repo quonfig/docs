@@ -103,7 +103,7 @@ Frontend config will return `undefined`, and you can use the pattern `Quonfig.ge
 
 The default timeout is `10` seconds, but you can set this in client initialization.
 
-We also support [zero-ms feature flags and configs][0ms] in some Backend SDKs. If you have questions about our reliability roadmap, contact us, and we'll share what we're working on.
+Our [JavaScript SDK can also bootstrap][bootstrap] server-evaluated values into the page for an instant first render. If you have questions about our reliability roadmap, contact us, and we'll share what we're working on.
 
 [offline]: /docs/how-tos/offline-mode.md
-[0ms]: /docs/explanations/concepts/zero-ms-frontend-feature-flags
+[bootstrap]: /docs/sdks/javascript#bootstrapping

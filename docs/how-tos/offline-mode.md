@@ -25,15 +25,11 @@ QUONFIG_DATAFILE=./path-to-your-datafile.json rails server
 
 ### Frontend SDKs
 
-Frontend SDKs have two options for offline mode. In both cases, you'll need a datafile.
-
-#### Using Backend SDK JS stub/bootstrapping
-
-If you're already using one of the Backend SDKs that supports [Frontend bootstrapping][0ms], you can use the same datafile for your frontend. Sending your evaluations from your backend to your frontend will save your users an HTTP request and allow you to run offline without any changes to your frontend code.
+To run a frontend SDK offline, point it at a datafile served locally with the Quonfig CLI. You'll need a datafile.
 
 #### Using the Quonfig CLI to Serve a datafile
 
-Using [`quonfig serve`][serve] with a datafile will start a local server that serves the datafile to your frontend. This is useful if you're not using a Backend SDK that supports bootstrapping, or if you want to run your frontend in isolation. You'll need to update your frontend code to point to wherever your `quonfig serve` is running.
+Using [`quonfig serve`][serve] with a datafile will start a local server that serves the datafile to your frontend. This is useful if you want to run your frontend in isolation. You'll need to update your frontend code to point to wherever your `quonfig serve` is running.
 
 <Tabs groupId="lang">
 <TabItem value="js" label="JavaScript">
@@ -97,4 +93,3 @@ const WrappedApp = () => {
 [download]: ../tools/cli#pull
 [serve]: ../tools/cli#serve
 [df]: ../explanations/concepts/datafiles
-[0ms]: ../explanations/concepts/zero-ms-frontend-feature-flags

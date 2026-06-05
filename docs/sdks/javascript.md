@@ -205,6 +205,29 @@ quonfig.updateContext({
 </TabItem>
 </Tabs>
 
+## Bootstrapping
+
+If your server already knows the evaluation results for the current context, you can seed them into the page so the SDK renders the correct values on first paint — no initial HTTP request, and no flash of default content.
+
+Set `globalThis._quonfigBootstrap` before calling `quonfig.init()`, using the same context you pass to `init()`:
+
+```html
+<script>
+  window._quonfigBootstrap = {
+    // Must match the context passed to quonfig.init()
+    context: { user: { key: "u_123" } },
+    // Server-evaluated payload, in the same shape api-delivery returns
+    evaluations: {
+      "my-flag": { value: { type: "bool", value: true } },
+    },
+  };
+</script>
+```
+
+`init()` consumes this snapshot **once**, for the first paint, when its context matches. After that it is ignored: [polling](#poll) and `updateContext()` fetch live values, so a server-side flag change is reflected and the SDK never reverts to the bootstrapped snapshot. If the live context does not match the snapshot, the SDK skips it and fetches normally.
+
+The payload is typed as `QuonfigBootstrap` (exported from `@quonfig/javascript`). `@quonfig/react` reads the same `window._quonfigBootstrap` automatically — no extra props.
+
 ## Dynamic Config
 
 Config values are accessed the same way as feature flag values. You can use `isEnabled` as a convenience for boolean values, and `get` works for all data types.
@@ -352,39 +375,39 @@ it("shows the turbo button when the feature is enabled", () => {
 
 ### `quonfig` Properties
 
-| property        | example                                | purpose                                                                                      |
-| --------------- | -------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `context`       | `quonfig.context`                      | get the current context (after `init()`).                                                    |
-| `extract`       | `quonfig.extract()`                    | returns the current config as a plain object of key, config value pairs                      |
-| `getDuration`   | `quonfig.getDuration("timeout-key")`   | returns a Duration object with `seconds` and `ms` properties for duration configs            |
-| `get`           | `quonfig.get('retry-count')`           | returns the value of a flag or config evaluated in the current context                       |
-| `hydrate`       | `quonfig.hydrate(configurationObject)` | sets the current config based on a plain object of key, config value pairs                   |
-| `isEnabled`     | `quonfig.isEnabled("new-logo")`        | returns a boolean (default `false`) if a feature is enabled based on the current context     |
-| `loaded`        | `if (quonfig.loaded) { ... }`          | a boolean indicating whether quonfig content has loaded                                      |
-| `loggerKey`     | `quonfig.loggerKey`                    | the init-time `loggerKey` used by the `shouldLog({loggerPath, ...})` overload                |
-| `poll`          | `quonfig.poll({frequencyInMs})`        | starts polling every `frequencyInMs` ms.                                                     |
-| `shouldLog`     | `quonfig.shouldLog({loggerPath, desiredLevel})` | returns whether a message at `desiredLevel` should emit; accepts either `{loggerPath}` (uses init-time `loggerKey`) or `{configKey}` |
-| `stopPolling`   | `quonfig.stopPolling()`                | stops the polling process                                                                    |
-| `flush`         | `await quonfig.flush()`                | drains pending telemetry counters to the telemetry endpoint without tearing the SDK down. Useful before a context swap in a long-lived SPA. Returns a Promise. |
-| `close`         | `await quonfig.close()`                | drains telemetry (via `flush`), then stops polling and telemetry timers. Returns a Promise. Prefer this over `stopTelemetry()` for normal teardown so in-flight counters aren't dropped. |
-| `stopTelemetry` | `quonfig.stopTelemetry()`              | stops telemetry aggregator timers without draining. Prefer `close()` or `flush()` — they drain pending counters first. |
-| `updateContext` | `quonfig.updateContext(newContext)`    | update the context and refetch. Pass `false` as a second argument to skip refetching         |
+| property        | example                                         | purpose                                                                                                                                                                                  |
+| --------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `context`       | `quonfig.context`                               | get the current context (after `init()`).                                                                                                                                                |
+| `extract`       | `quonfig.extract()`                             | returns the current config as a plain object of key, config value pairs                                                                                                                  |
+| `getDuration`   | `quonfig.getDuration("timeout-key")`            | returns a Duration object with `seconds` and `ms` properties for duration configs                                                                                                        |
+| `get`           | `quonfig.get('retry-count')`                    | returns the value of a flag or config evaluated in the current context                                                                                                                   |
+| `hydrate`       | `quonfig.hydrate(configurationObject)`          | sets the current config based on a plain object of key, config value pairs                                                                                                               |
+| `isEnabled`     | `quonfig.isEnabled("new-logo")`                 | returns a boolean (default `false`) if a feature is enabled based on the current context                                                                                                 |
+| `loaded`        | `if (quonfig.loaded) { ... }`                   | a boolean indicating whether quonfig content has loaded                                                                                                                                  |
+| `loggerKey`     | `quonfig.loggerKey`                             | the init-time `loggerKey` used by the `shouldLog({loggerPath, ...})` overload                                                                                                            |
+| `poll`          | `quonfig.poll({frequencyInMs})`                 | starts polling every `frequencyInMs` ms.                                                                                                                                                 |
+| `shouldLog`     | `quonfig.shouldLog({loggerPath, desiredLevel})` | returns whether a message at `desiredLevel` should emit; accepts either `{loggerPath}` (uses init-time `loggerKey`) or `{configKey}`                                                     |
+| `stopPolling`   | `quonfig.stopPolling()`                         | stops the polling process                                                                                                                                                                |
+| `flush`         | `await quonfig.flush()`                         | drains pending telemetry counters to the telemetry endpoint without tearing the SDK down. Useful before a context swap in a long-lived SPA. Returns a Promise.                           |
+| `close`         | `await quonfig.close()`                         | drains telemetry (via `flush`), then stops polling and telemetry timers. Returns a Promise. Prefer this over `stopTelemetry()` for normal teardown so in-flight counters aren't dropped. |
+| `stopTelemetry` | `quonfig.stopTelemetry()`                       | stops telemetry aggregator timers without draining. Prefer `close()` or `flush()` — they drain pending counters first.                                                                   |
+| `updateContext` | `quonfig.updateContext(newContext)`             | update the context and refetch. Pass `false` as a second argument to skip refetching                                                                                                     |
 
 ### `init()` Options
 
-| option                     | type     | default                | description                                                                                  |
-| -------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| `sdkKey`                   | string   | required               | Your Quonfig SDK key                                                                         |
-| `context`                  | Contexts | required               | Initial context for evaluation. A plain object keyed by context name (e.g. `{ user: { key, email }, device: { mobile } }`). |
-| `domain`                   | string   | `"quonfig.com"`        | Single knob that flips api + telemetry URLs in lockstep. e.g. `domain: "quonfig-staging.com"` resolves api to `https://primary.quonfig-staging.com` (+ secondary) and telemetry to `https://telemetry.quonfig-staging.com`. Highest-precedence default; overridden only by explicit `apiUrls` / `apiUrl` / `telemetryUrl`. |
-| `apiUrls`                  | string[] | derived from `domain`  | Ordered list of API base URLs to try (failover order). Escape hatch for deploys that don't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`. |
-| `apiUrl`                   | string   | `undefined`            | Convenience alias for callers with a single API base URL. Normalized to `apiUrls = [apiUrl]`. `apiUrls` wins if both are set. |
-| `telemetryUrl`             | string   | derived from `domain`  | Base URL for the telemetry service. Escape hatch for deploys that split telemetry off the primary domain. When set, wins over `domain`. |
-| `timeout`                  | number   | `10000`                | Initialization request timeout in ms                                                         |
-| `loggerKey`                | string   | `undefined`            | The `log_level` config key consulted by `shouldLog({loggerPath})`. Required for the `loggerPath` form. |
-| `collectEvaluationSummaries` | boolean | `true`                | Send evaluation summary telemetry to Quonfig                                                 |
-| `collectContextMode`       | string   | `"PERIODIC_EXAMPLE"`   | Context telemetry mode: `"PERIODIC_EXAMPLE"`, `"SHAPE_ONLY"`, or `"NONE"`                   |
-| `afterEvaluationCallback`  | function | `undefined`            | Callback invoked after each flag/config evaluation                                           |
+| option                       | type     | default               | description                                                                                                                                                                                                                                                                                                                |
+| ---------------------------- | -------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sdkKey`                     | string   | required              | Your Quonfig SDK key                                                                                                                                                                                                                                                                                                       |
+| `context`                    | Contexts | required              | Initial context for evaluation. A plain object keyed by context name (e.g. `{ user: { key, email }, device: { mobile } }`).                                                                                                                                                                                                |
+| `domain`                     | string   | `"quonfig.com"`       | Single knob that flips api + telemetry URLs in lockstep. e.g. `domain: "quonfig-staging.com"` resolves api to `https://primary.quonfig-staging.com` (+ secondary) and telemetry to `https://telemetry.quonfig-staging.com`. Highest-precedence default; overridden only by explicit `apiUrls` / `apiUrl` / `telemetryUrl`. |
+| `apiUrls`                    | string[] | derived from `domain` | Ordered list of API base URLs to try (failover order). Escape hatch for deploys that don't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`.                                                                                                                                |
+| `apiUrl`                     | string   | `undefined`           | Convenience alias for callers with a single API base URL. Normalized to `apiUrls = [apiUrl]`. `apiUrls` wins if both are set.                                                                                                                                                                                              |
+| `telemetryUrl`               | string   | derived from `domain` | Base URL for the telemetry service. Escape hatch for deploys that split telemetry off the primary domain. When set, wins over `domain`.                                                                                                                                                                                    |
+| `timeout`                    | number   | `10000`               | Initialization request timeout in ms                                                                                                                                                                                                                                                                                       |
+| `loggerKey`                  | string   | `undefined`           | The `log_level` config key consulted by `shouldLog({loggerPath})`. Required for the `loggerPath` form.                                                                                                                                                                                                                     |
+| `collectEvaluationSummaries` | boolean  | `true`                | Send evaluation summary telemetry to Quonfig                                                                                                                                                                                                                                                                               |
+| `collectContextMode`         | string   | `"PERIODIC_EXAMPLE"`  | Context telemetry mode: `"PERIODIC_EXAMPLE"`, `"SHAPE_ONLY"`, or `"NONE"`                                                                                                                                                                                                                                                  |
+| `afterEvaluationCallback`    | function | `undefined`           | Callback invoked after each flag/config evaluation                                                                                                                                                                                                                                                                         |
 
 [React Client]: /docs/sdks/react
 [jsDelivr]: https://www.jsdelivr.com/package/npm/@quonfig/javascript
