@@ -6,13 +6,13 @@ title: .NET
 
 [GitHub](https://github.com/quonfig/sdk-net) | [NuGet](https://www.nuget.org/profiles/quonfig)
 
-Replace `0.0.1` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
+Replace `1.0.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
 
 <Tabs groupId="dotnet-build">
 <TabItem value="dotnet-cli" label=".NET CLI">
 
 ```bash
-dotnet add package Quonfig.Sdk --version 0.0.1
+dotnet add package Quonfig.Sdk --version 1.0.0
 ```
 
 </TabItem>
@@ -21,7 +21,7 @@ dotnet add package Quonfig.Sdk --version 0.0.1
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Quonfig.Sdk" Version="0.0.1" />
+  <PackageReference Include="Quonfig.Sdk" Version="1.0.0" />
 </ItemGroup>
 ```
 
@@ -30,7 +30,7 @@ dotnet add package Quonfig.Sdk --version 0.0.1
 <TabItem value="paket" label="Paket">
 
 ```paket
-nuget Quonfig.Sdk ~> 0.0.1
+nuget Quonfig.Sdk ~> 1.0.0
 ```
 
 </TabItem>
@@ -40,7 +40,7 @@ nuget Quonfig.Sdk ~> 0.0.1
 ```xml
 <Project>
   <ItemGroup>
-    <PackageVersion Include="Quonfig.Sdk" Version="0.0.1" />
+    <PackageVersion Include="Quonfig.Sdk" Version="1.0.0" />
   </ItemGroup>
 </Project>
 ```
@@ -359,14 +359,14 @@ if (details.Reason == Reason.Error)
 | `Value`           | The typed value (or your default on `Default` / `Error`).                                            |
 | `Reason`          | `Static`, `TargetingMatch`, `Default`, `Error`, or `Unknown` (see note on `Split` below).            |
 | `Variant`         | OpenFeature-style identifier — `"static"`, `"targeting:<n>"`, or `"default"`.                        |
-| `VariantIndex`    | Reserved for weighted splits — always `null` in `0.0.1`.                                              |
+| `VariantIndex`    | Reserved for weighted splits — always `null` in `1.0.0`.                                              |
 | `ErrorCode`       | `FlagNotFound`, `TypeMismatch`, or `General` on `Error`; `null` otherwise.                           |
 | `ErrorMessage`    | Companion to `ErrorCode`.                                                                            |
 | `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex`, `environment`.                          |
 
-:::note Weighted splits report `TargetingMatch` in `0.0.1`
+:::note Weighted splits report `TargetingMatch` in `1.0.0`
 
-The `Reason` enum and `VariantIndex` field include a `Split` variant (`"split:<n>"`) for OpenFeature parity, but the `0.0.1` evaluator never emits it: weighted-value configs resolve to the correct value and report `Reason.TargetingMatch` with `VariantIndex == null`. The dedicated split reason/index is reserved for a later release.
+The `Reason` enum and `VariantIndex` field include a `Split` variant (`"split:<n>"`) for OpenFeature parity, but the `1.0.0` evaluator never emits it: weighted-value configs resolve to the correct value and report `Reason.TargetingMatch` with `VariantIndex == null`. The dedicated split reason/index is reserved for a later release.
 
 :::
 
@@ -375,7 +375,7 @@ The `Reason` enum and `VariantIndex` field include a `Split` variant (`"split:<n
 The `Quonfig.Sdk.AspNetCore` companion package wires `Quonfig` into the ASP.NET Core host: it registers the singleton, runs `InitAsync` via `IHostedService`, and (optionally) binds per-request `ContextSet` from `HttpContext` so controllers can inject `IBoundQuonfig` directly.
 
 ```bash
-dotnet add package Quonfig.Sdk.AspNetCore --version 0.0.1
+dotnet add package Quonfig.Sdk.AspNetCore --version 1.0.0
 ```
 
 ```csharp
@@ -432,7 +432,7 @@ If no log-level config is found at any level, `ShouldLog` returns `true` — the
 The `Quonfig.Sdk.Extensions.Logging` package wires `ShouldLog` into the BCL logging pipeline by wrapping the providers already registered on the `ILoggingBuilder`:
 
 ```bash
-dotnet add package Quonfig.Sdk.Extensions.Logging --version 0.0.1
+dotnet add package Quonfig.Sdk.Extensions.Logging --version 1.0.0
 ```
 
 `AddQuonfigFilter(quonfig)` takes the client instance and must be called **last** in the logging setup — it snapshots and wraps every `ILoggerProvider` registered up to that point. Because it needs the instance at logging-config time, construct the client up front and register the same instance with DI:
@@ -463,7 +463,7 @@ Every `ILogger<T>` call site is then automatically gated by Quonfig: the logger 
 For Serilog, use `Quonfig.Sdk.Serilog`. The `QuonfigLoggingLevelSwitchProvider` manages a set of Serilog `LoggingLevelSwitch` instances keyed by source context and re-evaluates them whenever the config envelope changes (it subscribes to the SDK's `OnConfigChange`, which fires after every successful install).
 
 ```bash
-dotnet add package Quonfig.Sdk.Serilog --version 0.0.1
+dotnet add package Quonfig.Sdk.Serilog --version 1.0.0
 ```
 
 The provider resolves levels via `IQuonfig.GetLogLevel(...)`, so the config key is configured by `LoggerKey` on the **client** options — you don't pass a key to the provider. `GetSwitch(category)` returns (and caches) the switch for a source context; pass an empty string for the root switch used by `MinimumLevel.ControlledBy`:

@@ -15,7 +15,7 @@ pip install quonfig
 ```python
 # pyproject.toml
 [tool.poetry.dependencies]
-quonfig = "^0.0.21"
+quonfig = "^1.0.0"
 ```
 
 ## Initialize Client

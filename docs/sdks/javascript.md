@@ -32,7 +32,7 @@ yarn add @quonfig/javascript
 We recommend using [jsDelivr][jsDelivr] for a minified/bundled version.
 
 ```
-<script src="https://cdn.jsdelivr.net/npm/@quonfig/javascript@0.0.17/dist/quonfig.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@quonfig/javascript@1.0.0/dist/quonfig.bundle.js"></script>
 ```
 
 See the <a href="#context">context</a> section for more information on how to initialize with the `<script>` tag and a user context.

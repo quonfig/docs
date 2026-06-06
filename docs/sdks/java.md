@@ -6,14 +6,14 @@ title: Java
 
 [GitHub](https://github.com/quonfig/sdk-java) | [Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java)
 
-Replace `0.0.1` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
+Replace `1.0.0` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
 
 <Tabs groupId="java-build">
 <TabItem value="gradle-kotlin" label="Gradle (Kotlin DSL)">
 
 ```kotlin
 dependencies {
-    implementation("com.quonfig:sdk-java:0.0.1")
+    implementation("com.quonfig:sdk-java:1.0.0")
 }
 ```
 
@@ -23,7 +23,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.quonfig:sdk-java:0.0.1'
+    implementation 'com.quonfig:sdk-java:1.0.0'
 }
 ```
 
@@ -35,7 +35,7 @@ dependencies {
 <dependency>
     <groupId>com.quonfig</groupId>
     <artifactId>sdk-java</artifactId>
-    <version>0.0.1</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -352,7 +352,7 @@ Because the evaluator sees your full context — global, bound, and the injected
 The `sdk-java-logback` module ships a `TurboFilter` that gates **every** Logback logger dynamically from Quonfig — no per-call-site `if (shouldLog)` wrapping. Add the dependency (you bring your own Logback; the module declares it `provided`):
 
 ```kotlin
-implementation("com.quonfig:sdk-java-logback:0.0.4")
+implementation("com.quonfig:sdk-java-logback:1.0.0")
 implementation("ch.qos.logback:logback-classic:1.5.18")
 ```
 
