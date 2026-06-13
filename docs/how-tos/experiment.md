@@ -33,7 +33,7 @@ Next we'll add these `Control` and `Treatment` variants.
 ![image](/img/docs/how-tos/exp-prefab-variants.jpg)
 We'll select `Perent Rollout` for the value. 
 ![image](/img/docs/how-tos/exp-prefab-percent-rollout.jpg)
-We can choose to "split evenly". Note the sticky property. This tells us which piece of [Context](/docs/explanations/concepts/context.md) to use to seed the random bucket generator. Our application sets context like `{user: {key: '123-45f', name: 'Bob Beemer'}}` so `user.key` is the correct way to be sticky here. This will ensure that any user that is bucketed into the `Treatment` stays in the treatment everytime they use the application.
+We can choose to "split evenly". Note the sticky property. This tells us which piece of [Context](/docs/explanations/concepts/context.md) to use to seed the random bucket generator. Our application sets context like `{user: {key: '123-45f', name: 'Bob Beemer'}}` so `user.key` is a natural choice here. This will ensure that any user that is bucketed into the `Treatment` stays in the treatment everytime they use the application. The sticky property doesn't have to be a `key` — it can be **any** context property, so you can bucket on a high-cardinality value without it counting toward MTK. See [What gets saved](/docs/explanations/concepts/context.md).
 ![image](/img/docs/how-tos/exp-prefab-split-evenly.jpg)
 
 ### Setting up Exposure Tracking (Mixpanel example)

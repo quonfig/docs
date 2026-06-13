@@ -276,6 +276,41 @@ It's ok if there isn't a good key. If you add `{cloud: {region: us-east, availab
 If you provide a `name` attributes (as a sibling to `key`), it will be used in the Quonfig UI to display the context entity as a "friendly" alternative to `key`. If you don't provide a `name`, Quonfig will use the `key` as the display name.
 :::
 
+## What gets saved — keys, example contexts, and your bill
+
+The single most important thing to know about contexts: **Quonfig only saves a context entity when you give it a `key`.**
+
+When an SDK sees a context with a `key`, it periodically uploads it as an _example context_. Example contexts do two jobs:
+
+- **Autocomplete** — when you type `user.email` in the rule editor, the suggestions come from example contexts your SDKs have uploaded.
+- **Context search** — the saved entity becomes searchable and targetable by `key` in the Contexts tool.
+
+Your plan is metered on **MTK — Monthly Tracked Keys**: the number of distinct context keys saved in a month. A context **without** a `key` is never saved as an example context, so it never counts toward MTK. It still works for targeting — you can write rules against any property — it just isn't indexed or billed. _We only save the data for indexing when the `key` is set._
+
+### The high-cardinality trap
+
+The fastest way to run up an MTK bill is to put a high-cardinality value in `key` — an IP address, a per-request id, a session id. That mints a brand-new tracked key on almost every request. If you don't need to _search_ for those entities, drop the `key` and send the data under a plain property instead:
+
+```json
+// Saved + billed — one tracked key per unique IP
+{ "ip_info": { "key": "123.2.3.3" } }
+
+// Not saved, not billed — still fully targetable in rules
+{ "ip_info": { "ip": "123.2.3.3" } }
+```
+
+The _shape_ (`ip_info` has an `ip` field) still reaches Quonfig for autocomplete; only the per-IP values stop being saved.
+
+### Percentage rollouts without a key
+
+You do **not** need a `key` to do a sticky percentage rollout — the sticky property can be **any** property in your context. So a high-cardinality identifier you want to bucket on but don't want to pay for — an anonymous visitor id from a cookie, say — can be sent without a key:
+
+```json
+{ "visitor": { "id": "<high-cardinality-id>" } }
+```
+
+`visitor.id` works fine as the sticky property. Because it isn't a `key`, Quonfig records only the shape, never the value — no example-context telemetry, no MTK charge.
+
 ## Dot notation
 
 When referencing fields from context, we use dot notation.
