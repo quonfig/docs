@@ -91,8 +91,6 @@ class ApplicationController < ActionController::Base
 end
 ```
 
-Learn more with the [Quonfig + Rails example app](https://github.com/quonfig/example-rails-app)
-
 </TabItem>
 
 <TabItem value="micronaut" label="Micronaut">
@@ -103,7 +101,7 @@ In your Quonfig options, set your Quonfig Context store to be your ServerRequest
 options.setContextStore(new ServerRequestContextStore());
 ```
 
-Next, we add a [filter](https://github.com/quonfig/example-micronaut-app/blob/configure-Quonfig-context/src/main/java/com/example/Quonfig/QuonfigContextFilter.java) to add a Quonfig context based on the currently "logged in" user.
+Next, we add a filter to add a Quonfig context based on the currently "logged in" user.
 
 ```java
 configClient.getContextStore()
@@ -114,8 +112,6 @@ configClient.getContextStore()
           .build()
       );
 ```
-
-Learn more with the [Quonfig + Micronaut example app](https://github.com/quonfig/example-micronaut-app)
 
 </TabItem>
 
@@ -171,8 +167,6 @@ public class QuonfigContexClearingResponseFilter implements ContainerResponseFil
     }
 }
 ```
-
-Learn more with the [Quonfig + Dropwizard example app](https://github.com/quonfig/example-dropwizard-app)
 
 </TabItem>
 

@@ -456,7 +456,7 @@ builder.Services.AddSingleton<IQuonfig>(quonfig);
 builder.Logging.AddQuonfigFilter(quonfig);
 ```
 
-Every `ILogger<T>` call site is then automatically gated by Quonfig: the logger category name is used as `loggerPath`, the requested level becomes `desired`, and the SDK answers with the current ruleset. (This is exactly how the [`test-net`](https://github.com/quonfig/test-net) sample wires it.) When you also use `Quonfig.Sdk.AspNetCore`, register the singleton as above and let `AddQuonfig(...)` mirror the same options — that way the `IHostedService` still drives `InitAsync`/`CloseAsync` on the instance you handed to the filter.
+Every `ILogger<T>` call site is then automatically gated by Quonfig: the logger category name is used as `loggerPath`, the requested level becomes `desired`, and the SDK answers with the current ruleset. When you also use `Quonfig.Sdk.AspNetCore`, register the singleton as above and let `AddQuonfig(...)` mirror the same options — that way the `IHostedService` still drives `InitAsync`/`CloseAsync` on the instance you handed to the filter.
 
 ### Serilog integration
 

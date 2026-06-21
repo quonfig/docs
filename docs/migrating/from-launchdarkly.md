@@ -139,7 +139,7 @@ items and propose concrete edits to your remaining LaunchDarkly call sites.
 ## What doesn't migrate cleanly
 
 The full gap list lives in your workspace's `MIGRATION_REPORT.md`. The short
-version, drawn from the [design plan §5.4](https://github.com/quonfig/project):
+version, drawn from the design plan (§5.4):
 
 - **Prerequisites** — dropped and reported. The downstream flag's targeting
   survives; the cross-flag gate does not. Re-implement as in-flag rules or

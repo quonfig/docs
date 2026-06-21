@@ -1059,10 +1059,6 @@ For SSR frameworks like Next.js, Remix, or custom React SSR setups, you can elim
 
 This approach uses the underlying `@quonfig/javascript` client's `extract` and `hydrate` methods, which are accessible through the React hook.
 
-:::info
-A fully working example is available as an [Example Launch Next.js](https://github.com/quonfig/example-launch-nextjs) application.
-:::
-
 ### Overview
 
 The SSR + rehydration pattern works by:
