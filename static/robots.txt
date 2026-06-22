@@ -1,0 +1,53 @@
+# Quonfig Documentation — robots.txt
+#
+# Everything here is open to crawlers. We explicitly welcome AI answer-engine
+# crawlers (ChatGPT, Claude, Perplexity, Gemini, Apple Intelligence, etc.)
+# because we *want* our docs cited as the source of truth on how Quonfig works.
+# Nothing is disallowed. The sitemap is declared at the bottom so every crawler
+# can discover all pages.
+
+# Default: allow all traditional search crawlers (Googlebot, Bingbot, ...).
+User-agent: *
+Allow: /
+
+# --- AI answer-engine crawlers (explicitly welcomed for AEO) ---
+
+# OpenAI — GPTBot (training/grounding), OAI-SearchBot (ChatGPT Search index),
+# ChatGPT-User (on-demand fetch when a user asks ChatGPT to browse).
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic — ClaudeBot.
+User-agent: ClaudeBot
+Allow: /
+
+# Perplexity — PerplexityBot (index), Perplexity-User (answer-time fetch/citation).
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Google — Gemini / AI Overviews grounding (separate from Search indexing).
+User-agent: Google-Extended
+Allow: /
+
+# Apple Intelligence.
+User-agent: Applebot-Extended
+Allow: /
+
+# Common Crawl — feeds many open LLMs.
+User-agent: CCBot
+Allow: /
+
+# DuckDuckGo AI (DuckAssist).
+User-agent: DuckAssistBot
+Allow: /
+
+Sitemap: https://docs.quonfig.com/sitemap.xml
