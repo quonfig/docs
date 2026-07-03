@@ -48,6 +48,42 @@ const config = {
         },
       };
     },
+    // PostHog analytics, sharing the same project (us.posthog.com 434893) as
+    // app-quonfig and www so all three Quonfig web properties feed one project.
+    // Options beyond apiKey/appUrl/enableInDevelopment are passed straight into
+    // posthog.init() by the plugin (JSON-serialized, so no functions).
+    //
+    // `cross_subdomain_cookie: true` writes the anonymous distinct_id cookie to
+    // `.quonfig.com`, so a docs reader is the same PostHog person on www and
+    // app.quonfig.com. When they sign up, app-quonfig's identify(userId)
+    // promotes that shared anon id and stitches their docs activity to the real
+    // user — which is why we no longer identify() docs visitors ourselves (that
+    // hack, keyed on a random `tid` cookie, used to live in the Footer swizzle
+    // and actively broke this stitch).
+    //
+    // The apiKey is a public `phc_` client key that ships in the browser
+    // regardless, so it's a literal here (matching the public project id already
+    // hardcoded in app-quonfig's next.config).
+    //
+    // `capture_pageview: false` because the plugin's own client module
+    // (posthog-docusaurus/src/posthog.js) already fires `$pageview` on every
+    // Docusaurus route change; leaving posthog-js's automatic pageview on would
+    // double-count. Note: only active in a production build (NODE_ENV=production
+    // / `docusaurus build`), not `docusaurus start`.
+    [
+      "posthog-docusaurus",
+      {
+        apiKey: "phc_vGeR6TXjXAXZnkPcYEKdyp86dy7Np4fjRBEWWhKFJDWk",
+        appUrl: "https://us.i.posthog.com",
+        enableInDevelopment: false,
+        ui_host: "https://us.posthog.com",
+        defaults: "2026-01-30",
+        cross_subdomain_cookie: true,
+        capture_exceptions: true,
+        capture_pageview: false,
+        session_recording: { maskAllInputs: false },
+      },
+    ],
   ],
   themes: ["@docusaurus/theme-mermaid"],
   // In order for Mermaid code blocks in Markdown to work,
