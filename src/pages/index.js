@@ -116,6 +116,15 @@ function Langs() {
           />
           <span>React</span>
         </Link>
+        <Link className={linkClasses} to="/docs/sdks/swift">
+          <img
+            src="/img/langs/swift.svg"
+            style={imgStyles}
+            className=""
+            alt="Swift"
+          />
+          <span>Swift</span>
+        </Link>
         <Link className={linkClasses} to="/docs/category/openfeature-providers">
           <img
             src="/img/langs/openfeature.svg"
