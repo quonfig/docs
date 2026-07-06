@@ -42,17 +42,24 @@ func init() {
 
 ### API URLs
 
-By default the SDK connects to `https://primary.quonfig.com` for config fetches
-and automatically connects to `https://stream.primary.quonfig.com` for live SSE
-updates — the stream URL is derived from each API URL by prepending `stream.`
-to the hostname, so you don't configure it separately. A fallback
-`secondary.quonfig.com` will be added to the default list once the fallback app
-exists. Override the list with `WithAPIURLs`:
+By default the SDK derives all of its hostnames from `QUONFIG_DOMAIN`
+(default `quonfig.com`): it fetches config from `https://primary.quonfig.com`,
+streams live updates from `https://stream.primary.quonfig.com`, and
+**automatically fails over** to `https://secondary.quonfig.com` (on separate
+infrastructure). Failover and hedging are on by default — see
+[Reliability](/docs/explanations/architecture/resiliency) for the full model.
+
+Override the list with `WithAPIURLs`. Pass **both** a primary and a secondary
+URL to keep automatic failover; a single URL disables it (the SDK logs a
+warning at init):
 
 ```go
 sdk, err := quonfig.NewClient(
     quonfig.WithSdkKey(sdkKey),
-    quonfig.WithAPIURLs([]string{"https://primary.quonfig.com"}),
+    quonfig.WithAPIURLs([]string{
+        "https://primary.quonfig.com",
+        "https://secondary.quonfig.com",
+    }),
 )
 ```
 

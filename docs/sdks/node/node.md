@@ -307,17 +307,24 @@ Make sure to use `QUONFIG_BACKEND_SDK_KEY` (not `NEXT_PUBLIC_`) in API routes si
 
 ### API URLs
 
-By default the SDK connects to `https://primary.quonfig.com` for config fetches
-and automatically connects to `https://stream.primary.quonfig.com` for live SSE
-updates. The stream URL is derived from each API URL by prepending `stream.` to
-the hostname, so you don't configure it separately. A fallback
-`secondary.quonfig.com` will be added to the default list once the fallback app
-exists. Override the list by passing `apiUrls`:
+By default the SDK derives all of its hostnames from `QUONFIG_DOMAIN`
+(default `quonfig.com`): it fetches config from `https://primary.quonfig.com`,
+streams live updates from `https://stream.primary.quonfig.com`, and
+**automatically fails over** to `https://secondary.quonfig.com` (on separate
+infrastructure). Failover and hedging are on by default — see
+[Reliability](/docs/explanations/architecture/resiliency) for the full model.
+
+Override the list by passing `apiUrls`. Pass **both** a primary and a secondary
+URL to keep automatic failover; a single URL disables it (the SDK logs a
+warning at init):
 
 ```typescript
 const quonfig = new Quonfig({
   sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY!,
-  apiUrls: ["https://primary.quonfig.com"],
+  apiUrls: [
+    "https://primary.quonfig.com",
+    "https://secondary.quonfig.com",
+  ],
 });
 ```
 
