@@ -12,10 +12,9 @@ server-side in Quonfig — there is no on-device targeting engine.
 
 ## Install
 
-### Swift Package Manager (recommended)
-
-In Xcode: **File → Add Package Dependencies…** and enter
-`https://github.com/quonfig/sdk-swift.git`, or add it to your `Package.swift`:
+Distributed via **Swift Package Manager**. In Xcode: **File → Add Package
+Dependencies…** and enter `https://github.com/quonfig/sdk-swift.git`, or add it
+to your `Package.swift`:
 
 ```swift
 dependencies: [
@@ -29,12 +28,6 @@ targets: [
         ]
     ),
 ]
-```
-
-### CocoaPods
-
-```ruby
-pod 'Quonfig', '~> 0.0.1'
 ```
 
 Then `import Quonfig`.
@@ -193,9 +186,9 @@ By default the SDK uploads per-flag evaluation summaries (opt out with
 server-side; tune with `collectContextMode` (`PERIODIC_EXAMPLE` default,
 `SHAPE_ONLY`, or `NONE`).
 
-The SDK ships an App Store `PrivacyInfo.xcprivacy` (wired into the SPM resources
-and the CocoaPods resource bundle), and disables the eval request's `URLCache`
-so the context-bearing eval URL is never written to an on-device cache.
+The SDK ships an App Store `PrivacyInfo.xcprivacy` (wired into the SPM package
+resources), and disables the eval request's `URLCache` so the context-bearing
+eval URL is never written to an on-device cache.
 
 ## Teardown
 
