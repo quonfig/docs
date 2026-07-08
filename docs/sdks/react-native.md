@@ -61,15 +61,16 @@ Now use the `useQuonfig` hook to fetch flags. `isEnabled` is a convenience metho
 
 ```jsx
 import { useQuonfig } from "@quonfig/react-native";
+import { Image } from "react-native";
 
 const Logo = () => {
   const { isEnabled } = useQuonfig();
 
   if (isEnabled("new-logo")) {
-    return <img src={newLogo} className="App-logo" alt="logo" />;
+    return <Image source={newLogo} style={{ width: 100, height: 100 }} accessibilityLabel="logo" />;
   }
 
-  return <img src={logo} className="App-logo" alt="logo" />;
+  return <Image source={logo} style={{ width: 100, height: 100 }} accessibilityLabel="logo" />;
 };
 ```
 
@@ -208,14 +209,23 @@ const MyComponent = () => {
 If you're using Quonfig for A/B testing, you can supply code for tracking experiment exposures to your data warehouse or analytics tool of choice.
 
 ```jsx
+import PostHog from "posthog-react-native";
+
+// In React Native, PostHog is a client instance — there is no browser
+// `window.posthog`. Construct one (or use the `usePostHog()` hook).
+const posthog = new PostHog("YOUR_POSTHOG_API_KEY", {
+  host: "https://us.i.posthog.com",
+});
+
 <QuonfigProvider
   sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
   contextAttributes={contextAttributes}
   onError={onError}
   // highlight-start
-  afterEvaluationCallback={(key, value) => {
-    // call your analytics tool here...in this example we are sending data to posthog
-    window.posthog?.capture("Feature Flag Evaluation", {
+  afterEvaluationCallback={(key, value, context) => {
+    // call your analytics tool here...in this example we send data to a
+    // posthog-react-native client instance
+    posthog.capture("Feature Flag Evaluation", {
       key,
       value,
     });
@@ -239,23 +249,25 @@ Wrap the component under test in a `QuonfigTestProvider` and provide a config ob
 e.g. if you wanted to test the following trivial component
 
 ```jsx
+import { View, Text, Pressable } from "react-native";
+
 function MyComponent() {
   const { get, isEnabled, loading } = useQuonfig();
   const greeting = get("greeting") || "Greetings";
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <Text>Loading...</Text>;
   }
 
   return (
-    <div>
-      <h1 role="alert">{greeting}</h1>
+    <View>
+      <Text accessibilityRole="alert">{greeting}</Text>
       {isEnabled("secretFeature") && (
-        <button type="submit" title="secret-feature">
-          Secret feature
-        </button>
+        <Pressable accessibilityLabel="secret-feature">
+          <Text>Secret feature</Text>
+        </Pressable>
       )}
-    </div>
+    </View>
   );
 }
 ```
@@ -263,7 +275,7 @@ function MyComponent() {
 You could do the following in [jest]/[rtl]
 
 ```jsx
-import { QuonfigTestProvider } from "./index";
+import { QuonfigTestProvider } from "@quonfig/react-native";
 
 const renderInTestProvider = (config: { [key: string]: any }) => {
   render(
