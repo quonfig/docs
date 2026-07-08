@@ -136,7 +136,7 @@ Run the code above and you should see:
 
 ```
 my-first-int-config 50
-my-first-feature-flag true
+my-first-feature-flag True
 ```
 
 Congrats! You're ready to rock!
