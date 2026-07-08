@@ -27,8 +27,8 @@ Tada! It's a local key value store.
 Now, what happens if we add another key/value? Well, we have two constituents to think about. First we have our existing clients.
 They already know about the first key, so we can just send them a partial update.
 
-Quonfig SDK clients use either [GRPC](https://grpc.io/) or [SSE](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)
-to send this partial update.
+Quonfig delivers this partial update to SDK clients over [SSE](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)
+(server-sent events).
 
 ### StreamingUpdate
 ```json

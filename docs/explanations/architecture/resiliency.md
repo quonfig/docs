@@ -23,10 +23,12 @@ connection recovers.
 Your services don't run indefinitely, though. New pods or servers spin up and
 they need to pull down configuration as they boot.
 
-Enter the beauty of immutable distributed logs. They are perfectly cacheable. A
-single blob of bytes can describe your entire configuration, and we can
-aggressively cache it in CDNs and other services. As long as your services can
-reach the Internet, they can get the latest configuration.
+A new client boots by fetching configuration from the delivery service. If the
+primary delivery service is down — or merely slow — the SDK also asks the
+secondary (details below), so a booting client still gets its configuration
+within a few seconds during a full primary outage. Each URL attempt has its own
+short timeout (3 seconds by default), so a hung primary can't consume the whole
+initialization budget and starve the secondary attempt.
 
 ## Automatic failover to the secondary
 
@@ -53,7 +55,66 @@ Two mechanisms use these legs:
 
 Live updates over SSE stay pinned to the primary's stream (`stream.primary.…`)
 with retry-forever reconnect; the secondary is the fetch/failover leg, not a
-second stream herd.
+second stream herd. If the stream can't be established or has been down for two
+minutes, backend SDKs fall back to HTTP polling (every 60 seconds, walking the
+URL list primary-first) and stop polling once the stream recovers.
+
+### Browsers keep a last-known-good copy
+
+The browser SDK (`@quonfig/javascript`, and the React bindings built on it)
+additionally persists the last successfully fetched configuration in
+`localStorage`, keyed to your SDK key and evaluation context. If every delivery
+URL is unreachable — including the secondary — the SDK serves that cached
+configuration instead of failing, and marks it `STALE` so your code can tell
+the difference.
+
+Returning visitors therefore keep evaluating flags even if both delivery legs
+are unreachable at once. First-time visitors have no cache; if they can reach
+neither leg, initialization fails and your application's defaults apply. Where
+`localStorage` is unavailable (server-side rendering, some private browsing
+modes), the cache is simply skipped.
+
+## What still degrades during a full primary outage
+
+The secondary keeps reads working, but it is a read-only standby. While the
+primary platform is down:
+
+- **No configuration changes.** The dashboard, API, and CLI run on the same
+  infrastructure as the primary, so you can't create or edit flags and configs
+  until it recovers. Served configuration is frozen at its last value —
+  consistent, just not updatable.
+- **Very recently created or rotated SDK keys may not be recognized.** The
+  secondary learns about key changes on a short delay (under a minute in
+  normal operation), so a key minted moments before the outage may not work
+  until the primary returns. All previously issued keys keep working.
+- **Telemetry ingestion pauses.** SDKs buffer telemetry in bounded memory and
+  drop it rather than block your application; flag evaluation is unaffected.
+- **Live updates pause.** SSE streams reconnect automatically when the primary
+  returns — and since no writes can happen during the outage, there are no
+  updates to miss.
+- **A brand-new backend instance that can reach neither leg fails
+  initialization** according to your SDK's init-failure setting (for example
+  sdk-go's `OnInitFailure`, which defaults to returning an error).
+
+## How we verify this
+
+The failover path is exercised continuously, not just designed:
+
+- **Chaos tests in every backend SDK's CI.** Each backend SDK runs a shared
+  suite of network-fault scenarios — hung connections, dropped streams, dead
+  legs, out-of-order responses — against a real delivery server, on every
+  change and on a nightly schedule. The suite asserts that failover happens
+  within seconds, and also asserts what must *not* happen: SSE repointing to
+  the secondary, or a client regressing to older configuration.
+- **Scheduled game-days.** We periodically run live failover exercises against
+  the real deployed secondary — in staging and in production — pointing a real
+  SDK at a deliberately dead or hung primary and verifying cold-start, hedge,
+  no-regression, and heal-forward behavior end to end.
+- **Production telemetry for every failover event.** SDKs report hedge fires,
+  ordering-guard rejections, and which leg actually served each client, so
+  failover in the wild is measured, not inferred. Independent monitors probe
+  the secondary from outside both clouds and alert if it is missing any
+  workspace the primary serves.
 
 We take reliability seriously and invite you to check
 [status.quonfig.com](https://status.quonfig.com) for our track record.
@@ -91,8 +152,8 @@ secondary URL:**
 apiUrls = [ "https://primary.your-proxy.example", "https://secondary.your-proxy.example" ]
 ```
 
-Every backend SDK logs a one-line warning at client init when an explicit URL
-override collapses the list to a single leg.
+Every SDK — backend and browser — logs a one-line warning at client init when
+an explicit URL override collapses the list to a single leg.
 :::
 
 <!-- There's more discussion of these bootstrapping files in [bootstrapping](/docs/explanations/architecture/bootstrapping.md). -->
