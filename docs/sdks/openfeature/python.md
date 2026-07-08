@@ -22,8 +22,24 @@ provider = QuonfigProvider(
     sdk_key="qf_sk_production_...",
 )
 
-api.set_provider(provider)
+# openfeature-sdk >=0.10 initializes providers on a background thread, so plain
+# set_provider() returns before the provider reaches READY. The first evaluation
+# then races init and silently resolves to the OpenFeature default
+# (PROVIDER_NOT_READY). set_provider_and_wait() blocks until READY so your first
+# read reflects live config.
+api.set_provider_and_wait(provider)
 client = api.get_client()
+```
+
+If you cannot block at startup, use plain `set_provider()` and gate your first
+evaluations on the provider-ready event instead:
+
+```python
+from openfeature import api
+from openfeature.event import ProviderEvent
+
+api.add_handler(ProviderEvent.PROVIDER_READY, lambda details: on_ready())
+api.set_provider(provider)  # returns immediately; PROVIDER_READY fires once init completes
 ```
 
 ## Evaluate flags
