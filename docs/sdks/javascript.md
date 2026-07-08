@@ -32,7 +32,7 @@ yarn add @quonfig/javascript
 We recommend using [jsDelivr][jsDelivr] for a minified/bundled version.
 
 ```
-<script src="https://cdn.jsdelivr.net/npm/@quonfig/javascript@1.0.0/dist/quonfig.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@quonfig/javascript@1/dist/quonfig.bundle.js"></script>
 ```
 
 See the <a href="#context">context</a> section for more information on how to initialize with the `<script>` tag and a user context.
@@ -194,7 +194,7 @@ quonfig.poll({ frequencyInMs: 300000 });
 // later, perhaps after a visitor logs in and now you have the context of
 // their current user
 quonfig.updateContext({
-  ...quonfig.context,
+  ...quonfig.contexts,
   user: { email: user.email, key: user.trackingId },
 });
 
@@ -218,7 +218,12 @@ Set `globalThis._quonfigBootstrap` before calling `quonfig.init()`, using the sa
     context: { user: { key: "u_123" } },
     // Server-evaluated payload, in the same shape api-delivery returns
     evaluations: {
-      "my-flag": { value: { type: "bool", value: true } },
+      "my-flag": {
+        value: { type: "bool", value: true },
+        configId: "cfg-my-flag",
+        configType: "feature_flag",
+        valueType: "bool",
+      },
     },
   };
 </script>
@@ -265,7 +270,7 @@ if (quonfig.shouldLog({ loggerPath: "checkout.cart", desiredLevel: "DEBUG" })) {
 }
 ```
 
-The primitive shape — `shouldLog({configKey, desiredLevel})` — is also available if you want to evaluate a config directly without the `loggerKey`/`loggerPath` convenience.
+The primitive shape — `shouldLog({configKey, desiredLevel, defaultLevel})` — is also available if you want to evaluate a config directly without the `loggerKey`/`loggerPath` convenience. `defaultLevel` is required in this form (it's the fallback verbosity when the config has no value); the `loggerPath` convenience makes it optional.
 
 ### Rule example
 
@@ -377,7 +382,7 @@ it("shows the turbo button when the feature is enabled", () => {
 
 | property        | example                                         | purpose                                                                                                                                                                                  |
 | --------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `context`       | `quonfig.context`                               | get the current context (after `init()`).                                                                                                                                                |
+| `contexts`      | `quonfig.contexts`                              | get the current context (after `init()`).                                                                                                                                                |
 | `extract`       | `quonfig.extract()`                             | returns the current config as a plain object of key, config value pairs                                                                                                                  |
 | `getDuration`   | `quonfig.getDuration("timeout-key")`            | returns a Duration object with `seconds` and `ms` properties for duration configs                                                                                                        |
 | `get`           | `quonfig.get('retry-count')`                    | returns the value of a flag or config evaluated in the current context                                                                                                                   |
@@ -391,7 +396,7 @@ it("shows the turbo button when the feature is enabled", () => {
 | `flush`         | `await quonfig.flush()`                         | drains pending telemetry counters to the telemetry endpoint without tearing the SDK down. Useful before a context swap in a long-lived SPA. Returns a Promise.                           |
 | `close`         | `await quonfig.close()`                         | drains telemetry (via `flush`), then stops polling and telemetry timers. Returns a Promise. Prefer this over `stopTelemetry()` for normal teardown so in-flight counters aren't dropped. |
 | `stopTelemetry` | `quonfig.stopTelemetry()`                       | stops telemetry aggregator timers without draining. Prefer `close()` or `flush()` — they drain pending counters first.                                                                   |
-| `updateContext` | `quonfig.updateContext(newContext)`             | update the context and refetch. Pass `false` as a second argument to skip refetching                                                                                                     |
+| `updateContext` | `quonfig.updateContext(newContext)`             | update the context and refetch. Pass `true` as the second argument (`skipLoad`) to update the context **without** refetching; the default (`false`) refetches immediately.               |
 
 ### `init()` Options
 
@@ -403,7 +408,8 @@ it("shows the turbo button when the feature is enabled", () => {
 | `apiUrls`                    | string[] | derived from `domain` | Ordered list of API base URLs to try (failover order). Escape hatch for deploys that don't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`.                                                                                                                                |
 | `apiUrl`                     | string   | `undefined`           | Convenience alias for callers with a single API base URL. Normalized to `apiUrls = [apiUrl]`. `apiUrls` wins if both are set.                                                                                                                                                                                              |
 | `telemetryUrl`               | string   | derived from `domain` | Base URL for the telemetry service. Escape hatch for deploys that split telemetry off the primary domain. When set, wins over `domain`.                                                                                                                                                                                    |
-| `timeout`                    | number   | `10000`               | Initialization request timeout in ms                                                                                                                                                                                                                                                                                       |
+| `timeout`                    | number   | `3000`                | Per-leg hard fetch deadline in ms. Keep it **above** `hedgeDelay` — a `timeout <= hedgeDelay` aborts the primary before the parallel hedge can fire (`init()` warns when this happens).                                                                                                                                       |
+| `hedgeDelay`                 | number   | `2000`                | How long the hedged loader waits for the primary API URL before **also** firing the secondary in parallel (ms). Raise toward the primary's measured p99 to contact the secondary less often.                                                                                                                                 |
 | `loggerKey`                  | string   | `undefined`           | The `log_level` config key consulted by `shouldLog({loggerPath})`. Required for the `loggerPath` form.                                                                                                                                                                                                                     |
 | `collectEvaluationSummaries` | boolean  | `true`                | Send evaluation summary telemetry to Quonfig                                                                                                                                                                                                                                                                               |
 | `collectContextMode`         | string   | `"PERIODIC_EXAMPLE"`  | Context telemetry mode: `"PERIODIC_EXAMPLE"`, `"SHAPE_ONLY"`, or `"NONE"`                                                                                                                                                                                                                                                  |
