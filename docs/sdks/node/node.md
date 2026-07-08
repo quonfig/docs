@@ -235,7 +235,7 @@ export async function GET(request: NextRequest) {
     user: { key: userId || "anonymous" },
   };
 
-  return rf.inContext(context, (contextRf) => {
+  return rf.withContext(context, (contextRf) => {
     const welcomeMessage = contextRf.get("welcomeMessage");
     const isFeatureEnabled = contextRf.isEnabled("newFeature");
 
@@ -282,7 +282,7 @@ export async function GET(request) {
     user: { key: userId || "anonymous" },
   };
 
-  return rf.inContext(context, (contextRf) => {
+  return rf.withContext(context, (contextRf) => {
     const welcomeMessage = contextRf.get("welcomeMessage");
     const isFeatureEnabled = contextRf.isEnabled("newFeature");
 
@@ -385,6 +385,9 @@ After the init completes you can use:
 `isFeatureEnabled` is still available as a deprecated alias of `isEnabled` — both behave identically.
 New code should prefer `isEnabled`, which matches `@quonfig/javascript` and `@quonfig/react`.
 
+Likewise, `inContext(...)` is a deprecated alias of `withContext(...)` — both behave identically, but
+`inContext` is slated for removal in `2.0.0`. New code should use `withContext`.
+
 :::
 
 ## Context
@@ -420,16 +423,14 @@ const userSpecificValue = quonfig.welcomeMessage({
 }); // All type-safe!
 ```
 
-You can also use the base quonfig instance for `inContext` blocks:
+The generated typed class wraps the base client, and every generated method takes
+context directly — so construct it once over `baseQuonfig` and pass context per call:
 
 ```typescript
-baseQuonfig.inContext(context, (rf) => {
-  // Use the typed instance inside the context
-  const typedRf = new QuonfigTypesafeNode(rf);
+const typedQuonfig = new QuonfigTypesafeNode(baseQuonfig);
 
-  console.log(typedRf.someConfigName());
-  console.log(typedRf.someFeatureName());
-});
+console.log(typedQuonfig.someConfigName(context));
+console.log(typedQuonfig.someFeatureName(context));
 ```
 
 </TabItem>
@@ -447,19 +448,19 @@ const context: Contexts = {
 You can pass this in to each call
 
 - `quonfig.get('some.config.name', context, defaultValue)` // context-aware config
-- `quonfig.isEnabled('some.feature.name', context, false)` // context-aware feature flag
+- `quonfig.isEnabled('some.feature.name', context)` // context-aware feature flag
 
 Or you can set the context in a block (perhaps surrounding evaluation of a web request)
 
 ```typescript
-quonfig.inContext(context, (rf) => {
+quonfig.withContext(context, (rf) => {
   const optionalJustInTimeContext = { device: { mobile: true } }; // additional context
 
   console.log(
     rf.get("some.config.name", optionalJustInTimeContext, defaultValue),
   ); // merged context
   console.log(
-    rf.isEnabled("some.feature.name", optionalJustInTimeContext, false),
+    rf.isEnabled("some.feature.name", optionalJustInTimeContext),
   ); // boolean result
 });
 ```
@@ -477,16 +478,16 @@ const context = {
 You can pass this in to each call
 
 - `quonfig.get('some.config.name', context, defaultValue)`
-- `quonfig.isEnabled('some.feature.name', context, false)`
+- `quonfig.isEnabled('some.feature.name', context)`
 
 Or you can set the context in a block (perhaps surrounding evaluation of a web request)
 
 ```js
-quonfig.inContext(context, (rf) => {
+quonfig.withContext(context, (rf) => {
   const optionalJustInTimeContext = { ... }
 
   console.log(rf.get("some.config.name", optionalJustInTimeContext, defaultValue))
-  console.log(rf.isEnabled("some.config.name", optionalJustInTimeContext, false))
+  console.log(rf.isEnabled("some.config.name", optionalJustInTimeContext))
 })
 ```
 
@@ -982,10 +983,9 @@ const quonfig = new Quonfig({
 
 | Name                       | Description                                                                                                                            | Default           |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| apiUrls                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                       | `["https://primary.quonfig.com"]` |
+| apiUrls                    | Ordered list of API base URLs (primary + secondary; failover on by default). Derived from `QUONFIG_DOMAIN` when omitted. SSE URL is derived by prepending `stream.` to the hostname | `["https://primary.quonfig.com", "https://secondary.quonfig.com"]` |
 | collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                | true              |
 | contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in quonfig contexts) or periodically send full example contexts. One of `"none"`, `"shapes_only"`, `"periodic_example"` | "periodic_example" |
-| defaultLevel               | Level to be used as the min-verbosity for a `loggerPath` if no value is configured in Quonfig                                   | "warn"            |
 | enableSSE                  | Whether or not we should listen for live changes from Quonfig                                                                   | true              |
 | fallbackPollEnabled        | Poll for changes only when the SSE stream is unavailable (replaces the deprecated `enablePolling`, which polled in parallel with SSE) | true              |
 | fallbackPollIntervalMs     | How often to poll, in ms, when the fallback poller is active                                                                    | 60000             |
