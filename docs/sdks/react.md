@@ -229,8 +229,9 @@ const MyComponent = (): ReactElement => {
   const welcomeMessage = quonfig.welcomeMessage; // string type
   const featureEnabled = quonfig.coolNewFeature; // boolean type
 
-  // Function configs get parameters for templating
-  const personalizedGreeting = quonfig.personalizedWelcome({
+  // Templated configs generate a method that returns a render function, so
+  // call the method first and then call the returned function with the params.
+  const personalizedGreeting = quonfig.personalizedWelcome()({
     name: "John",
   }); // Type-safe parameters!
 
@@ -312,7 +313,7 @@ const Logo = (): ReactElement => {
 You can also use `get` to access flags with other data types.
 
 ```tsx
-const { get } = useQuonfig(); // destructure get function
+const { get, getDuration } = useQuonfig(); // destructure get + getDuration
 
 const stringFlag: string | undefined = get("my-string-flag"); // string config
 const numberConfig: number | undefined = get("retry-count"); // number config
@@ -912,7 +913,8 @@ You could do the following in [jest]/[rtl]
 import { render, screen } from "@testing-library/react";
 import { QuonfigTestProvider } from "@quonfig/react";
 
-// Use the raw config object (camelCase gets converted internally)
+// Key the config object by the RAW config keys — QuonfigTestProvider does a
+// direct key lookup with no camelCase conversion
 const renderInTestProvider = (config: Record<string, any>) => {
   render(
     <QuonfigTestProvider config={config}>
@@ -1077,7 +1079,7 @@ First, fetch and extract flag data on your server:
 
 ```tsx
 // app/page.tsx or your server component
-import { quonfig } from "@quonfig/javascript";
+import { quonfig, Contexts } from "@quonfig/javascript";
 import { AppWithPreloadedQuonfig } from "../components/AppWithPreloadedQuonfig";
 
 export default async function Page() {
@@ -1162,7 +1164,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 // app/routes/_index.tsx
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { quonfig } from "@quonfig/javascript";
+import { quonfig, Contexts } from "@quonfig/javascript";
 import { AppWithPreloadedQuonfig } from "../components/AppWithPreloadedQuonfig";
 
 interface LoaderData {
@@ -1519,7 +1521,7 @@ const MyComponent = () => {
 
 :::info Custom Hook Requirements
 
-Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/main/src/QuonfigProvider.tsx#L105-L128) implementation for additional details.
+Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/main/src/QuonfigProvider.tsx#L109-L132) implementation for additional details.
 
 You must implement `get` method + expose the javascript `quonfig` property directly in custom implementations.
 :::
@@ -1598,6 +1600,21 @@ While `loading` is true, `isEnabled` will return `false` and `getDuration`/`get`
 
 :::
 
+### `useFlag` — per-key selector hook
+
+`useQuonfig()` re-renders every consumer whenever _any_ flag value changes. For a component that only cares about a single flag, use `useFlag(key)` — it subscribes to that one key and skips re-renders when unrelated flags change.
+
+```tsx
+import { useFlag } from "@quonfig/react";
+
+const Logo = () => {
+  const showNewLogo = useFlag("new-logo");
+  return <img src={showNewLogo ? newLogo : logo} alt="logo" />;
+};
+```
+
+If you have a typed config (via `@quonfig/cli generate`), `useFlag` returns the type declared for the key.
+
 ### `QuonfigProvider` props
 
 | prop                         | required | type              | purpose                                                                       |
@@ -1609,7 +1626,9 @@ While `loading` is true, `isEnabled` will return `false` and `getDuration`/`get`
 | `domain`                     | no       | `string`          | single knob that flips api + telemetry URLs in lockstep, e.g. `domain="quonfig-staging.com"` resolves api to `https://primary.quonfig-staging.com` (+ secondary) and telemetry to `https://telemetry.quonfig-staging.com`. Defaults to `"quonfig.com"`. Overridden by explicit `apiUrl` / `apiUrls`. |
 | `apiUrls`                    | no       | `string[]`        | ordered list of API base URLs to try (failover order). Escape hatch when your deploy doesn't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`. |
 | `apiUrl`                     | no       | `string`          | convenience alias for a single API base URL — normalized to `apiUrls=[apiUrl]`. `apiUrls` wins if both are set. |
-| `timeout`                    | no       | `number`          | initialization timeout in milliseconds (default 10000)                        |
+| `timeout`                    | no       | `number`          | per-request fetch timeout in milliseconds (default 3000). Must stay above `hedgeDelay`. |
+| `hedgeDelay`                 | no       | `number`          | _(since sdk-react 1.2.0)_ ms the hedged loader waits for the primary before also firing the secondary in parallel (default 2000) |
 | `onError`                    | no       | `(error) => void` | callback invoked on initialization failure                                    |
+| `logger`                     | no       | `Logger`          | custom logger for SDK warnings/errors; defaults to `console`                  |
 | `collectEvaluationSummaries` | no       | `boolean`         | opt out of evaluation summary telemetry (default `true`)                      |
 | `afterEvaluationCallback`    | no       | `(key, value, contexts) => void` | callback invoked after each flag evaluation               |
