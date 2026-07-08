@@ -161,6 +161,8 @@ However, if you have SEO concerns, such as when using a tool like Docusaurus, yo
 You can get a `loading` value back each time you call the `useQuonfig` hook and use it to render a spinner or other loading state only for the part of the page that is affected by your flag. This can be a good choice if you are swapping between two different UI treatments and don't want your users to see the page flicker from one to the other after the initial render.
 
 ```jsx
+import { Text } from "react-native";
+
 const MyComponent = () => {
   const { get, loading } = useQuonfig();
 
@@ -170,10 +172,10 @@ const MyComponent = () => {
 
   switch (get("my-feature-flag")) {
     case "new-ui":
-      return (<div>Render the new UI...</div>);
+      return (<Text>Render the new UI...</Text>);
     case "old-ui":
     default:
-      return (<div>Render the old UI...</div>);
+      return (<Text>Render the old UI...</Text>);
   }
 }
 ```
@@ -183,23 +185,25 @@ const MyComponent = () => {
 If your feature flag is choosing between rendering something and rendering nothing, it may be acceptable to have that content pop-in once Quonfig finishes loading. This works because `isEnabled` will always return false until the Quonfig client is loaded.
 
 ```jsx
+import { View } from "react-native";
+
 const MyComponent = () => {
   // highlight-next-line
   const { isEnabled } = useQuonfig();
 
   return (
-    <div>
+    <View>
       // highlight-start
       {isEnabled("my-feature-flag") && (
-        <div>
-          // Flag content...
-        </div>
+        <View>
+          {/* Flag content... */}
+        </View>
       )}
       // highlight-end
-      <div>
-        // Other content...
-      </div>
-    </div>
+      <View>
+        {/* Other content... */}
+      </View>
+    </View>
   );
 }
 ```
@@ -222,7 +226,7 @@ const posthog = new PostHog("YOUR_POSTHOG_API_KEY", {
   contextAttributes={contextAttributes}
   onError={onError}
   // highlight-start
-  afterEvaluationCallback={(key, value, context) => {
+  afterEvaluationCallback={(key, value, contexts) => {
     // call your analytics tool here...in this example we send data to a
     // posthog-react-native client instance
     posthog.capture("Feature Flag Evaluation", {
@@ -295,8 +299,8 @@ it("shows a custom greeting", async () => {
 it("shows the secret feature when it is enabled", async () => {
   renderInTestProvider({ secretFeature: true });
 
-  const secretFeature = screen.queryByTitle("secret-feature");
-  expect(secretFeature).toBeInTheDocument();
+  const secretFeature = screen.queryByText("Secret feature");
+  expect(secretFeature).toBeOnTheScreen();
 });
 ```
 
