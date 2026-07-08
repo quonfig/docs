@@ -6,14 +6,14 @@ title: Java
 
 [GitHub](https://github.com/quonfig/sdk-java) | [Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java)
 
-Replace `1.0.0` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
+Replace `1.2.0` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
 
 <Tabs groupId="java-build">
 <TabItem value="gradle-kotlin" label="Gradle (Kotlin DSL)">
 
 ```kotlin
 dependencies {
-    implementation("com.quonfig:sdk-java:1.0.0")
+    implementation("com.quonfig:sdk-java:1.2.0")
 }
 ```
 
@@ -23,7 +23,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.quonfig:sdk-java:1.0.0'
+    implementation 'com.quonfig:sdk-java:1.2.0'
 }
 ```
 
@@ -35,7 +35,7 @@ dependencies {
 <dependency>
     <groupId>com.quonfig</groupId>
     <artifactId>sdk-java</artifactId>
-    <version>1.0.0</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -97,6 +97,17 @@ Quonfig quonfig = new Quonfig(
 
 In datadir mode the SDK loads everything synchronously from disk; there is no background fetch and no SSE connection. Telemetry is still uploaded if an `sdkKey` is also set.
 
+To pick up on-disk changes without restarting (an editor save, a `git pull`, a build step), opt in to `dataDirAutoReload(true)`. The SDK watches the directory and re-reads the envelope on each debounced change, firing `onConfigUpdate`. It is off by default; tune the debounce window with `dataDirAutoReloadDebounceMs(long)` (default 200ms).
+
+```java
+Options.builder()
+    .datadir("/path/to/your-workspace")
+    .environment("development")
+    .dataDirAutoReload(true) // off by default
+    .onConfigUpdate(() -> System.out.println("configs reloaded from disk"))
+    .build();
+```
+
 ### Domain and API URL configuration
 
 By default the SDK derives every service URL from a single domain (`quonfig.com`):
@@ -118,16 +129,24 @@ Quonfig quonfig = new Quonfig(
 
 Or set `QUONFIG_DOMAIN` in the environment. For local development with the bundled Caddy reverse proxy (`scripts/local-proxy/setup.sh` in the monorepo), set `QUONFIG_DOMAIN=quonfig-localhost` and the SDK will route to `primary.quonfig-localhost`, `stream.primary.quonfig-localhost`, etc.
 
-If you need to point individual services somewhere the derivation rule doesn't fit, override the URL lists directly:
+If you need to point individual services somewhere the derivation rule doesn't fit, override the URL lists directly. `apiUrls` accepts an ordered list — pass **both** a primary and a secondary to keep automatic failover:
 
 ```java
 Options.builder()
     .sdkKey("sdk-...")
-    .apiUrls(List.of("https://primary.example.com"))
-    .streamUrls(List.of("https://stream.primary.example.com"))
+    .apiUrls(List.of(
+        "https://primary.example.com",
+        "https://secondary.example.com"))
+    .streamUrls(List.of(
+        "https://stream.primary.example.com",
+        "https://stream.secondary.example.com"))
     .telemetryUrl("https://telemetry.example.com")
     .build();
 ```
+
+:::note Single URL disables failover
+Passing a single-element `apiUrls` list replaces the derived primary/secondary pair with just that one host, which turns off automatic failover and hedging — the SDK logs a warning at init. Pass a primary **and** a secondary URL (as above) to keep failover.
+:::
 
 ## Feature Flags
 
@@ -352,7 +371,7 @@ Because the evaluator sees your full context — global, bound, and the injected
 The `sdk-java-logback` module ships a `TurboFilter` that gates **every** Logback logger dynamically from Quonfig — no per-call-site `if (shouldLog)` wrapping. Add the dependency (you bring your own Logback; the module declares it `provided`):
 
 ```kotlin
-implementation("com.quonfig:sdk-java-logback:1.0.0")
+implementation("com.quonfig:sdk-java-logback:1.2.0")
 implementation("ch.qos.logback:logback-classic:1.5.18")
 ```
 
@@ -406,7 +425,7 @@ By default Quonfig uploads telemetry that powers the dashboard's evaluation coun
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------ |
 | `disableTelemetry`            | Disable all telemetry uploads.                                                                                               | `false`            |
 | `collectEvaluationSummaries`  | Send aggregate counts of config/flag evaluation results back to Quonfig.                                                     | `true`             |
-| `contextUploadMode`           | How named-context data is reported. One of `NONE`, `SHAPES` (names + types only), `PERIODIC_EXAMPLE` (full sample, redacted). | `PERIODIC_EXAMPLE` |
+| `contextUploadMode`           | How named-context data is reported. One of `NONE`, `SHAPES_ONLY` (names + types only), `PERIODIC_EXAMPLE` (full sample, redacted). | `PERIODIC_EXAMPLE` |
 
 ```java
 import com.quonfig.sdk.telemetry.ContextUploadMode;
@@ -415,7 +434,7 @@ Quonfig quonfig = new Quonfig(
     Options.builder()
         .sdkKey("sdk-...")
         .collectEvaluationSummaries(true)
-        .contextUploadMode(ContextUploadMode.SHAPES)
+        .contextUploadMode(ContextUploadMode.SHAPES_ONLY)
         .build()
 );
 ```
@@ -480,6 +499,8 @@ Options options = Options.builder()
 | `telemetryUrl`                | Explicit telemetry endpoint.                                                                                                               | `https://telemetry.<domain>`           |
 | `environment`                 | Environment name to evaluate against. Required in datadir mode. Falls back to `QUONFIG_ENVIRONMENT` env var.                               | (env var)                              |
 | `datadir`                     | Path to a Quonfig workspace directory. Switches the client to datadir mode (no HTTP fetch, no SSE).                                        | `null`                                 |
+| `dataDirAutoReload`           | In datadir mode, watch the directory and re-read the envelope on file changes (fires `onConfigUpdate`).                                     | `false`                                |
+| `dataDirAutoReloadDebounceMs` | Debounce window (ms) coalescing filesystem bursts when `dataDirAutoReload` is on.                                                          | `200`                                  |
 | `initTimeout`                 | How long the initial config fetch and any later getter call will wait for init to complete.                                                | `10s`                                  |
 | `globalContext`               | A `ContextSet` merged into every evaluation as the base layer.                                                                             | empty                                  |
 | `onConfigUpdate`              | `Runnable` invoked after every successful config-store swap (initial load + each SSE envelope).                                            | `null`                                 |
@@ -487,6 +508,6 @@ Options options = Options.builder()
 | `loggerKey`                   | Config key consulted by `shouldLog(...)`. When set, enables single-config dispatch via injected `quonfig-sdk-logging.key`.                  | `null`                                 |
 | `disableTelemetry`            | Disable all telemetry uploads.                                                                                                             | `false`                                |
 | `collectEvaluationSummaries`  | Send aggregate evaluation counts to Quonfig.                                                                                               | `true`                                 |
-| `contextUploadMode`           | `NONE`, `SHAPES`, or `PERIODIC_EXAMPLE`.                                                                                                   | `PERIODIC_EXAMPLE`                     |
+| `contextUploadMode`           | `NONE`, `SHAPES_ONLY`, or `PERIODIC_EXAMPLE`.                                                                                              | `PERIODIC_EXAMPLE`                     |
 | `telemetryFlushInterval`      | How often the background reporter flushes pending telemetry.                                                                               | `60s`                                  |
 | `telemetryMaxInterval`        | Maximum back-off between telemetry flushes after repeated failures.                                                                        | `600s`                                 |
