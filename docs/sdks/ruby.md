@@ -42,9 +42,10 @@ streams live updates from `https://stream.primary.quonfig.com`, and
 infrastructure). Failover and hedging are on by default — see
 [Reliability](/docs/explanations/architecture/resiliency) for the full model.
 
-Override the list with the `api_urls` option (or the `QUONFIG_API_URLS` env
-var — comma-separated). Pass **both** a primary and a secondary URL to keep
-automatic failover; a single URL disables it (the SDK logs a warning at init):
+Override the list with the `api_urls` option (or point `QUONFIG_DOMAIN` at a
+different domain to re-derive both legs). Pass **both** a primary and a
+secondary URL to keep automatic failover; a single URL disables it (the SDK
+logs a warning at init):
 
 ```ruby
 Quonfig.init(
@@ -184,11 +185,13 @@ class ApplicationController < ActionController::Base
     return {} unless current_user
 
     {
-      key: current_user.tracking_id,
-      id: current_user.id,
-      email: current_user.email,
-      country: current_user.country,
-      # ...
+      user: {
+        key: current_user.tracking_id,
+        id: current_user.id,
+        email: current_user.email,
+        country: current_user.country,
+        # ...
+      },
     }
   end
 end
@@ -459,52 +462,29 @@ In the rare
 case that you are trying to debug issues that occur within the library, set env var
 
 ```bash
-QUONFIG_LOG_CLIENT_BOOTSTRAP_LOG_LEVEL = debug
+QUONFIG_LOG_CLIENT_BOOTSTRAP_LOG_LEVEL=debug
 ```
 
 ## Asset Precompilation in Rails
 
 Developers trying to run `rake assets:precompile` or `rails assets:precompile` in CI/CD know the pain of missing environment variables. Quonfig can help with this, but you don't want to hardcode your Quonfig SDK key in your Dockerfile. What should you do instead?
 
-We recommend using a [datafile](/docs/explanations/concepts/testing#testing-with-datafiles) for `assets:precompile`. You can generate a datafile for your environment using the Quonfig CLI:
+We recommend running in [datadir mode](/docs/explanations/concepts/testing#testing-with-datafiles) for `assets:precompile`. Pull your workspace config files locally with the Quonfig CLI:
 
 ```bash
-quonfig download --environment test
+qfg pull --dir ./config
+# clones your workspace config files to ./config
 ```
 
-This will generate a JSON file (e.g., `quonfig.test.108.config.json`) based on your Quonfig project’s test environment. You can check into your repo for use in CI/CD and automated testing.
+Check the resulting files into your repo (or into your Docker build context) for use in CI/CD and automated testing.
 
-Now you can use the datafile for `assets:precompile`:
+Now point the SDK at that directory for `assets:precompile` — the client boots entirely from the local files and never contacts the Quonfig servers:
 
 ```bash
-QUONFIG_DATAFILE=quonfig.test.108.config.json bundle exec rake assets:precompile
+QUONFIG_DIR=./config QUONFIG_ENVIRONMENT=test bundle exec rake assets:precompile
 ```
 
-Of course, you can generate a datafile for any environment you like and use it in the same way.
-
-## Bootstrap & Stub Client-side JavaScript flags and configs
-
-If you're using JavaScript on the client side, you can use the Quonfig Ruby client to bootstrap your client-side flags and configs. This helps you avoid loading states while you wait on an HTTP request to Quonfig's evaluation endpoint. You can skip the HTTP request altogether.
-
-### With the Frontend SDKs
-
-If you want the power of the [JavaScript SDK](/docs/sdks/javascript) or [React SDK](/docs/sdks/react), you can use the Ruby client to bootstrap the page with the evaluated flags and configs for the current user context. Just put this in the DOM (perhaps in your application layout) before you load your Quonfig frontend SDK.
-
-```erb
-<%== Quonfig.bootstrap_javascript(context) %>
-```
-
-Things work as they normally would with the frontend SDKs, you'll just skip the HTTP request.
-
-### Without the Frontend SDKs
-
-If you don't want to use the frontend SDKs, you can get a global `window.quonfig` object to call `get` and `isEnabled` on the client side.
-
-```erb
-<%= Quonfig.generate_javascript_stub(context, callback = nil) %>
-```
-
-This will give you feature flags and config values for your current context. You can provide an optional callback to record experiment exposures or other metrics. No HTTP request or SDK needed!
+Set `QUONFIG_ENVIRONMENT` to whichever environment you want to evaluate (`test`, `production`, etc.). Re-run `qfg pull` to refresh the local files.
 
 ## Testing
 
@@ -551,19 +531,19 @@ For more control, you can initialize your client with options. Here are the defa
 ```ruby
 options = Quonfig::Options.new(
   sdk_key: ENV['QUONFIG_BACKEND_SDK_KEY'],
-  api_urls: ['https://primary.quonfig.com'], # or ENV['QUONFIG_API_URLS'] (comma-separated). SSE URL is derived by prepending 'stream.'
-  on_no_default: ON_NO_DEFAULT::RAISE, # ON_NO_DEFAULT::RAISE (:raise) or RETURN_NIL (:return_nil)
+  api_urls: ['https://primary.quonfig.com', 'https://secondary.quonfig.com'], # primary + secondary (failover on by default). Derived from ENV['QUONFIG_DOMAIN'] when omitted; SSE URL is derived by prepending 'stream.'
+  on_no_default: Quonfig::Options::ON_NO_DEFAULT::RAISE, # ::RAISE (:raise) or ::RETURN_NIL (:return_nil)
   initialization_timeout_sec: 10, # how long to wait before on_init_failure (alias for init_timeout_ms)
-  on_init_failure: ON_INITIALIZATION_FAILURE::RAISE, # choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup
+  on_init_failure: Quonfig::Options::ON_INITIALIZATION_FAILURE::RAISE, # choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup
   datadir: ENV['QUONFIG_DIR'], # local workspace dir for offline/datadir mode
   logger_key: nil, # the `log_level` config key consulted by `should_log?(logger_path:, ...)`, e.g. "log-level.my-app"
   enable_quonfig_user_context: nil, # inject quonfig-user.email from ~/.quonfig/tokens.json (qfg login). Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set false or QUONFIG_DEV_CONTEXT=false to opt out.
-  collect_max_paths: DEFAULT_MAX_PATHS,
+  collect_max_paths: Quonfig::Options::DEFAULT_MAX_PATHS,
   collect_sync_interval: nil,
   context_upload_mode: :periodic_example, # :periodic_example, :shapes_only, :none
-  context_max_size: DEFAULT_MAX_EVAL_SUMMARIES,
+  context_max_size: Quonfig::Options::DEFAULT_MAX_EVAL_SUMMARIES,
   collect_evaluation_summaries: true, # send counts of config/flag evaluation results back to Quonfig to view in web app
-  collect_max_evaluation_summaries: DEFAULT_MAX_EVAL_SUMMARIES,
+  collect_max_evaluation_summaries: Quonfig::Options::DEFAULT_MAX_EVAL_SUMMARIES,
   allow_telemetry_in_local_mode: false,
   global_context: {}
 )
