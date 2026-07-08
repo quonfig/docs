@@ -6,13 +6,13 @@ title: .NET
 
 [GitHub](https://github.com/quonfig/sdk-net) | [NuGet](https://www.nuget.org/profiles/quonfig)
 
-Replace `1.0.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
+Replace `1.2.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
 
 <Tabs groupId="dotnet-build">
 <TabItem value="dotnet-cli" label=".NET CLI">
 
 ```bash
-dotnet add package Quonfig.Sdk --version 1.0.0
+dotnet add package Quonfig.Sdk --version 1.2.0
 ```
 
 </TabItem>
@@ -21,7 +21,7 @@ dotnet add package Quonfig.Sdk --version 1.0.0
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Quonfig.Sdk" Version="1.0.0" />
+  <PackageReference Include="Quonfig.Sdk" Version="1.2.0" />
 </ItemGroup>
 ```
 
@@ -30,7 +30,7 @@ dotnet add package Quonfig.Sdk --version 1.0.0
 <TabItem value="paket" label="Paket">
 
 ```paket
-nuget Quonfig.Sdk ~> 1.0.0
+nuget Quonfig.Sdk ~> 1.2.0
 ```
 
 </TabItem>
@@ -40,7 +40,7 @@ nuget Quonfig.Sdk ~> 1.0.0
 ```xml
 <Project>
   <ItemGroup>
-    <PackageVersion Include="Quonfig.Sdk" Version="1.0.0" />
+    <PackageVersion Include="Quonfig.Sdk" Version="1.2.0" />
   </ItemGroup>
 </Project>
 ```
@@ -357,16 +357,16 @@ if (details.Reason == Reason.Error)
 | Field             | Description                                                                                          |
 | ----------------- | ---------------------------------------------------------------------------------------------------- |
 | `Value`           | The typed value (or your default on `Default` / `Error`).                                            |
-| `Reason`          | `Static`, `TargetingMatch`, `Default`, `Error`, or `Unknown` (see note on `Split` below).            |
-| `Variant`         | OpenFeature-style identifier — `"static"`, `"targeting:<n>"`, or `"default"`.                        |
-| `VariantIndex`    | Reserved for weighted splits — always `null` in `1.0.0`.                                              |
+| `Reason`          | `Static`, `TargetingMatch`, `Split`, `Default`, `Error`, or `Unknown` (see note on `Split` below).   |
+| `Variant`         | OpenFeature-style identifier — `"static"`, `"targeting:<n>"`, `"split:<n>"`, or `"default"`.         |
+| `VariantIndex`    | Weighted-bucket index — reserved and not yet wired, so always `null`. Read the bucket from `Metadata["weightedValueIndex"]` (or parse `Variant`). |
 | `ErrorCode`       | `FlagNotFound`, `TypeMismatch`, or `General` on `Error`; `null` otherwise.                           |
 | `ErrorMessage`    | Companion to `ErrorCode`.                                                                            |
-| `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex`, `environment`.                          |
+| `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex` (on `TargetingMatch` / `Split`) and `weightedValueIndex` (on `Split`), `environment`. |
 
-:::note Weighted splits report `TargetingMatch` in `1.0.0`
+:::note Weighted splits report `Split`, but `VariantIndex` is still `null`
 
-The `Reason` enum and `VariantIndex` field include a `Split` variant (`"split:<n>"`) for OpenFeature parity, but the `1.0.0` evaluator never emits it: weighted-value configs resolve to the correct value and report `Reason.TargetingMatch` with `VariantIndex == null`. The dedicated split reason/index is reserved for a later release.
+Weighted-value configs resolve to the correct value and report `Reason.Split` with `Variant == "split:<n>"`; the chosen bucket is exposed as `Metadata["weightedValueIndex"]`. The dedicated `VariantIndex` field is not wired up yet, so it stays `null` — read the bucket index from `Metadata` (or parse it out of `Variant`) until a later release populates it.
 
 :::
 
@@ -375,8 +375,10 @@ The `Reason` enum and `VariantIndex` field include a `Split` variant (`"split:<n
 The `Quonfig.Sdk.AspNetCore` companion package wires `Quonfig` into the ASP.NET Core host: it registers the singleton, runs `InitAsync` via `IHostedService`, and (optionally) binds per-request `ContextSet` from `HttpContext` so controllers can inject `IBoundQuonfig` directly.
 
 ```bash
-dotnet add package Quonfig.Sdk.AspNetCore --version 1.0.0
+dotnet add package Quonfig.Sdk.AspNetCore --version 1.2.0
 ```
+
+Replace `1.2.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.AspNetCore). The companion packages ship lock-step with `Quonfig.Sdk` from the same tag, so keep the versions aligned.
 
 ```csharp
 // Program.cs
@@ -388,7 +390,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddQuonfig(opts =>
 {
     opts.SdkKey = builder.Configuration["Quonfig:SdkKey"];
-    opts.Environment = builder.Environment.EnvironmentName.ToLowerInvariant();
+    // In delivery (SDK-key) mode the active environment comes from the SDK key —
+    // an explicit Environment pin is ignored (and logs a warning at init).
 });
 
 var app = builder.Build();
@@ -412,7 +415,7 @@ app.MapGet("/beta", (IBoundQuonfig q) =>
 app.Run();
 ```
 
-`AddQuonfig` registers `IQuonfig` and `Quonfig` as singletons, the request-scoped `IBoundQuonfig`, and an `IHostedService` that runs `InitAsync()` during application startup and `CloseAsync()` on shutdown. `UseQuonfigContext` registers middleware that builds the per-request `ContextSet` from `HttpContext`.
+`AddQuonfig` registers a `Quonfig` singleton behind the `IQuonfig` interface (via `TryAddSingleton<IQuonfig>`), the request-scoped `IBoundQuonfig`, and an `IHostedService` that runs `InitAsync()` during application startup and `CloseAsync()` on shutdown. Inject `IQuonfig` (not the concrete `Quonfig` type — it is not registered as its own service). `UseQuonfigContext` registers middleware that builds the per-request `ContextSet` from `HttpContext`.
 
 See the [per-request context binding how-to](/docs/how-tos/aspnetcore-request-context) for a full walkthrough.
 
@@ -432,8 +435,10 @@ If no log-level config is found at any level, `ShouldLog` returns `true` — the
 The `Quonfig.Sdk.Extensions.Logging` package wires `ShouldLog` into the BCL logging pipeline by wrapping the providers already registered on the `ILoggingBuilder`:
 
 ```bash
-dotnet add package Quonfig.Sdk.Extensions.Logging --version 1.0.0
+dotnet add package Quonfig.Sdk.Extensions.Logging --version 1.2.0
 ```
+
+Replace `1.2.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Extensions.Logging). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
 
 `AddQuonfigFilter(quonfig)` takes the client instance and must be called **last** in the logging setup — it snapshots and wraps every `ILoggerProvider` registered up to that point. Because it needs the instance at logging-config time, construct the client up front and register the same instance with DI:
 
@@ -463,8 +468,10 @@ Every `ILogger<T>` call site is then automatically gated by Quonfig: the logger 
 For Serilog, use `Quonfig.Sdk.Serilog`. The `QuonfigLoggingLevelSwitchProvider` manages a set of Serilog `LoggingLevelSwitch` instances keyed by source context and re-evaluates them whenever the config envelope changes (it subscribes to the SDK's `OnConfigChange`, which fires after every successful install).
 
 ```bash
-dotnet add package Quonfig.Sdk.Serilog --version 1.0.0
+dotnet add package Quonfig.Sdk.Serilog --version 1.2.0
 ```
+
+Replace `1.2.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Serilog). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
 
 The provider resolves levels via `IQuonfig.GetLogLevel(...)`, so the config key is configured by `LoggerKey` on the **client** options — you don't pass a key to the provider. `GetSwitch(category)` returns (and caches) the switch for a source context; pass an empty string for the root switch used by `MinimumLevel.ControlledBy`:
 
@@ -635,7 +642,6 @@ using Quonfig.Sdk;
 var options = new QuonfigOptions
 {
     SdkKey = Environment.GetEnvironmentVariable("QUONFIG_BACKEND_SDK_KEY"),
-    Environment = "production",
     GlobalContext = global,
     InitTimeout = TimeSpan.FromSeconds(10),
     OnInitFailure = OnInitFailure.Throw,
@@ -654,7 +660,7 @@ var options = new QuonfigOptions
 | `ApiUrls`                     | Ordered API base URLs (primary first, then failover).                                                                                       | `[primary.quonfig.com, secondary.quonfig.com]`           |
 | `StreamUrls`                  | Ordered SSE stream base URLs.                                                                                                              | `[stream.primary.quonfig.com, stream.secondary.…]`       |
 | `TelemetryUrl`                | Telemetry endpoint.                                                                                                                        | `https://telemetry.quonfig.com`                          |
-| `Environment`                 | Environment name to evaluate against. Required in datadir mode. Falls back to `QUONFIG_ENVIRONMENT`.                                       | (env var)                                                |
+| `Environment`                 | Environment to evaluate against. Required in datadir mode; ignored in delivery (SDK-key) mode, where the key selects it (a set value logs a warning). Falls back to `QUONFIG_ENVIRONMENT` when unset. | (env var)                                                |
 | `Datadir`                     | Path to a Quonfig workspace directory. Switches the client to datadir mode (no HTTP fetch, no SSE).                                        | `null`                                                   |
 | `Datafile`                    | Path to a serialized envelope file. Switches the client to datafile mode.                                                                  | `null`                                                   |
 | `DatafileEnvelope`            | Pre-parsed envelope instance (mutually exclusive with `Datafile`).                                                                          | `null`                                                   |
