@@ -386,7 +386,7 @@ client, err := quonfig.NewClient(
 | Name                           | Description                                                                                                                           | Default          |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | WithSdkKey                     | Your Quonfig SDK key (not needed if QUONFIG_BACKEND_SDK_KEY env var is set)                                                           | from env var     |
-| WithAPIURLs                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                             | `["https://primary.quonfig.com"]` |
+| WithAPIURLs                    | Ordered list of API base URLs. SSE URL is derived by prepending `stream.` to the hostname                                             | `["https://primary.quonfig.com", "https://secondary.quonfig.com"]` |
 | WithDataDir                    | Load configuration from a local Quonfig workspace directory instead of the API/SSE (offline/testing)                                  | "" (API mode)    |
 | WithEnvironment                | Which environment to evaluate when loading from a local data dir (overrides `QUONFIG_ENVIRONMENT`)                                     | from env var     |
 | WithGlobalContext              | Set a static context to be used as the base layer in all configuration evaluation                                                     | empty            |
