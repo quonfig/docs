@@ -179,5 +179,5 @@ To point a browser app at staging, set `apiUrl` to your staging API host (e.g. `
 2. **`string_list` configs** -- use `getObjectValue()` and cast to `string[]`.
 3. **`duration` configs** -- returned as ISO 8601 string via `getStringValue()`.
 4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
-5. **`keys()` and `rawConfig()`** -- use `provider.getClient()` to access.
+5. **Bulk config access** (`extract()`, the `configs` getter, `get()`) -- native SDK only; reach it via `provider.getClient()`.
 6. **Context keys use dot-notation** -- pass `"user.email"`, not a nested object.
