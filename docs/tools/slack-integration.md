@@ -47,3 +47,9 @@ Non-config files (READMEs, top-level `quonfig.json`, anything outside the four d
 ## Disconnect
 
 On the integrations page, click **Disconnect**. Quonfig calls Slack's `apps.uninstall` to revoke the bot token and removes the installation row. You can reconnect at any time by repeating the connect flow.
+
+:::tip Looking for Claude in Slack?
+This integration is one-way: Quonfig posts change notifications into a
+channel. To let your team *ask* about flags and change them from Slack, see
+[Quonfig + Claude Tag](/docs/api/claude-tag).
+:::
