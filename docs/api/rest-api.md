@@ -1,6 +1,7 @@
 ---
 title: REST API
 sidebar_label: REST API
+sidebar_position: 1
 ---
 
 # REST API
@@ -293,4 +294,8 @@ The spec is also the right thing to hand to agent frameworks that consume
 OpenAPI directly — point them at `/v1/openapi.json` and scope them with a
 [service-account key](#authentication) so their changes are attributed to
 the bot, not to you.
+
+For MCP clients — Claude Code, Claude Tag, and anything else that speaks the
+protocol — you don't need the spec at all: this surface is already exposed as
+tools by the [Quonfig MCP server](/docs/api/mcp-server).
 :::

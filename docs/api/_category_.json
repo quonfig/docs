@@ -3,6 +3,6 @@
   "position": 5,
   "link": {
     "type": "generated-index",
-    "description": "Manage Quonfig programmatically over HTTPS."
+    "description": "Manage Quonfig programmatically over HTTPS — the REST API, and the MCP server that puts the same surface in front of an AI assistant."
   }
 }
