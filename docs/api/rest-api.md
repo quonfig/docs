@@ -19,7 +19,10 @@ Base URL: https://api.quonfig.com/v1
 The API is described by an OpenAPI 3.1 spec at
 [`https://api.quonfig.com/v1/openapi.json`](https://api.quonfig.com/v1/openapi.json)
 — that spec is the published contract, and you can
-[generate a typed client from it](#openapi-spec--client-generation).
+[generate a typed client from it](#openapi-spec--client-generation). Prefer to
+browse it? There's an
+[interactive reference](https://api.quonfig.com/v1/docs) built from the same
+spec.
 
 A first call to check your key works:
 
@@ -270,8 +273,12 @@ The machine-readable contract lives at:
 https://api.quonfig.com/v1/openapi.json
 ```
 
-It declares every operation, schema, and error response, so standard
-generators produce a complete typed client. For example:
+Browse it as a rendered reference at
+[`https://api.quonfig.com/v1/docs`](https://api.quonfig.com/v1/docs) — same
+spec, no client generation required.
+
+The raw spec declares every operation, schema, and error response, so
+standard generators produce a complete typed client. For example:
 
 ```bash
 # TypeScript (fetch-based)
