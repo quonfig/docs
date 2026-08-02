@@ -69,9 +69,9 @@ environment's rules with a single unconditional rule.
 If the environment currently has **targeting rules**, the call fails instead
 of quietly deleting them: the agent gets back
 `CONFLICT` / `TARGETING_RULES_PRESENT` naming how many rules are at stake, and
-has to retry with `replaceTargeting: true` to go through. The tool
-description tells the agent to confirm with you first, and in practice it
-does — it reports what the rules do and waits.
+has to retry with `replaceTargeting: true` to go through. The tool's own
+description instructs the agent to confirm with a human before that retry
+rather than deciding on its own.
 
 The full write semantics (value types, rollout percents, sticky bucketing,
 no-op writes, `expectedCommitSha`) are documented once, on the REST page:

@@ -74,12 +74,14 @@ Nine tools are available — eight reads plus `set_flag`. See
 
 ### Writes ask first
 
-`set_flag` is the only tool that writes, and it's marked destructive, so
-Claude Code confirms before running it.
+`set_flag` is the only tool that writes. Claude Code asks your permission the
+first time it calls a tool, and `set_flag` is annotated destructive so clients
+can keep confirming it after that.
 
-If the environment you're changing has targeting rules, the write is refused
-rather than silently replacing them. Claude will tell you what the rules do
-and ask before retrying with `replaceTargeting: true`. See
+If the environment you're changing has targeting rules, the server refuses the
+write rather than silently replacing them, and says how many rules are at
+stake — and the tool's description tells Claude to bring that back to you
+before retrying with `replaceTargeting: true`. See
 [Writing with set_flag](/docs/api/mcp-server#writing-with-set_flag).
 
 You can only do what your Quonfig account can do — the session carries your
