@@ -52,6 +52,12 @@ for the local-only flow — it works the same way with Flagsmith.
 > [from-launch](./from-launch.md#warning-browser-sdk-limitation-read-this-first)
 > for details.
 
+The two flows side by side — same migration and the same git repo either
+way; `--push` keeps that repo synced to a hosted workspace and adds
+real-time delivery:
+
+![Two ways to run the migration: free mode pulls Flagsmith into a git repo you own and your server-side SDK reads it from disk; cloud mode adds --push, syncing the repo to Quonfig Cloud so every SDK gets instant updates over SSE](/img/docs/migrating/flagsmith-two-modes.svg)
+
 ---
 
 ## Get a Flagsmith API token
