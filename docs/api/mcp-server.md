@@ -31,21 +31,25 @@ of the two [authentication methods](#authentication) below.
 
 ## Tools
 
-Nine tools: eight reads and one write.
+Thirteen tools: twelve reads and one write.
 
 | Tool | What it does |
 |---|---|
-| `list_flags` | List the workspace's flags with their lifecycle status per production environment. Filterable by tag and status. |
+| `list_flags` | List the workspace's flags with their lifecycle status per environment, when each last changed, and who changed it. Filterable by tag and status; optionally paginated. |
 | `get_flag` | One flag in full: default rules, per-environment targeting rules, rollouts, variants. |
 | `get_flag_history` | The git commits that changed a flag, newest first. |
-| `list_configs` | List the workspace's configs. |
+| `list_configs` | List the workspace's configs, with when each last changed. Optionally paginated. |
 | `get_config` | One config in full. Encrypted values come back as stored ciphertext. |
 | `get_config_history` | The git commits that changed a config. |
+| `list_segments` | List the workspace's segments and how many membership rules each has. |
+| `get_segment` | One segment's membership rules — who a segment-targeted flag actually reaches. |
+| `get_segment_history` | The git commits that changed a segment. |
+| `list_environments` | The workspace's environments: name, type, and whether each is protected. |
 | `get_recent_changes` | The workspace change feed, translated into readable messages — or one item's full history. |
 | `list_workspaces` | The workspaces this credential can act on. |
 | `set_flag` | Update what one environment of a flag serves. The only tool that writes. |
 
-The eight read tools are annotated `readOnlyHint`, so a client can tell at a
+The twelve read tools are annotated `readOnlyHint`, so a client can tell at a
 glance that they can't change anything. `set_flag` is annotated
 `destructiveHint` — clients that confirm destructive tool calls will ask
 before it runs.
@@ -54,11 +58,46 @@ Things the tools are good at, in practice:
 
 - **"What's the rollout of `checkout-redesign` in production?"** — `get_flag`
   returns the actual rules, including percentage splits.
+- **"So who actually gets it?"** — when a rule targets a segment
+  (`IN_SEG`), the flag document only names the segment. `get_segment`
+  resolves what that segment matches, so the answer describes people rather
+  than a key.
 - **"Who turned this off, and when?"** — `get_flag_history` and
   `get_recent_changes` read straight from git, so the answer includes the
   author and the commit.
+- **"Which of these flags are stale?"** — every `list_flags` /
+  `list_configs` row carries `lastModified`, with the date and author of the
+  last change, so age questions are one call rather than one call per flag.
 - **"Kill the new pricing page in prod."** — `set_flag`, subject to the same
-  permission check the UI applies.
+  permission check the UI applies. `list_environments` first, so the agent
+  uses the environment names your workspace actually has instead of
+  guessing at `prod`.
+
+### Flag status, precisely
+
+`list_flags` returns two status maps: `statuses` (production environments
+only — the one the status filter matches) and `environmentStatuses` (every
+active environment). A flag that is `live` in production and `pre_rollout`
+in staging is an environment gate, not a finished rollout, and only the
+second map shows that.
+
+Status is derived from the stored rules plus `readyForCleanup`, a marker
+the flag's owner sets by hand — never from usage or telemetry. The exact
+rule is on the REST page:
+[Flag lifecycle status](/docs/api/rest-api#flag-lifecycle-status).
+
+### Reading a large workspace
+
+`list_flags` and `list_configs` return every row by default. Pass `limit`
+(1–100) to bound the response, then keep passing the returned `nextCursor`
+back as `cursor` until it's absent. Rows come back ordered by key once you
+paginate, and filters have to be resent with each page — see
+[Pagination](/docs/api/rest-api#pagination).
+
+The tool descriptions tell the agent the part it can't infer from a schema:
+a partial page is never the whole answer, so a "how many..." or "does any
+flag..." question must not be answered from a page that still carries a
+`nextCursor`.
 
 ### Writing with `set_flag`
 
@@ -73,8 +112,18 @@ has to retry with `replaceTargeting: true` to go through. The tool's own
 description instructs the agent to confirm with a human before that retry
 rather than deciding on its own.
 
+That confirmation matters because **the replacement is a one-way door**:
+`set_flag` can only ever write a single unconditional rule, so it cannot
+put multi-rule targeting back. Nothing is lost — a successful write returns
+`previousCommitSha` (the version the rules were last stored in) and
+`replacedTargetingRuleCount` when targeting was genuinely destroyed — but
+restoring the old rules is done in the Quonfig app, not by another tool
+call. An agent that replaces targeting should report both fields back to
+whoever asked.
+
 The full write semantics (value types, rollout percents, sticky bucketing,
-no-op writes, `expectedCommitSha`) are documented once, on the REST page:
+no-op writes, `expectedCommitSha`, and the recovery path) are documented
+once, on the REST page:
 [Updating a flag](/docs/api/rest-api#updating-a-flag).
 
 ## Authentication

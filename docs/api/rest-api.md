@@ -81,6 +81,7 @@ write. All requests and responses are JSON.
 |---|---|---|
 | GET | `/v1/whoami` | Identify the calling key: principal + workspace |
 | GET | `/v1/workspaces` | The workspace(s) this credential can act on |
+| GET | `/v1/environments` | The workspace's environments: names, types, and which are protected |
 | GET | `/v1/flags` | List feature flags (filter with `?tag=` and `?status=`) |
 | GET | `/v1/flags/{key}` | Full flag detail: default rules, per-environment rules, rollouts, variants |
 | GET | `/v1/flags/{key}/history` | Git commits that changed this flag, most recent first |
@@ -88,18 +89,21 @@ write. All requests and responses are JSON.
 | GET | `/v1/configs` | List configs |
 | GET | `/v1/configs/{key}` | Full config detail |
 | GET | `/v1/configs/{key}/history` | Git commits that changed this config |
+| GET | `/v1/segments` | List segments — the reusable membership rule sets targeting rules point at |
+| GET | `/v1/segments/{key}` | A segment's membership rules: who it actually matches |
+| GET | `/v1/segments/{key}/history` | Git commits that changed this segment |
 | GET | `/v1/activity` | Workspace-wide change feed, or one item's translated history |
 
-There is no pagination in v1: list responses return the whole workspace
-(hundreds of items, not millions), and `/v1/activity` takes
-`?limit=` (1–100, default 30).
+List responses return the whole workspace by default (hundreds of items,
+not millions). `/v1/flags` and `/v1/configs` additionally accept opt-in
+[pagination](#pagination), and `/v1/activity` takes `?limit=` (1–100,
+default 30).
 
 ### Reading flags and configs
 
-`GET /v1/flags` summarizes each flag, including its derived lifecycle
-`statuses` per production environment. Filter server-side with `?tag=` and
-`?status=` — status is one of `pre_rollout`, `rollout`, `live`, or
-`ready_for_cleanup`.
+`GET /v1/flags` summarizes each flag: identity and `tags`, the current
+`commitSha`, when it last changed, and its derived lifecycle status.
+Filter server-side with `?tag=` and `?status=`.
 
 `GET /v1/flags/{key}` returns the full stored document: `default.rules`,
 per-environment `environments[].rules` (including percentage rollouts),
@@ -117,6 +121,175 @@ Two things to know about the values you'll see:
 - **Encrypted values stay encrypted.** For secrets, `value` is the stored
   ciphertext and `decryptWith` names the config holding the decryption key.
   Decryption happens in your runtime — Quonfig servers never decrypt.
+
+### When something last changed
+
+Flag and config rows — on both the list and the detail responses — carry
+`lastModified`:
+
+```json
+{ "date": "2026-07-07T17:07:41-04:00", "author": "Jeff Dwyer" }
+```
+
+It describes the same commit `commitSha` names: `date` is the ISO 8601
+commit author date, `author` the name on that commit. That makes "which of
+these hasn't been touched in six months?" a single list call rather than
+one history request per item.
+
+Two caveats. A service-account write carries the service account's own
+name, so use [history](#history-and-activity) — which has
+`isServiceAccount` — when you need to tell a bot from a human. And the
+field is **absent rather than fabricated** when git couldn't attribute the
+file's last commit; a synthesized timestamp would read as "changed just
+now", which is worse than a missing field.
+
+### Flag lifecycle status
+
+Flag list rows carry two status maps, both keyed by environment name:
+
+| Field | Covers | Use it for |
+|---|---|---|
+| `statuses` | Production environments only | What `?status=` filters on |
+| `environmentStatuses` | Every active environment | Telling an environment gate from a finished rollout |
+
+`statuses` is a subset of `environmentStatuses`, so the two can never
+disagree about an environment they share. The narrow one exists because
+`?status=` has always matched against production, and widening it would
+silently change what a shipped query returns. Read the wide one before
+calling a flag fully rolled out: `live` in production and `pre_rollout` in
+staging is an environment gate, not a finished rollout.
+
+Status is a pure function of the **stored document** — never of traffic,
+evaluations, or any other telemetry. For one boolean flag in one
+environment, evaluated against that environment's own rules (or the flag's
+`default.rules` when the environment has no entry of its own):
+
+| Stored state | Status |
+|---|---|
+| `readyForCleanup` is true | `ready_for_cleanup` — short-circuits everything below |
+| No rules at all | `pre_rollout` |
+| Any rule serves a real split | `rollout` |
+| No catch-all; every rule serves false | `pre_rollout` |
+| No catch-all; some rule serves true | `rollout` |
+| Catch-all present; every rule serves true | `live` |
+| Catch-all present; every rule serves false | `pre_rollout` |
+| Catch-all present; mixed | `rollout` |
+
+A "catch-all" is a rule whose only criterion is `ALWAYS_TRUE` — without
+one, unmatched contexts fall through, so the flag can't be `live` whatever
+the rules serve. A rule serves true or false when its value is a plain
+boolean, or a weighted rollout in which one boolean value carries all of
+the non-zero weight; anything else counts as a split. Non-boolean flags
+have no lifecycle: both maps come back empty.
+
+`readyForCleanup` is the one manual input. An owner sets it by hand in the
+Quonfig app to say "this flag's job is done, remove the references at your
+convenience" — it is not derived from usage, evaluation counts, or age.
+It's **always present** on both the list and detail flag responses (`false`
+when nobody has marked the flag), and when true it forces every entry in
+both maps to `ready_for_cleanup` regardless of what the rules say.
+
+### Segments
+
+Targeting rules reference segments by key instead of inlining them, so a
+rule like
+
+```json
+{ "operator": "IN_SEG", "valueToMatch": { "type": "string", "value": "beta-users" } }
+```
+
+names a segment without saying a word about who's in it. The segment
+endpoints resolve that: `valueToMatch.value` *is* the segment's key, so
+pass it straight through as `{key}`.
+
+`GET /v1/segments` lists each segment with `key`, `name`, `description`,
+`ruleCount`, and `commitSha`. `GET /v1/segments/{key}` returns the
+membership rules themselves:
+
+```json
+{
+  "key": "beta-users",
+  "name": "Beta users",
+  "default": {
+    "rules": [
+      {
+        "criteria": [{ "propertyName": "user.plan", "operator": "PROP_IS_ONE_OF", "valueToMatch": { "type": "string_list", "value": ["beta"] } }],
+        "value": { "type": "bool", "value": true }
+      }
+    ]
+  },
+  "commitSha": "1a2b3c4..."
+}
+```
+
+Segments are cross-environment: there's exactly one rule set, which is why
+it lives under `default` and there's no `environments` array. The rule
+shape is identical to a flag's or config's, so the same client code reads
+it. A context is in the segment when the first matching rule serves true.
+
+`GET /v1/segments/{key}/history` is the git audit trail, same shape as the
+flag and config twins.
+
+### Environments
+
+`GET /v1/environments` lists the workspace's active environments:
+
+```json
+{
+  "environments": [
+    { "name": "development", "environmentType": "development", "protected": false },
+    { "name": "staging", "environmentType": "staging", "protected": false },
+    { "name": "production", "environmentType": "production", "protected": true }
+  ]
+}
+```
+
+`name` is the identifier every other endpoint uses — the `env` path segment
+of [the PATCH](#updating-a-flag), and the `id` of an entry in a flag's or
+config's `environments` array. Ask rather than guessing: `prod` and
+`production` are both plausible names and only one of them is yours.
+
+`protected` tells you up front whether writing to that environment needs an
+elevated role, so you can check before a write comes back `403`.
+`environmentType` is an open string set (`production`, `staging`, `test`,
+`development` today) and is what decides whether an environment appears in
+a flag's `statuses` map. Archived environments are omitted, and the list is
+ordered development, test, staging, production — alphabetically within a
+type.
+
+### Pagination
+
+`GET /v1/flags` and `GET /v1/configs` are unpaginated by default and that
+isn't changing: omit both parameters and you get every row in one response,
+exactly as before. There is no implicit page size.
+
+Pass `limit` (1–100) to bound the response:
+
+```bash
+curl "https://api.quonfig.com/v1/flags?limit=50" \
+  -H "Authorization: Bearer $QUONFIG_API_KEY"
+```
+
+A bounded response carries `nextCursor` while rows remain. Pass it back as
+`cursor` for the next page, and stop when it's absent:
+
+```bash
+curl "https://api.quonfig.com/v1/flags?limit=50&cursor=v1_YWktc3VtbWFyaWVz" \
+  -H "Authorization: Bearer $QUONFIG_API_KEY"
+```
+
+Three things to know:
+
+- **Ordering applies only when you paginate.** A paginated result is
+  ordered ascending by `key`. The default response is in no defined order
+  and never has been, so don't try to page over it by hand.
+- **The cursor is a position, not a saved query.** Resend the same
+  `?tag=`/`?status=` with every page. Filters are applied before paging, so
+  a page holds `limit` rows of the *filtered* set.
+- **The cursor is opaque.** Round-trip it verbatim — anything else is a
+  `400`. Because it keys on `key` rather than an offset, a flag created or
+  deleted between two pages can't shift the window and make you skip a
+  neighbor.
 
 ### History and activity
 
@@ -156,9 +329,18 @@ curl -X PATCH \
   "environment": "production",
   "changed": true,
   "commitSha": "8c1f2ab...",
+  "previousCommitSha": "3d9e017...",
   "rules": [{ "criteria": [{ "operator": "ALWAYS_TRUE" }], "value": { "type": "bool", "value": false } }]
 }
 ```
+
+`previousCommitSha` is the version this write moved off — the one to name
+if you need to undo it. It's present whenever `changed` is true, and
+absent when `changed` is false, because a [no-op write](#no-op-writes)
+commits nothing and so has no version to revert to. If the server
+[retried](#concurrency-expectedcommitsha) after losing a race, it names the
+parent of the commit that actually landed, not the version the losing
+attempt read.
 
 Values are **bare JSON** (`true`, `"foo"`, `42`, arrays, objects) and are
 checked against the flag's `valueType` — sending a string to a `bool` flag
@@ -178,11 +360,36 @@ The PATCH replaces the environment's rules with a single unconditional
 rule. If the environment currently has **targeting rules** (anything beyond
 serve-everyone), the write fails closed with `409` and
 `details.code: "TARGETING_RULES_PRESENT"` rather than silently deleting
-them. To deliberately replace targeting, resend with:
+them. `details.ruleCount` says how many rules are at stake. The guard is
+re-checked on every attempt, so a concurrent edit that *adds* targeting
+turns an in-flight retry into this rejection instead of a silent delete.
+
+To deliberately replace targeting, resend with:
 
 ```json
 { "enabled": false, "replaceTargeting": true }
 ```
+
+:::danger `replaceTargeting` is a one-way door
+This endpoint can only ever write **one unconditional rule**. So once you
+replace an environment's targeting rules, no call to this API — not this
+one, not any other — can put them back. Treat `replaceTargeting: true` as
+a confirm-with-a-human step, not a retry flag.
+
+Nothing is lost. The replaced rules are still in your workspace's git
+history, and a write that genuinely destroyed targeting tells you so:
+
+- `replacedTargetingRuleCount` — how many rules the single unconditional
+  rule replaced. Present *only* when real targeting was destroyed; a plain
+  re-toggle over an existing catch-all doesn't count and omits it.
+- `previousCommitSha` — the commit those rules were last stored in.
+
+`GET /v1/flags/{key}/history` lists that commit, but v1 has no
+read-at-a-commit operation, so **seeing and restoring the old rules is done
+in the Quonfig app**, from the flag's history. Scripts and agents should
+surface both fields to the person who asked rather than treating the write
+as complete.
+:::
 
 ### Concurrency: `expectedCommitSha`
 
@@ -224,7 +431,7 @@ causes. Match on `error` (and `details.code`), never on `message` text.
 
 | HTTP | `error` | `details.code` | When |
 |---|---|---|---|
-| 400 | `BAD_REQUEST` | — | Malformed parameter or body; value doesn't match the flag's `valueType`; bad rollout |
+| 400 | `BAD_REQUEST` | — | Malformed parameter or body; value doesn't match the flag's `valueType`; bad rollout; `limit` out of range or a `cursor` this server didn't mint |
 | 401 | `UNAUTHORIZED` | — | Missing, invalid, or revoked key; disabled service account |
 | 402 | `BILLING_INACTIVE` | — | The organization's subscription is inactive |
 | 403 | `FORBIDDEN` | `PERMISSION_DENIED` | The key's principal can't edit this flag in this environment |

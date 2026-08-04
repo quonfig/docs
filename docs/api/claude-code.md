@@ -69,7 +69,7 @@ A useful pattern while working in a codebase: **"find every flag this service
 reads, and tell me which ones are still off in production."** The code search
 is local, the flag state comes from Quonfig, and the answer is one message.
 
-Nine tools are available — eight reads plus `set_flag`. See
+Thirteen tools are available — twelve reads plus `set_flag`. See
 [Tools](/docs/api/mcp-server#tools) for the full list and what each returns.
 
 ### Writes ask first

@@ -115,15 +115,19 @@ description: Use for questions about feature flags, configs, and rollouts in Quo
 # Quonfig
 
 Feature flags and configuration, stored in git. The `quonfig` MCP server
-exposes eight read tools and one write tool.
+exposes twelve read tools and one write tool.
 
 ## Answering questions
 
 - Current state of one flag: `get_flag` (returns per-environment rules,
   rollout percentages, and variants). Do not infer state from `list_flags`
   alone.
+- A rule with the `IN_SEG` operator names a segment, it does not list its
+  members. Call `get_segment` before claiming who receives the flag.
 - "Who changed this, and when": `get_flag_history` / `get_config_history`.
-  For workspace-wide questions use `get_recent_changes`.
+  For workspace-wide questions use `get_recent_changes`. For "when did this
+  last change" across many items, read `lastModified` off the `list_flags` /
+  `list_configs` rows instead of calling a history tool per item.
 - Always name the environment in your answer. A flag is usually on in
   development and off in production; an answer that omits the environment is
   wrong more often than right.
@@ -136,9 +140,11 @@ exposes eight read tools and one write tool.
   environment before you call it.
 - If it fails with `TARGETING_RULES_PRESENT`, the environment has targeting
   rules that the write would delete. Show the rules and ask a human. Retry
-  with `replaceTargeting: true` only after someone in the thread agrees.
-- Never guess an environment name. If the request is ambiguous ("turn it
-  off"), ask which environment.
+  with `replaceTargeting: true` only after someone in the thread agrees —
+  `set_flag` cannot put those rules back afterwards. Report the returned
+  `previousCommitSha` and `replacedTargetingRuleCount` in the thread.
+- Never guess an environment name. Call `list_environments`; if the request
+  is ambiguous ("turn it off"), ask which environment.
 ```
 
 Add the plugin the way your organization adds plugins: register a
@@ -211,8 +217,8 @@ audit log tell the same story.
 
 ## What it can and can't do
 
-Nine tools — eight reads plus `set_flag`, the only write. The full list is on
-the [MCP server](/docs/api/mcp-server#tools) page.
+Thirteen tools — twelve reads plus `set_flag`, the only write. The full list
+is on the [MCP server](/docs/api/mcp-server#tools) page.
 
 A few things worth knowing before you turn it loose in a channel:
 
