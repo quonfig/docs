@@ -115,11 +115,6 @@ Other times we have things that are more permanent,
 
 In both cases we want to be able to have sophisticated targeting rules based on context. But for config it's pretty common that we may have no targeting rules at all. Something like the `http.timeout` is a great example. It's a great piece of configuration that we may want the option to change, but it may also just sit at 10 seconds for all time. 
 
-:::note
-One caveat: you can't do percent rollout today for Configs. We'll address this in the future. Please chat with us if this is blocking you today.
-:::
-
-
 ## Explore Advanced Datatypes
 ### Duration
 Ever written `http.connect(timeout: Quonfig.get("my.timeout'))` and been worried that someone might use millisecond or seconds or minutes? Naming all your time duration configs `kafka.retry.timeout-in-seconds` to try to be really explicit? We've got a better way!
