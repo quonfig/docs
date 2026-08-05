@@ -69,20 +69,27 @@ A useful pattern while working in a codebase: **"find every flag this service
 reads, and tell me which ones are still off in production."** The code search
 is local, the flag state comes from Quonfig, and the answer is one message.
 
-Thirteen tools are available — twelve reads plus `set_flag`. See
-[Tools](/docs/api/mcp-server#tools) for the full list and what each returns.
+Fifteen tools are available — thirteen reads plus `set_flag` and
+`set_document`. See [Tools](/docs/api/mcp-server#tools) for the full list and
+what each returns.
 
 ### Writes ask first
 
-`set_flag` is the only tool that writes. Claude Code asks your permission the
-first time it calls a tool, and `set_flag` is annotated destructive so clients
-can keep confirming it after that.
+Two tools write: `set_flag` for the everyday change, and `set_document` for
+edits `set_flag` can't express. Claude Code asks your permission the first
+time it calls a tool, and both writes are annotated destructive so clients can
+keep confirming them after that.
 
 If the environment you're changing has targeting rules, the server refuses the
 write rather than silently replacing them, and says how many rules are at
 stake — and the tool's description tells Claude to bring that back to you
 before retrying with `replaceTargeting: true`. See
 [Writing with set_flag](/docs/api/mcp-server#writing-with-set_flag).
+
+If a change does turn out wrong, ask for it back: *"undo that"*. The bad
+write named the version it replaced, so Claude reads that version with
+`get_document` and writes it back with `set_document` — see
+[Raw documents and undo](/docs/api/mcp-server#raw-documents-and-undo).
 
 You can only do what your Quonfig account can do — the session carries your
 own roles, so a flag you can't edit in the UI is a flag Claude can't edit for

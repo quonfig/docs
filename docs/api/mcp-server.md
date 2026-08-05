@@ -31,7 +31,7 @@ of the two [authentication methods](#authentication) below.
 
 ## Tools
 
-Thirteen tools: twelve reads and one write.
+Fifteen tools: thirteen reads and two writes.
 
 | Tool | What it does |
 |---|---|
@@ -47,12 +47,27 @@ Thirteen tools: twelve reads and one write.
 | `list_environments` | The workspace's environments: name, type, and whether each is protected. |
 | `get_recent_changes` | The workspace change feed, translated into readable messages — or one item's full history. |
 | `list_workspaces` | The workspaces this credential can act on. |
-| `set_flag` | Update what one environment of a flag serves. The only tool that writes. |
+| `get_document` | The raw stored JSON for one flag, config, or log level — verbatim, and at any commit with `at`. |
+| `set_flag` | Update what one environment of a flag serves. The everyday write. |
+| `set_document` | Replace the raw stored JSON for one flag, config, or log level. The escape hatch, and the undo. |
 
-The twelve read tools are annotated `readOnlyHint`, so a client can tell at a
-glance that they can't change anything. `set_flag` is annotated
-`destructiveHint` — clients that confirm destructive tool calls will ask
-before it runs.
+The thirteen read tools are annotated `readOnlyHint`, so a client can tell at
+a glance that they can't change anything. `set_flag` and `set_document` are
+both annotated `destructiveHint` — clients that confirm destructive tool
+calls will ask before either runs.
+
+The two writes differ in one annotation that matters for retries.
+`set_flag` is `idempotentHint: true`: its operations are absolute and a
+repeat converges to a no-op, so replaying a timed-out call is safe.
+`set_document` is `idempotentHint: false`: it is pinned to an
+`expectedCommitSha`, so replaying a call that may already have landed fails
+with `STALE_COMMIT_SHA` instead of converging. The fix is always to re-read
+and re-apply, never to retry the same arguments.
+
+`get_document` and `set_document` take a `type` argument — `flag`, `config`,
+or `log-level` — instead of being six separate tools. Log levels are
+reachable *only* through this pair; there is no `list_log_levels` or
+`get_log_level`.
 
 Things the tools are good at, in practice:
 
@@ -72,6 +87,10 @@ Things the tools are good at, in practice:
   permission check the UI applies. `list_environments` first, so the agent
   uses the environment names your workspace actually has instead of
   guessing at `prod`.
+- **"That was wrong — put it back."** — `get_document` reads the flag as it
+  stood at the commit the bad write named, and `set_document` writes that
+  version back. Two tool calls, no UI trip. See
+  [Raw documents and undo](#raw-documents-and-undo).
 
 ### Flag status, precisely
 
@@ -112,19 +131,56 @@ has to retry with `replaceTargeting: true` to go through. The tool's own
 description instructs the agent to confirm with a human before that retry
 rather than deciding on its own.
 
-That confirmation matters because **the replacement is a one-way door**:
-`set_flag` can only ever write a single unconditional rule, so it cannot
-put multi-rule targeting back. Nothing is lost — a successful write returns
-`previousCommitSha` (the version the rules were last stored in) and
-`replacedTargetingRuleCount` when targeting was genuinely destroyed — but
-restoring the old rules is done in the Quonfig app, not by another tool
-call. An agent that replaces targeting should report both fields back to
-whoever asked.
+That confirmation matters because `set_flag` can only ever write a single
+unconditional rule, so **it cannot put multi-rule targeting back itself**. A
+successful write returns `previousCommitSha` (the version the rules were
+last stored in) and `replacedTargetingRuleCount` when targeting was
+genuinely destroyed; an agent that replaces targeting should report both
+back to whoever asked. Recovering those rules is a `get_document` /
+`set_document` pair — see below — not a UI trip.
 
 The full write semantics (value types, rollout percents, sticky bucketing,
-no-op writes, `expectedCommitSha`, and the recovery path) are documented
-once, on the REST page:
+no-op writes, `expectedCommitSha`) are documented once, on the REST page:
 [Updating a flag](/docs/api/rest-api#updating-a-flag).
+
+### Raw documents and undo
+
+`get_document` and `set_document` read and replace the JSON file Quonfig
+actually stores for a flag, config, or log level — `access`, `$schema`,
+`type` and all. They're the escape hatch for edits `set_flag` can't express
+(multi-rule targeting, variants, metadata) and the reason an agent can undo
+its own mistake.
+
+The undo recipe is three tool calls:
+
+1. The bad write returned `previousCommitSha`. Call `get_document` with `at`
+   set to that sha — that reads the item as it stood before the write.
+2. Call `get_document` again without `at`, to get the **current**
+   `commitSha`.
+3. Call `set_document` with the old document and the current sha as
+   `expectedCommitSha`.
+
+Pinning to the current sha, not the historical one, is the step agents get
+wrong: `expectedCommitSha` asserts "I have read the version I am about to
+overwrite", which is the bad write. The tool descriptions say so, and the
+full walkthrough with curl is on the REST page:
+[Undoing a write](/docs/api/rest-api#undoing-a-write).
+
+Two properties an agent has to respect, both spelled out in the tool
+descriptions and enforced server-side:
+
+- **`set_document` is a full replacement.** A field omitted from the
+  document is deleted, so the document must come from a `get_document`
+  result — never hand-built.
+- **`expectedCommitSha` is required and must be fresh.** A stale one fails
+  with `STALE_COMMIT_SHA` and writes nothing. Re-read and re-apply; don't
+  replay the call.
+
+Writes are validated even though reads aren't, so restoring a very old
+version can be rejected with a `400` naming the field that no longer
+validates — the fix is to correct the JSON forward. And the pair updates
+only: it never creates or deletes an item. Everything else is on the REST
+page: [Raw documents](/docs/api/rest-api#raw-documents).
 
 ## Authentication
 
@@ -176,8 +232,9 @@ own roles after a browser sign-in, the service account's roles when a key is
 used. Nothing is elevated for agents.
 
 So a read-only bot is just a service account with no config-tier role, and
-`set_flag` fails with `FORBIDDEN` / `PERMISSION_DENIED` for a principal that
-can't edit that flag in that environment. See
+both writes fail with `FORBIDDEN` / `PERMISSION_DENIED` for a principal that
+can't edit that item — per flag and environment for `set_flag`, per access
+tier for `set_document`. See
 [Authorization](/docs/explanations/features/authorization) for how roles and
 config tiers compose.
 

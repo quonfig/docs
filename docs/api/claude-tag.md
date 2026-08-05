@@ -115,7 +115,7 @@ description: Use for questions about feature flags, configs, and rollouts in Quo
 # Quonfig
 
 Feature flags and configuration, stored in git. The `quonfig` MCP server
-exposes twelve read tools and one write tool.
+exposes thirteen read tools and two write tools.
 
 ## Answering questions
 
@@ -134,8 +134,8 @@ exposes twelve read tools and one write tool.
 
 ## Changing a flag
 
-- `set_flag` is the only tool that writes, and it replaces the environment's
-  rules with a single unconditional rule.
+- `set_flag` is the everyday write, and it replaces the environment's rules
+  with a single unconditional rule.
 - Read the flag first, then say plainly what will change and in which
   environment before you call it.
 - If it fails with `TARGETING_RULES_PRESENT`, the environment has targeting
@@ -145,6 +145,23 @@ exposes twelve read tools and one write tool.
   `previousCommitSha` and `replacedTargetingRuleCount` in the thread.
 - Never guess an environment name. Call `list_environments`; if the request
   is ambiguous ("turn it off"), ask which environment.
+
+## Raw documents and undo
+
+- `get_document` / `set_document` read and replace the stored JSON for a
+  flag, config, or log level (`type`: `flag`, `config`, or `log-level`).
+  Use them for edits `set_flag` cannot express — multi-rule targeting,
+  variants, metadata — and to undo a write. Log levels are reachable only
+  this way.
+- `set_document` is a FULL REPLACEMENT: a field you omit is deleted. Always
+  start from a `get_document` result and edit it; never build the document
+  by hand.
+- To undo: `get_document` with `at` set to the bad write's
+  `previousCommitSha`, then `get_document` again without `at` for the
+  current `commitSha`, then `set_document` the old document pinned to that
+  CURRENT sha. Say what you are restoring before you write it.
+- A `STALE_COMMIT_SHA` failure means someone else changed the item. Re-read
+  and re-apply — never retry the same `set_document` arguments.
 ```
 
 Add the plugin the way your organization adds plugins: register a
@@ -217,18 +234,23 @@ audit log tell the same story.
 
 ## What it can and can't do
 
-Thirteen tools — twelve reads plus `set_flag`, the only write. The full list
-is on the [MCP server](/docs/api/mcp-server#tools) page.
+Fifteen tools — thirteen reads plus two writes, `set_flag` and
+`set_document`. The full list is on the
+[MCP server](/docs/api/mcp-server#tools) page.
 
 A few things worth knowing before you turn it loose in a channel:
 
-- **The bot can never exceed its tier.** `set_flag` is permission-checked
+- **The bot can never exceed its tier.** Both writes are permission-checked
   server-side on every call, exactly like a person clicking in the UI. A
   read-only service account is genuinely read-only, whatever anyone types in
   Slack.
-- **Targeting rules are protected.** A write that would delete an
+- **Targeting rules are protected.** A `set_flag` write that would delete an
   environment's targeting rules is refused until someone confirms. See
   [Writing with set_flag](/docs/api/mcp-server#writing-with-set_flag).
+- **A bad change can be undone from the thread.** Every write names the
+  version it replaced, and `get_document` / `set_document` read that version
+  and put it back. See
+  [Raw documents and undo](/docs/api/mcp-server#raw-documents-and-undo).
 - **Service-account keys carry no org-level permissions.** The bot can't
   manage service accounts, members, or billing even if it's given the admin
   role.
