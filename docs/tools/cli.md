@@ -671,12 +671,14 @@ qfg log-level log-level.my-app --value=WARN
 
 ### get
 
-`qfg get NAME` will give you the value for a config in the environment tied to your SDK key.
+`qfg get NAME` evaluates a config and prints its value. Like the rest of the `qfg` commands that talk to your workspace, it authenticates with your `qfg login` session — not with an SDK key — so it is not tied to any one environment. You choose the environment per call with `--environment`.
+
+In an interactive terminal, omitting `--environment` prompts you to pick one. Anywhere that is _not_ an interactive terminal — a script, a CI job, a pipeline, or a `$(...)` command substitution — `--environment` is **required**, and leaving it off fails with `'environment' is required when interactive mode isn't available.`
 
 Example: 
 
 ```bash
-qfg get aws.bucket
+qfg get aws.bucket --environment=production
 ```
 
 #### Interpolating a value from Quonfig
@@ -685,10 +687,12 @@ Since the CLI is a well-behaved citizen of the command line, you can use it to c
 
 Here's an example command to download a file from s3 using the [aws cli](https://aws.amazon.com/cli/). Quonfig values are interpolated for the aws key and bucket name.
 
+Note the explicit `--environment` on each call: inside `$(...)` the CLI's stdout is a pipe rather than a terminal, so it cannot prompt and will not guess an environment for you.
+
 ```bash
 aws s3api get-object \
-  --bucket $(qfg get aws.bucket) \
-  --key $(qfg get aws.db.backup.filename) \
+  --bucket $(qfg get aws.bucket --environment=production) \
+  --key $(qfg get aws.db.backup.filename --environment=production) \
   db.tgz
 ```
 
