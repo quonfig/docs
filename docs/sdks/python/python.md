@@ -416,4 +416,5 @@ All parameters are keyword arguments to `Quonfig(...)`.
   or `"periodic_example"` (types plus example contexts; the default).
 - `global_context` - a global context to be used in all lookups. Use this for things like availability zone, machine type...
 - `fallback_poll_enabled` / `fallback_poll_interval_ms` - poll the CDN when the SSE stream is unavailable (defaults `True` / `60000`).
+- `enable_sse` - keep a live SSE stream open for real-time updates (defaults to `True`). Pass `False` on serverless hosts; with `fallback_poll_enabled=True` polling becomes the primary update channel, with both `False` the client only updates via `refresh()` / `update_if_staler_than()`. Requires `quonfig >= 1.3.0`; see [Lambdas / Serverless](/docs/sdks/python/lambdas).
 - `logger_key` - the `log_level` config key consulted by `should_log(logger_path=...)`. No default — set it to enable the `logger_path` convenience (defaults to `None`).
