@@ -31,7 +31,7 @@ of the two [authentication methods](#authentication) below.
 
 ## Tools
 
-Fifteen tools: thirteen reads and two writes.
+Twenty tools: fourteen reads and six writes.
 
 | Tool | What it does |
 |---|---|
@@ -41,6 +41,7 @@ Fifteen tools: thirteen reads and two writes.
 | `list_configs` | List the workspace's configs, with when each last changed. Optionally paginated. |
 | `get_config` | One config in full. Encrypted values come back as stored ciphertext. |
 | `get_config_history` | The git commits that changed a config. |
+| `list_log_levels` | One row per service: the fallback level and the per-logger overrides in each scope. |
 | `list_segments` | List the workspace's segments and how many membership rules each has. |
 | `get_segment` | One segment's membership rules — who a segment-targeted flag actually reaches. |
 | `get_segment_history` | The git commits that changed a segment. |
@@ -48,26 +49,42 @@ Fifteen tools: thirteen reads and two writes.
 | `get_recent_changes` | The workspace change feed, translated into readable messages — or one item's full history. |
 | `list_workspaces` | The workspaces this credential can act on. |
 | `get_document` | The raw stored JSON for one flag, config, or log level — verbatim, and at any commit with `at`. |
-| `set_flag` | Update what one environment of a flag serves. The everyday write. |
+| `create_flag` | Create a flag. Boolean by default, off everywhere; pass `type` (and `value`) for any other kind. |
+| `create_config` | Create a config serving one default value. `valueType` is required. |
+| `set_flag` | Update what one scope of a flag serves — an environment, or the `default` every environment inherits. |
+| `set_config` | The same, for a config's value. |
+| `set_log_level` | Set one service's level — for a whole scope, or for one logger prefix. Creates the document on first write. |
 | `set_document` | Replace the raw stored JSON for one flag, config, or log level. The escape hatch, and the undo. |
 
-The thirteen read tools are annotated `readOnlyHint`, so a client can tell at
-a glance that they can't change anything. `set_flag` and `set_document` are
-both annotated `destructiveHint` — clients that confirm destructive tool
-calls will ask before either runs.
+The fourteen read tools are annotated `readOnlyHint`, so a client can tell at
+a glance that they can't change anything. `set_flag`, `set_config`,
+`set_log_level` and `set_document` are annotated `destructiveHint` — clients
+that confirm destructive tool calls will ask before any of them runs.
+`create_flag` and `create_config` are not: a create only ever adds a
+document, and refuses a key that's taken rather than overwriting it.
 
-The two writes differ in one annotation that matters for retries.
-`set_flag` is `idempotentHint: true`: its operations are absolute and a
-repeat converges to a no-op, so replaying a timed-out call is safe.
-`set_document` is `idempotentHint: false`: it is pinned to an
-`expectedCommitSha`, so replaying a call that may already have landed fails
-with `STALE_COMMIT_SHA` instead of converging. The fix is always to re-read
-and re-apply, never to retry the same arguments.
+The writes also differ in one annotation that matters for retries.
+`set_flag`, `set_config` and `set_log_level` are `idempotentHint: true`:
+their operations are absolute and a repeat converges to a no-op, so
+replaying a timed-out call is safe. `set_document` is
+`idempotentHint: false` — it is pinned to an `expectedCommitSha`, so
+replaying a call that may already have landed fails with
+`STALE_COMMIT_SHA` instead of converging; the fix is always to re-read and
+re-apply. The creates are `idempotentHint: false` too, for the same reason
+in reverse: a replayed create doesn't converge, it comes back
+`ALREADY_EXISTS`.
 
 `get_document` and `set_document` take a `type` argument — `flag`, `config`,
-or `log-level` — instead of being six separate tools. Log levels are
-reachable *only* through this pair; there is no `list_log_levels` or
-`get_log_level`.
+or `log-level` — instead of being six separate tools.
+
+:::note One kind, two spellings
+`get_document` and `set_document` spell the log-level kind `log-level`, with
+a hyphen. `get_recent_changes` (and the `collidingType` a create returns)
+spell the same kind `log_level`, with an underscore. Both are shipped wire
+enums and neither will be renamed, so translate when you move a kind between
+them. The tool descriptions say so too, which is what keeps an agent from
+guessing.
+:::
 
 Things the tools are good at, in practice:
 
@@ -87,6 +104,15 @@ Things the tools are good at, in practice:
   permission check the UI applies. `list_environments` first, so the agent
   uses the environment names your workspace actually has instead of
   guessing at `prod`.
+- **"Set the poll interval to 30s."** — `set_config` with
+  `environment: "default"`, because that's where most configs actually keep
+  their value. See [Scopes: an environment, or the default](#scopes-an-environment-or-the-default).
+- **"Turn on debug logging for the cache."** — `set_log_level` with a
+  `target` of the logger prefix. It changes that one rule and leaves the
+  rest of the service's levels alone.
+- **"Add a flag for the new onboarding flow."** — `create_flag` makes it,
+  off in every environment; enabling it anywhere is a separate, explicit
+  `set_flag`.
 - **"That was wrong — put it back."** — `get_document` reads the flag as it
   stood at the commit the bad write named, and `set_document` writes that
   version back. Two tool calls, no UI trip. See
@@ -118,26 +144,70 @@ a partial page is never the whole answer, so a "how many..." or "does any
 flag..." question must not be answered from a page that still carries a
 `nextCursor`.
 
-### Writing with `set_flag`
+### Scopes: an environment, or the default
 
-`set_flag` takes exactly one operation per call — toggle (`enabled`), serve a
-single value (`value`), or run a percentage `rollout` — and replaces that
-environment's rules with a single unconditional rule.
+Every write names a **scope**, and there are two kinds. A scope is either the
+name of one of your environments — from `list_environments`, never guessed —
+or the literal `"default"`, meaning the rules every environment *without its
+own entry* inherits.
 
-If the environment currently has **targeting rules**, the call fails instead
-of quietly deleting them: the agent gets back
+The distinction is the one worth internalising, because for a lot of items
+the value only lives in `default`: `environments` is empty and every
+environment reads through to it. Naming an environment there doesn't change
+the value everywhere, it **shadows** the default in that one environment and
+leaves the rest on the old value. So "turn this on everywhere" is usually
+`"default"`, and "turn it on in staging only" is `staging`.
+
+`"default"` is a reserved environment name, so the sentinel is never
+ambiguous with a real environment.
+
+### The three write shapes
+
+The six writes behave in three different ways, and the difference is
+behavioural rather than cosmetic — it decides when an agent has to come back
+and ask you something.
+
+**Replace — `set_flag` and `set_config`.** Each takes exactly one operation
+per call (for flags: toggle `enabled`, serve a single `value`, or run a
+percentage `rollout`) and replaces the scope's rules with one unconditional
+rule.
+
+If the scope currently has **targeting rules**, the call fails instead of
+quietly deleting them: the agent gets back
 `CONFLICT` / `TARGETING_RULES_PRESENT` naming how many rules are at stake, and
-has to retry with `replaceTargeting: true` to go through. The tool's own
-description instructs the agent to confirm with a human before that retry
+has to retry with `replaceTargeting: true` to go through. The tool
+descriptions instruct the agent to confirm with a human before that retry
 rather than deciding on its own.
 
-That confirmation matters because `set_flag` can only ever write a single
-unconditional rule, so **it cannot put multi-rule targeting back itself**. A
-successful write returns `previousCommitSha` (the version the rules were
-last stored in) and `replacedTargetingRuleCount` when targeting was
+That confirmation matters because these two can only ever write a single
+unconditional rule, so **they cannot put multi-rule targeting back
+themselves**. A successful write returns `previousCommitSha` (the version the
+rules were last stored in) and `replacedTargetingRuleCount` when targeting was
 genuinely destroyed; an agent that replaces targeting should report both
 back to whoever asked. Recovering those rules is a `get_document` /
 `set_document` pair — see below — not a UI trip.
+
+**Surgical — `set_log_level`.** The exception. There is one log-level
+document per *service*, and individual loggers live inside it as rules, so
+this tool adds or overwrites exactly one rule and leaves every sibling in
+place. Pass `target` — a logger path prefix — to set the level for that
+logger and everything under it, or omit it to set the scope's fallback level.
+It never has to ask before destroying targeting, because it never destroys
+any, and a repeated call converges instead of stacking duplicates. If the
+service has no document yet, the first write creates one (`created: true`).
+
+**Add — `create_flag` and `create_config`.** They only ever add a document.
+A flag is created off in every environment; a config is created serving one
+default value, plain (never encrypted) and at the standard access tier. A key
+that's already taken is refused with `ALREADY_EXISTS` and a `collidingType`
+saying what holds it — keys are pooled case-insensitively across flags,
+configs, segments and log levels. The tool descriptions are emphatic that an
+agent must never "retry" a create by mutating the key it was given; that's
+how a workspace ends up with three flags nobody can tell apart.
+
+For anything the six can't express — multi-rule targeting, variants,
+metadata, a schema binding — the answer is always the same: create or write
+the simple version, then reshape it with `set_document`.
 
 The full write semantics (value types, rollout percents, sticky bucketing,
 no-op writes, `expectedCommitSha`) are documented once, on the REST page:
@@ -147,9 +217,9 @@ no-op writes, `expectedCommitSha`) are documented once, on the REST page:
 
 `get_document` and `set_document` read and replace the JSON file Quonfig
 actually stores for a flag, config, or log level — `access`, `$schema`,
-`type` and all. They're the escape hatch for edits `set_flag` can't express
-(multi-rule targeting, variants, metadata) and the reason an agent can undo
-its own mistake.
+`type` and all. They're the escape hatch for edits the write verbs can't
+express (multi-rule targeting, variants, metadata) and the reason an agent
+can undo its own mistake — any write, not just a `set_flag`.
 
 The undo recipe is three tool calls:
 
@@ -232,9 +302,9 @@ own roles after a browser sign-in, the service account's roles when a key is
 used. Nothing is elevated for agents.
 
 So a read-only bot is just a service account with no config-tier role, and
-both writes fail with `FORBIDDEN` / `PERMISSION_DENIED` for a principal that
-can't edit that item — per flag and environment for `set_flag`, per access
-tier for `set_document`. See
+every write fails with `FORBIDDEN` / `PERMISSION_DENIED` for a principal that
+can't edit that item — per item and environment for `set_flag`, `set_config`
+and `set_log_level`, per access tier for `set_document` and the creates. See
 [Authorization](/docs/explanations/features/authorization) for how roles and
 config tiers compose.
 

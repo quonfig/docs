@@ -69,22 +69,24 @@ A useful pattern while working in a codebase: **"find every flag this service
 reads, and tell me which ones are still off in production."** The code search
 is local, the flag state comes from Quonfig, and the answer is one message.
 
-Fifteen tools are available — thirteen reads plus `set_flag` and
-`set_document`. See [Tools](/docs/api/mcp-server#tools) for the full list and
-what each returns.
+Twenty tools are available — fourteen reads plus six writes. See
+[Tools](/docs/api/mcp-server#tools) for the full list and what each returns.
 
 ### Writes ask first
 
-Two tools write: `set_flag` for the everyday change, and `set_document` for
-edits `set_flag` can't express. Claude Code asks your permission the first
-time it calls a tool, and both writes are annotated destructive so clients can
-keep confirming them after that.
+Six tools write: `set_flag` and `set_config` for the everyday change,
+`set_log_level` for logging, `create_flag` and `create_config` to add
+something new, and `set_document` for edits the others can't express. Claude
+Code asks your permission the first time it calls a tool, and the four
+changing writes are annotated destructive so clients can keep confirming them
+after that.
 
-If the environment you're changing has targeting rules, the server refuses the
+If the scope you're changing has targeting rules, the server refuses the
 write rather than silently replacing them, and says how many rules are at
 stake — and the tool's description tells Claude to bring that back to you
-before retrying with `replaceTargeting: true`. See
-[Writing with set_flag](/docs/api/mcp-server#writing-with-set_flag).
+before retrying with `replaceTargeting: true`. `set_log_level` is the
+exception: it edits one rule surgically and never has to ask. See
+[The three write shapes](/docs/api/mcp-server#the-three-write-shapes).
 
 If a change does turn out wrong, ask for it back: *"undo that"*. The bad
 write named the version it replaced, so Claude reads that version with

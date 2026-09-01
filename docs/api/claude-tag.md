@@ -115,7 +115,7 @@ description: Use for questions about feature flags, configs, and rollouts in Quo
 # Quonfig
 
 Feature flags and configuration, stored in git. The `quonfig` MCP server
-exposes thirteen read tools and two write tools.
+exposes fourteen read tools and six write tools.
 
 ## Answering questions
 
@@ -132,27 +132,49 @@ exposes thirteen read tools and two write tools.
   development and off in production; an answer that omits the environment is
   wrong more often than right.
 
-## Changing a flag
+## Changing a flag or config
 
-- `set_flag` is the everyday write, and it replaces the environment's rules
-  with a single unconditional rule.
-- Read the flag first, then say plainly what will change and in which
-  environment before you call it.
-- If it fails with `TARGETING_RULES_PRESENT`, the environment has targeting
-  rules that the write would delete. Show the rules and ask a human. Retry
-  with `replaceTargeting: true` only after someone in the thread agrees —
-  `set_flag` cannot put those rules back afterwards. Report the returned
+- `set_flag` and `set_config` are the everyday writes, and each REPLACES the
+  scope's rules with a single unconditional rule.
+- Read the item first, then say plainly what will change and in which scope
+  before you call it.
+- If it fails with `TARGETING_RULES_PRESENT`, the scope has targeting rules
+  that the write would delete. Show the rules and ask a human. Retry with
+  `replaceTargeting: true` only after someone in the thread agrees — neither
+  tool can put those rules back afterwards. Report the returned
   `previousCommitSha` and `replacedTargetingRuleCount` in the thread.
-- Never guess an environment name. Call `list_environments`; if the request
-  is ambiguous ("turn it off"), ask which environment.
+- Never guess an environment name. Call `list_environments`. A scope is
+  either one of those names or the literal `"default"` — the rules every
+  environment without its own entry inherits, which for most configs is the
+  only place a value is stored. Naming an environment SHADOWS the default
+  there; if the request is ambiguous ("turn it off"), ask which was meant.
+
+## Log levels
+
+- `set_log_level` is SURGICAL, unlike the two above: it adds or overwrites
+  exactly one rule and leaves every sibling in place, so it never needs a
+  confirmation to avoid destroying targeting.
+- `key` is the SERVICE (`log-level.api-delivery`) — there is one document
+  per service. Pass `target` (a logger path prefix) to change one logger, or
+  omit it to set the scope's fallback level. `list_log_levels` shows what is
+  stored.
+
+## Creating
+
+- `create_flag` and `create_config` only ADD. A new flag is created OFF in
+  every environment — enabling it is a separate `set_flag` call. A new
+  config needs an explicit `valueType`.
+- `ALREADY_EXISTS` means the key is taken; read `collidingType` to see by
+  what. NEVER retry a create with a mutated key — agree a different key
+  with a human instead.
 
 ## Raw documents and undo
 
 - `get_document` / `set_document` read and replace the stored JSON for a
-  flag, config, or log level (`type`: `flag`, `config`, or `log-level`).
-  Use them for edits `set_flag` cannot express — multi-rule targeting,
-  variants, metadata — and to undo a write. Log levels are reachable only
-  this way.
+  flag, config, or log level (`type`: `flag`, `config`, or `log-level` —
+  note the hyphen; `get_recent_changes` spells the same kind `log_level`).
+  Use them for edits the write verbs cannot express — multi-rule targeting,
+  variants, metadata — and to undo any write.
 - `set_document` is a FULL REPLACEMENT: a field you omit is deleted. Always
   start from a `get_document` result and edit it; never build the document
   by hand.
@@ -234,19 +256,18 @@ audit log tell the same story.
 
 ## What it can and can't do
 
-Fifteen tools — thirteen reads plus two writes, `set_flag` and
-`set_document`. The full list is on the
+Twenty tools — fourteen reads plus six writes. The full list is on the
 [MCP server](/docs/api/mcp-server#tools) page.
 
 A few things worth knowing before you turn it loose in a channel:
 
-- **The bot can never exceed its tier.** Both writes are permission-checked
+- **The bot can never exceed its tier.** Every write is permission-checked
   server-side on every call, exactly like a person clicking in the UI. A
   read-only service account is genuinely read-only, whatever anyone types in
   Slack.
-- **Targeting rules are protected.** A `set_flag` write that would delete an
-  environment's targeting rules is refused until someone confirms. See
-  [Writing with set_flag](/docs/api/mcp-server#writing-with-set_flag).
+- **Targeting rules are protected.** A `set_flag` or `set_config` write that
+  would delete a scope's targeting rules is refused until someone confirms.
+  See [The three write shapes](/docs/api/mcp-server#the-three-write-shapes).
 - **A bad change can be undone from the thread.** Every write names the
   version it replaced, and `get_document` / `set_document` read that version
   and put it back. See
