@@ -308,6 +308,14 @@ and `set_log_level`, per access tier for `set_document` and the creates. See
 [Authorization](/docs/explanations/features/authorization) for how roles and
 config tiers compose.
 
+A service-account key with no config-tier role goes one step further: the
+six write tools aren't listed for it at all, so an agent sees fourteen read
+tools and nothing that could change anything. That's a courtesy, not the
+control — the permission check on every call is what actually refuses a
+write, and it refuses one just the same if a client calls a tool it wasn't
+shown. But it means a read-only bot in a Slack channel answers "I can't
+change that" instead of trying six times first.
+
 One useful property: keys never carry org-level permissions, so a
 service-account key can't manage service accounts or billing — even if
 someone gives the account the admin role.
