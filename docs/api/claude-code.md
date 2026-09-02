@@ -81,11 +81,12 @@ Code asks your permission the first time it calls a tool, and the four
 changing writes are annotated destructive so clients can keep confirming them
 after that.
 
-If the scope you're changing has targeting rules, the server refuses the
-write rather than silently replacing them, and says how many rules are at
-stake — and the tool's description tells Claude to bring that back to you
-before retrying with `replaceTargeting: true`. `set_log_level` is the
-exception: it edits one rule surgically and never has to ask. See
+A write sets the scope's fallback — what users get when no targeting rule
+matches — and keeps the targeting rules above it, saying how many it kept.
+Asking for the value to apply to *everyone* is a different request:
+`replaceTargeting: true` deletes those rules, so the tool's description tells
+Claude to show you the rules and get your agreement first. `set_log_level`
+never destroys targeting at all. See
 [The three write shapes](/docs/api/mcp-server#the-three-write-shapes).
 
 If a change does turn out wrong, ask for it back: *"undo that"*. The bad

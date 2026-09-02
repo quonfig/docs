@@ -134,15 +134,19 @@ exposes fourteen read tools and six write tools.
 
 ## Changing a flag or config
 
-- `set_flag` and `set_config` are the everyday writes, and each REPLACES the
-  scope's rules with a single unconditional rule.
+- `set_flag` and `set_config` are the everyday writes, and each sets the
+  scope's FALLBACK: the unconditional rule at the end of its rule list, what
+  users receive when no targeting rule matches. Targeting rules above it are
+  kept — say so in the thread, naming the `preservedTargetingRuleCount` the
+  write returns. A scope with no rules of its own is copied from the default
+  rules first, so inherited targeting is kept too.
 - Read the item first, then say plainly what will change and in which scope
   before you call it.
-- If it fails with `TARGETING_RULES_PRESENT`, the scope has targeting rules
-  that the write would delete. Show the rules and ask a human. Retry with
-  `replaceTargeting: true` only after someone in the thread agrees — neither
-  tool can put those rules back afterwards. Report the returned
-  `previousCommitSha` and `replacedTargetingRuleCount` in the thread.
+- `replaceTargeting: true` is a different request: it sets the value for
+  everyone, deleting the scope's targeting rules. Show the rules and ask a
+  human; send it only after someone in the thread agrees — neither tool can
+  put those rules back afterwards. Report the returned `previousCommitSha`
+  and `replacedTargetingRuleCount` in the thread.
 - Never guess an environment name. Call `list_environments`. A scope is
   either one of those names or the literal `"default"` — the rules every
   environment without its own entry inherits, which for most configs is the

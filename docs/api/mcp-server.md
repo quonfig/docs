@@ -51,7 +51,7 @@ Twenty tools: fourteen reads and six writes.
 | `get_document` | The raw stored JSON for one flag, config, or log level — verbatim, and at any commit with `at`. |
 | `create_flag` | Create a flag. Boolean by default, off everywhere; pass `type` (and `value`) for any other kind. |
 | `create_config` | Create a config serving one default value. `valueType` is required. |
-| `set_flag` | Update what one scope of a flag serves — an environment, or the `default` every environment inherits. |
+| `set_flag` | Set what one scope of a flag serves when no targeting rule matches — an environment, or the `default` every environment inherits. |
 | `set_config` | The same, for a config's value. |
 | `set_log_level` | Set one service's level — for a whole scope, or for one logger prefix. Creates the document on first write. |
 | `set_document` | Replace the raw stored JSON for one flag, config, or log level. The escape hatch, and the undo. |
@@ -103,7 +103,10 @@ Things the tools are good at, in practice:
 - **"Kill the new pricing page in prod."** — `set_flag`, subject to the same
   permission check the UI applies. `list_environments` first, so the agent
   uses the environment names your workspace actually has instead of
-  guessing at `prod`.
+  guessing at `prod`. That sets the fallback; if the flag also has targeting
+  rules serving it to specific users, killing it for *them* too is
+  `replaceTargeting: true`, and the agent should show you those rules before
+  sending it.
 - **"Set the poll interval to 30s."** — `set_config` with
   `environment: "default"`, because that's where most configs actually keep
   their value. See [Scopes: an environment, or the default](#scopes-an-environment-or-the-default).
@@ -167,33 +170,35 @@ The six writes behave in three different ways, and the difference is
 behavioural rather than cosmetic — it decides when an agent has to come back
 and ask you something.
 
-**Replace — `set_flag` and `set_config`.** Each takes exactly one operation
+**Fallback — `set_flag` and `set_config`.** Each takes exactly one operation
 per call (for flags: toggle `enabled`, serve a single `value`, or run a
-percentage `rollout`) and replaces the scope's rules with one unconditional
-rule.
+percentage `rollout`) and sets the scope's **fallback**: the unconditional
+rule at the end of its rule list, what users receive when no targeting rule
+matches.
 
-If the scope currently has **targeting rules**, the call fails instead of
-quietly deleting them: the agent gets back
-`CONFLICT` / `TARGETING_RULES_PRESENT` naming how many rules are at stake, and
-has to retry with `replaceTargeting: true` to go through. The tool
-descriptions instruct the agent to confirm with a human before that retry
-rather than deciding on its own.
+Targeting rules and rollouts above the fallback are **kept**, and the result
+reports how many in `preservedTargetingRuleCount` (omitted when there are
+none) — the tool descriptions tell the agent to pass that number back to you.
+If the scope has no rules of its own, they are copied from the item's default
+rules first, so inherited targeting is kept too.
 
-That confirmation matters because these two can only ever write a single
-unconditional rule, so **they cannot put multi-rule targeting back
-themselves**. A successful write returns `previousCommitSha` (the version the
-rules were last stored in) and `replacedTargetingRuleCount` when targeting was
-genuinely destroyed; an agent that replaces targeting should report both
-back to whoever asked. Recovering those rules is a `get_document` /
-`set_document` pair — see below — not a UI trip.
+`replaceTargeting: true` is the opt-in to the everyone case: the scope
+collapses to one unconditional rule and its targeting rules are deleted. That
+one needs confirming with a human, because these two tools can only ever
+write a single unconditional rule and so **cannot put multi-rule targeting
+back themselves**. Such a write returns `previousCommitSha` (the version the
+rules were last stored in) and `replacedTargetingRuleCount`; an agent that
+replaces targeting should report both back to whoever asked. Recovering those
+rules is a `get_document` / `set_document` pair — see below — not a UI trip.
 
-**Surgical — `set_log_level`.** The exception. There is one log-level
+**Surgical — `set_log_level`.** Surgical in a second sense: the two above
+replace one rule, this one edits any rule. There is one log-level
 document per *service*, and individual loggers live inside it as rules, so
 this tool adds or overwrites exactly one rule and leaves every sibling in
 place. Pass `target` — a logger path prefix — to set the level for that
 logger and everything under it, or omit it to set the scope's fallback level.
-It never has to ask before destroying targeting, because it never destroys
-any, and a repeated call converges instead of stacking duplicates. If the
+It has no `replaceTargeting` at all, because it never destroys targeting, and
+a repeated call converges instead of stacking duplicates. If the
 service has no document yet, the first write creates one (`created: true`).
 
 **Add — `create_flag` and `create_config`.** They only ever add a document.

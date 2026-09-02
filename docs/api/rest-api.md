@@ -334,8 +334,9 @@ deliberately narrow, and it stays that way — anything it can't express
 (multi-rule targeting, variants, metadata, and undo) goes through
 [the document endpoints](#raw-documents) instead.
 
-It sets what one environment serves, expressed as **exactly one** of three
-operations:
+It sets the environment's **fallback** — the unconditional rule at the end of
+its rule list, what users receive when no targeting rule matches — expressed
+as **exactly one** of three operations:
 
 | Operation | Body | For |
 |---|---|---|
@@ -383,29 +384,38 @@ The write is permission-checked exactly like the UI: the key's principal
 needs edit permission for this flag in this environment, or the request
 fails with `403` and `details.code: "PERMISSION_DENIED"`.
 
-### The targeting-rule guard
+### Targeting rules are kept
 
-The PATCH replaces the environment's rules with a single unconditional
-rule. If the environment currently has **targeting rules** (anything beyond
-serve-everyone), the write fails closed with `409` and
-`details.code: "TARGETING_RULES_PRESENT"` rather than silently deleting
-them. `details.ruleCount` says how many rules are at stake. The guard is
-re-checked on every attempt, so a concurrent edit that *adds* targeting
-turns an in-flight retry into this rejection instead of a silent delete.
+The PATCH changes **one rule** — the environment's fallback. Targeting rules
+and percentage rollouts above it are kept, in order, and the response says
+how many:
 
-To deliberately replace targeting, resend with:
+- `preservedTargetingRuleCount` — how many targeting rules the write kept.
+  Omitted when there are none. The trailing unconditional fallback is the
+  value you just set, not a targeting rule, so it is never counted.
+
+If the environment has **no rules of its own** it inherits the flag's
+`default` rules. Those rules are copied into the environment first, then the
+fallback is set — so the targeting it was inheriting keeps working, the same
+shape the app writes when an environment stops inheriting. Writing the
+`"default"` scope itself never needs the copy.
+
+To set the value for **everyone**, including users matched by targeting
+rules, send:
 
 ```json
 { "enabled": false, "replaceTargeting": true }
 ```
 
 :::danger `replaceTargeting` deletes rules this endpoint can't rewrite
-This endpoint can only ever write **one unconditional rule**, so no PATCH —
-not this one, not another — can reconstruct the targeting it replaced.
-Treat `replaceTargeting: true` as a confirm-with-a-human step, not a retry
-flag.
+That collapses the environment to **one unconditional rule** and deletes its
+targeting rules. No PATCH — not this one, not another — can reconstruct
+them, because this endpoint only ever writes that single rule. Treat
+`replaceTargeting: true` as a confirm-with-a-human step, not a flag to reach
+for by default: without it the write keeps the targeting and tells you it
+did.
 
-It is recoverable, though, and the response tells you exactly what you need:
+It is recoverable, and the response tells you exactly what you need:
 
 - `replacedTargetingRuleCount` — how many rules the single unconditional
   rule replaced. Present *only* when real targeting was destroyed; a plain
@@ -659,10 +669,11 @@ Two consequences worth stating plainly:
 - **Undo is a normal write.** It commits forward, attributed to your key,
   with the bad commit still in history. Nothing is rewritten or lost, and
   `qfg`, the app, and this API all agree on what happened.
-- **It recovers what the PATCH can't.** Rules deleted by a
-  `replaceTargeting: true` PATCH come back through this recipe, because the
-  document endpoint can write the multi-rule document the PATCH could only
-  overwrite. That's the reason the pair exists.
+- **It recovers what the PATCH can't.** A `replaceTargeting: true` PATCH is
+  the only write that deletes targeting rules, and they come back through
+  this recipe, because the document endpoint can write the multi-rule
+  document the PATCH could only overwrite. That's the reason the pair
+  exists.
 
 ### Log levels
 
@@ -723,8 +734,7 @@ causes. Match on `error` (and `details.code`), never on `message` text.
 | 402 | `BILLING_INACTIVE` | — | The organization's subscription is inactive |
 | 403 | `FORBIDDEN` | `PERMISSION_DENIED` | The key's principal can't edit this flag in this environment, or can't move a document between `access` tiers |
 | 404 | `NOT_FOUND` | — | Unknown flag/config/log-level key, environment, or path; a PUT to a key that doesn't exist; a key that didn't exist yet at the requested `?at` commit |
-| 409 | `CONFLICT` | `TARGETING_RULES_PRESENT` | PATCH would replace targeting rules without `replaceTargeting: true` (the document endpoints have no such guard) |
-| 409 | `CONFLICT` | `STALE_COMMIT_SHA` | `expectedCommitSha` no longer matches — the only 409 the document endpoints raise |
+| 409 | `CONFLICT` | `STALE_COMMIT_SHA` | `expectedCommitSha` no longer matches — the only 409 any endpoint raises |
 | 422 | `UNPROCESSABLE_CONTENT` | `VERIFY_REJECTION` | The change was rejected by config validation |
 | 422 | `UNPROCESSABLE_CONTENT` | — | The content stored at the requested `?at` commit isn't a JSON object |
 | 429 | — | — | [Rate limit exceeded](#rate-limits) — honor `Retry-After` |

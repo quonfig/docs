@@ -485,15 +485,18 @@ For the full picture — how the override rule is stored, how SDKs inject your i
 
 ### Targeting rules
 
-Quonfig evaluates a flag by walking its rules in order. The CLI gives you three ways to change what those rules return:
+Quonfig evaluates a flag by walking its rules in order, and the last rule is normally the **fallback**: an unconditional rule that decides what users receive when no targeting rule matches. The CLI gives you these ways to change what those rules return:
 
 | You want to…                                    | Use                 |
 |-------------------------------------------------|---------------------|
-| Set the catch-all fallback (what everyone else gets) | `qfg set-default`   |
+| Set the fallback (what users get when no targeting rule matches) | `qfg set-default`   |
 | Run a percentage rollout / A-B test / canary    | `qfg set-rollout`   |
+| Set one value for EVERYONE, deleting that environment's targeting rules | `qfg set-default --replace-targeting` |
 | Target by user email, plan, segment, or any custom property | Edit the JSON config directly |
 
-`override` is deliberately NOT on this list — it only affects *your* SDK key. For production targeting, reach for one of the three above.
+`set-default` and `set-rollout` change only the fallback: every targeting rule in that environment is kept unless you pass `--replace-targeting`.
+
+`override` is deliberately NOT on this list — it only affects *your* SDK key. For production targeting, reach for one of the options above.
 
 #### Editing JSON directly
 
@@ -608,15 +611,37 @@ On success, prints the workspace ID, slug, Gitea repo URL, and the default envir
 
 ### set-default
 
-`qfg set-default NAME` allows you to change the default value for an environment. Any rules defined for that environment will still apply; only the default is changed.
+`qfg set-default NAME` sets the **fallback** value for a flag or config in one environment — the unconditional rule at the end of that environment's rule list, i.e. what users receive when no targeting rule matches.
 
-This can be particularly helpful for flipping a flag on or off for everyone.
-
-Example:
+Targeting rules and percentage rollouts above the fallback are **kept**, and the command reports how many:
 
 ```bash
 qfg set-default my.flag.name --value=true --environment=staging
+# ✔ Set staging fallback to `true`. Kept 2 targeting rule(s); matched users still
+#   receive their targeted value. To set for everyone, add --replace-targeting.
 ```
+
+If the environment has no rules of its own yet it inherits the flag's `default` rules. Those rules are **copied into the environment first**, then the fallback is set — so the targeting it was inheriting keeps working, the same shape the UI writes when an environment stops inheriting.
+
+To turn a flag on or off for **everyone**, including users matched by targeting rules, add `--replace-targeting`. That collapses the environment to a single unconditional rule and deletes its targeting rules:
+
+```bash
+qfg set-default my.flag.name --value=false --environment=production --replace-targeting
+# ✔ Set production to `false` for everyone. Replaced 2 targeting rule(s); previous version 9f2c1ab.
+```
+
+The deleted rules stay in git history — `previous version` names the commit to restore from. Under `--json` the same numbers come back as `previousCommitSha` + `replacedTargetingRuleCount`; a normal (surgical) write returns `keptTargetingRuleCount`.
+
+### set-rollout
+
+`qfg set-rollout NAME` makes a percentage rollout (gradual rollout / A-B test / canary) the environment's fallback:
+
+```bash
+qfg set-rollout my.flag --environment production --true-percent 20
+qfg set-rollout my.flag --environment production --weights "red:33,green:33,blue:34"
+```
+
+It follows the same rules as `set-default`: targeting rules above the fallback are kept and reported, an environment with no rules of its own is copied from `default` first, and `--replace-targeting` rolls everyone into the split by deleting that environment's targeting rules.
 
 ### create
 
