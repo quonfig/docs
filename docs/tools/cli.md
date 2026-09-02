@@ -613,7 +613,7 @@ On success, prints the workspace ID, slug, Gitea repo URL, and the default envir
 
 `qfg set-default NAME` sets the **fallback** value for a flag or config in one environment — the unconditional rule at the end of that environment's rule list, i.e. what users receive when no targeting rule matches.
 
-Targeting rules and percentage rollouts above the fallback are **kept**, and the command reports how many:
+Targeting rules and percentage rollouts above the fallback are **kept**, and the command reports how many (an environment with no targeting rules gets no such sentence):
 
 ```bash
 qfg set-default my.flag.name --value=true --environment=staging
@@ -630,7 +630,7 @@ qfg set-default my.flag.name --value=false --environment=production --replace-ta
 # ✔ Set production to `false` for everyone. Replaced 2 targeting rule(s); previous version 9f2c1ab.
 ```
 
-The deleted rules stay in git history — `previous version` names the commit to restore from. Under `--json` the same numbers come back as `previousCommitSha` + `replacedTargetingRuleCount`; a normal (surgical) write returns `keptTargetingRuleCount`.
+The deleted rules stay in git history — `previous version` names the commit to restore from. Under `--json` the same numbers come back as `previousCommitSha` + `replacedTargetingRuleCount`; a normal (surgical) write returns `keptTargetingRuleCount`. Both counts are **omitted when they are 0**, so a script should treat a missing field as "no targeting rules were involved", not as an error.
 
 ### set-rollout
 
