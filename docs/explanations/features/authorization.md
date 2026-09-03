@@ -301,6 +301,8 @@ These two roles are **not self-serve** — they don't appear in your role picker
 
 **Admin** manages workspace plumbing — invites, role assignment, billing, environments, SDK keys, integrations. It grants **no** config editing and stacks with the roles above: an EM can manage the team without being able to edit pricing, and a senior IC can hold Protected Engineer without being on the hook for billing.
 
+Only Admins create workspaces. The person who creates an organization at sign-up holds Admin plus Protected Engineer from the start; no other action in Quonfig changes anyone's roles — an Admin assigns them.
+
 SDK-key management is the one place the axes meet: an Admin manages keys in any environment; otherwise the config role decides — Protected Engineer anywhere, Engineer in non-protected environments, Support not at all.
 
 ## Where authorization is enforced
