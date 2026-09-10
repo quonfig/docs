@@ -80,7 +80,9 @@ end
 
 </summary>
 
-Ruby threads do not survive `fork(2)`, so a forked child needs its own Quonfig client. **On Ruby 3.1+ the SDK handles this for you.** It installs a `Process._fork` hook at load time that rebuilds the client's threads in the child, covering Puma clustered mode, Unicorn workers, Spring, Resque, the `parallel` gem, and a plain `fork { ... }` inside a Sidekiq job. No wiring is required.
+Ruby threads do not survive `fork(2)`, so a forked child needs its own Quonfig client. **On Ruby 3.1+ the SDK handles this for you.** It installs a `Process._fork` hook at load time, covering Puma clustered mode, Unicorn workers, Spring, Resque, the `parallel` gem, and a plain `fork { ... }` inside a Sidekiq job. No wiring is required.
+
+**After a fork, the child re-initializes on its first use of the client, exactly like a newly constructed client: it fetches its own config and starts its own threads. It does not evaluate from the parent's snapshot.** The hook itself does no I/O. So the first call in a forked child pays one fetch, and a child that never uses the client costs nothing — no fetch, no stream, no thread.
 
 **A fork never touches the process that forked.** The parent keeps its stream, its poller, and its live config straight through any number of forks — so a long-lived process that forks workers *and keeps evaluating* stays current. (Before 1.4.0 the SDK tore the parent's stream down before the fork syscall, and the parent stopped receiving updates permanently. If you fork from a process that keeps evaluating, upgrade to 1.4.0 or later.)
 
@@ -91,7 +93,7 @@ If you use SemanticLogger, you still need to reopen the logger in each fork.
 <Tabs groupId="lang">
 <TabItem value="puma" label="Puma">
 
-On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — and do **not** call `Quonfig.fork` alongside it. The hook has already rebuilt the client by the time `on_worker_boot` runs, so a second rebuild leaves the worker holding two live SSE streams and two telemetry reporters, and the orphaned pair is never stopped:
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — and leave `Quonfig.fork` out of that block. The SDK has already handled the fork by the time `on_worker_boot` runs, so calling it there is unnecessary: it discards the client the hook prepared and builds a second one in its place (and if the worker has already used the client, the first one's stream and reporter are orphaned):
 
 ```ruby
 # puma.rb (Ruby 3.1+)
@@ -116,7 +118,7 @@ Do **not** add a `before_fork { Quonfig.instance.stop }` — the master does not
 
 <TabItem value="unicorn" label="Unicorn">
 
-On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — and do **not** call `Quonfig.fork` alongside it, for the same reason as Puma above (the hook has already rebuilt; a second rebuild orphans a live stream and reporter per worker):
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — and leave `Quonfig.fork` out of that block, for the same reason as Puma above (the SDK has already handled the fork; calling it just replaces the client the hook prepared):
 
 ```ruby
 # unicorn.rb (Ruby 3.1+)
