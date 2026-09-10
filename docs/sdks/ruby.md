@@ -91,12 +91,21 @@ If you use SemanticLogger, you still need to reopen the logger in each fork.
 <Tabs groupId="lang">
 <TabItem value="puma" label="Puma">
 
-On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, or you are on Ruby 3.0 (which has no `Process._fork` hook), use an `on_worker_boot` hook in your `puma.rb`:
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — and do **not** call `Quonfig.fork` alongside it. The hook has already rebuilt the client by the time `on_worker_boot` runs, so a second rebuild leaves the worker holding two live SSE streams and two telemetry reporters, and the orphaned pair is never stopped:
 
 ```ruby
-# puma.rb
+# puma.rb (Ruby 3.1+)
 on_worker_boot do
-  Quonfig.fork        # Ruby 3.0 only — automatic on 3.1+
+  SemanticLogger.reopen # only if you are using SemanticLogger
+end
+```
+
+On Ruby 3.0 (which has no `Process._fork` hook), rebuild the client yourself:
+
+```ruby
+# puma.rb (Ruby 3.0 only)
+on_worker_boot do
+  Quonfig.fork          # rebuild a fresh client per worker
   SemanticLogger.reopen # if you are using SemanticLogger
 end
 ```
@@ -107,12 +116,21 @@ Do **not** add a `before_fork { Quonfig.instance.stop }` — the master does not
 
 <TabItem value="unicorn" label="Unicorn">
 
-On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, or you are on Ruby 3.0, use an `after_fork` hook in your `unicorn.rb`:
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — and do **not** call `Quonfig.fork` alongside it, for the same reason as Puma above (the hook has already rebuilt; a second rebuild orphans a live stream and reporter per worker):
 
 ```ruby
-# unicorn.rb
+# unicorn.rb (Ruby 3.1+)
 after_fork do |server, worker|
-  Quonfig.fork        # Ruby 3.0 only — automatic on 3.1+
+  SemanticLogger.reopen # only if you are using SemanticLogger
+end
+```
+
+On Ruby 3.0, rebuild the client yourself:
+
+```ruby
+# unicorn.rb (Ruby 3.0 only)
+after_fork do |server, worker|
+  Quonfig.fork          # rebuild a fresh client per worker
   SemanticLogger.reopen # if you are using SemanticLogger
 end
 ```
@@ -123,12 +141,15 @@ end
 
 Sidekiq OSS runs jobs on threads, so `Quonfig.init` in your initializer is sufficient — there is nothing to wire up.
 
-Jobs that fork (the `parallel` gem, an explicit `fork { ... }`, Sidekiq Enterprise swarm) are covered automatically on Ruby 3.1+, and the Sidekiq process itself keeps streaming config throughout. On Ruby 3.0, call `Quonfig.fork` at the top of the forked block:
+Jobs that fork (the `parallel` gem, an explicit `fork { ... }`, Sidekiq Enterprise swarm) are covered automatically on Ruby 3.1+, with nothing to call, and the Sidekiq process itself keeps streaming config throughout.
+
+Ruby 3.0 is end-of-life and has no `Process._fork` hook. The `parallel` gem has no per-worker boot hook to wire a rebuild into either — `Parallel.each` just runs your block in each child, once per row — so calling `Quonfig.fork` at the top of the block builds a **new client per row**, each with its own SSE stream and telemetry reporter. Upgrade to 3.1+ if you can. If you must stay on 3.0, rebuild once per child process by memoizing on the pid:
 
 ```ruby
-# Ruby 3.0 only
+# Ruby 3.0 only — one rebuild per child process, not one per row.
 Parallel.each(batch, in_processes: 4) do |row|
-  Quonfig.fork
+  Quonfig.fork if $quonfig_pid != Process.pid
+  $quonfig_pid = Process.pid
   # ...
 end
 ```
