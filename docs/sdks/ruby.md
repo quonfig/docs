@@ -76,37 +76,60 @@ end
 <details className="alert--warning">
 <summary>
 
-#### Special Considerations with Forking servers like Puma & Unicorn that use workers
+#### Forking servers and forking jobs
 
 </summary>
 
-Many ruby web servers fork. In order to work properly we should have a Quonfig Client running independently in each fork. You do not need to do this if you are only using threads and not workers.
-If using SemanticLogger, you will also need to reopen the logger in each fork.
+Ruby threads do not survive `fork(2)`, so a forked child needs its own Quonfig client. **On Ruby 3.1+ the SDK handles this for you.** It installs a `Process._fork` hook at load time that rebuilds the client's threads in the child, covering Puma clustered mode, Unicorn workers, Spring, Resque, the `parallel` gem, and a plain `fork { ... }` inside a Sidekiq job. No wiring is required.
+
+**A fork never touches the process that forked.** The parent keeps its stream, its poller, and its live config straight through any number of forks — so a long-lived process that forks workers *and keeps evaluating* stays current. (Before 1.4.0 the SDK tore the parent's stream down before the fork syscall, and the parent stopped receiving updates permanently. If you fork from a process that keeps evaluating, upgrade to 1.4.0 or later.)
+
+Sidekiq OSS itself does **not** fork — it runs jobs on threads in one process — so `Quonfig.init` in your initializer is all it needs.
+
+If you use SemanticLogger, you still need to reopen the logger in each fork.
 
 <Tabs groupId="lang">
 <TabItem value="puma" label="Puma">
 
-If using workers in Puma, you can initialize inside an on_worker_boot hook in your puma.rb config file.
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, or you are on Ruby 3.0 (which has no `Process._fork` hook), use an `on_worker_boot` hook in your `puma.rb`:
 
 ```ruby
 # puma.rb
 on_worker_boot do
-  Quonfig.fork
+  Quonfig.fork        # Ruby 3.0 only — automatic on 3.1+
+  SemanticLogger.reopen # if you are using SemanticLogger
+end
+```
+
+Do **not** add a `before_fork { Quonfig.instance.stop }` — the master does not need to be torn down for the workers to be healthy, and stopping it means the master stops receiving config.
+
+</TabItem>
+
+<TabItem value="unicorn" label="Unicorn">
+
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, or you are on Ruby 3.0, use an `after_fork` hook in your `unicorn.rb`:
+
+```ruby
+# unicorn.rb
+after_fork do |server, worker|
+  Quonfig.fork        # Ruby 3.0 only — automatic on 3.1+
   SemanticLogger.reopen # if you are using SemanticLogger
 end
 ```
 
 </TabItem>
 
-<TabItem value="unicorn" label="Unicorn">
+<TabItem value="sidekiq" label="Sidekiq">
 
-If using workers in Unicorn, you can initialize inside an after_fork hook in your unicorn.rb config file:
+Sidekiq OSS runs jobs on threads, so `Quonfig.init` in your initializer is sufficient — there is nothing to wire up.
+
+Jobs that fork (the `parallel` gem, an explicit `fork { ... }`, Sidekiq Enterprise swarm) are covered automatically on Ruby 3.1+, and the Sidekiq process itself keeps streaming config throughout. On Ruby 3.0, call `Quonfig.fork` at the top of the forked block:
 
 ```ruby
-# unicorn.rb
-after_fork do |server, worker|
+# Ruby 3.0 only
+Parallel.each(batch, in_processes: 4) do |row|
   Quonfig.fork
-  SemanticLogger.reopen # if you are using SemanticLogger
+  # ...
 end
 ```
 
@@ -397,7 +420,7 @@ SemanticLogger.add_appender(
 ```
 
 :::caution
-Please read the [Puma/Unicorn](ruby#special-considerations-with-forking-servers-like-puma--unicorn-that-use-workers) notes for special considerations with forking servers.
+Please read the [Puma/Unicorn](ruby#forking-servers-and-forking-jobs) notes for special considerations with forking servers.
 :::
 
 </TabItem>
