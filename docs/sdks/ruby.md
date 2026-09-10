@@ -82,9 +82,21 @@ end
 
 Ruby threads do not survive `fork(2)`, so a forked child needs its own Quonfig client. **On Ruby 3.1+ the SDK handles this for you.** It installs a `Process._fork` hook at load time, covering Puma clustered mode, Unicorn workers, Spring, Resque, the `parallel` gem, and a plain `fork { ... }` inside a Sidekiq job. No wiring is required.
 
-**After a fork, the child re-initializes on its first use of the client, exactly like a newly constructed client: it fetches its own config and starts its own threads. It does not evaluate from the parent's snapshot.** The hook itself does no I/O. So the first call in a forked child pays one fetch, and a child that never uses the client costs nothing — no fetch, no stream, no thread.
+**After a fork, the child re-initializes on its first use of the client, exactly like a newly constructed client — including its `on_init_failure` policy: it fetches its own config and starts its own threads. It does not evaluate from the parent's snapshot.** The hook itself does no I/O. So the first call in a forked child pays one fetch, and a child that never uses the client costs nothing — no fetch, no stream, no thread.
+
+That first fetch **blocks**, and it blocks every other thread that reaches the client while it is in flight — they wait for it and then see the fetched config. One fetch, one stream dial, and one telemetry reporter per child, however many threads race the first request.
+
+With the default `on_init_failure: :return`, a failed first fetch logs one line and the child serves defaults until its stream or poller lands an envelope. With `on_init_failure: :raise`, the failure **raises out of that first lookup**, exactly as `Quonfig::Client.new` would, and later lookups keep raising — without re-fetching — until the update channel lands an envelope.
+
+`connection_state` never triggers the re-initialization: a diagnostic must not open a socket. A child that has not used the client yet reports `:initializing`, and flips to `:connected` on first use.
+
+**Per-job forking pays per job.** A Resque-style worker that forks a child per job (or `Parallel.map` with one row per process) pays, in each child that touches the client, one config fetch, one SSE dial, and one telemetry POST at exit. That is the price of the child holding its own current config and its own telemetry window, and it is deliberate — the delivery service counts each of those connections as a real client. A child that never uses the client pays none of it.
 
 **A fork never touches the process that forked.** The parent keeps its stream, its poller, and its live config straight through any number of forks — so a long-lived process that forks workers *and keeps evaluating* stays current. (Before 1.4.0 the SDK tore the parent's stream down before the fork syscall, and the parent stopped receiving updates permanently. If you fork from a process that keeps evaluating, upgrade to 1.4.0 or later.)
+
+:::note Upgrading from 1.3.0 or earlier
+If you added a manual `Quonfig.instance.after_fork_in_child` call **in the parent** as a workaround for the parent going dark, remove it. As of 1.4.0 that call is a no-op in any process that still owns live SDK components, so it will not hurt you — but it is no longer doing anything, and the parent needs no call.
+:::
 
 Sidekiq OSS itself does **not** fork — it runs jobs on threads in one process — so `Quonfig.init` in your initializer is all it needs.
 
