@@ -90,12 +90,14 @@ With the default `on_init_failure: :return`, a failed first fetch logs one line 
 
 `connection_state` never triggers the re-initialization: a diagnostic must not open a socket. A child that has not used the client yet reports `:initializing`, and flips to `:connected` on first use.
 
-**Per-job forking pays per job.** A Resque-style worker that forks a child per job (or `Parallel.map` with one row per process) pays, in each child that touches the client, one config fetch, one SSE dial, and one telemetry POST at exit. That is the price of the child holding its own current config and its own telemetry window, and it is deliberate — the delivery service counts each of those connections as a real client. A child that never uses the client pays none of it.
+**Per-job forking pays per job.** A Resque-style worker that forks a child per job (or `Parallel.map` with one row per process) pays, in each child that touches the client, one config fetch, one SSE dial, and — when the child exits normally — one telemetry POST at exit. That is the price of the child holding its own current config and its own telemetry window, and it is deliberate — the delivery service counts each of those connections as a real client. A child that never uses the client pays none of it.
+
+The at-exit drain depends on the child running `at_exit` handlers at all. `Parallel` children do. **Resque children call `exit!` by default**, which skips every `at_exit` handler — so there is no drain and no telemetry POST unless you set `RUN_AT_EXIT_HOOKS=1`. Nothing else about the child changes; it just never flushes the evaluations it collected.
 
 **A fork never touches the process that forked.** The parent keeps its stream, its poller, and its live config straight through any number of forks — so a long-lived process that forks workers *and keeps evaluating* stays current. (Before 1.4.0 the SDK tore the parent's stream down before the fork syscall, and the parent stopped receiving updates permanently. If you fork from a process that keeps evaluating, upgrade to 1.4.0 or later.)
 
 :::note Upgrading from 1.3.0 or earlier
-If you added a manual `Quonfig.instance.after_fork_in_child` call **in the parent** as a workaround for the parent going dark, remove it. As of 1.4.0 that call is a no-op in any process that still owns live SDK components, so it will not hurt you — but it is no longer doing anything, and the parent needs no call.
+If you added a manual `Quonfig.instance.after_fork_in_child` call **in the parent** as a workaround for the parent going dark, remove it. As of 1.4.0 that call is a no-op in the process that owns the client — the SDK decides that by comparing the current pid against the one it stamped when the client was built, so it is exact whether or not the parent has any threads running. It will not hurt you, but it is no longer doing anything, and the parent needs no call.
 :::
 
 Sidekiq OSS itself does **not** fork — it runs jobs on threads in one process — so `Quonfig.init` in your initializer is all it needs.
