@@ -45,11 +45,43 @@ the remote CDN.
 <details className="alert--warning">
 <summary>
 
-#### Special Considerations with Forking servers like Gunicorn that use workers
+#### Forking servers (Gunicorn `--preload`, Celery prefork, uWSGI, `multiprocessing`)
 
 </summary>
 
-Webservers like gunicorn can be configured to either use threads or fork child process workers. When forking, the Quonfig SDK client must be re-created in order to continue to fetch updated configuration.
+**As of `quonfig` 1.4.0, no wiring is required on POSIX.** Importing `quonfig`
+installs a child-only `os.register_at_fork` handler. A client built in the
+master is re-initialized in each forked worker on that worker's first use:
+the worker fetches its own config and opens its own SSE stream, and the
+master is never touched. A forked worker that never calls the SDK costs
+nothing. Details, platform notes (gevent, uWSGI `--enable-threads`, macOS)
+and the exact list of calls that trigger the rebuild are in the SDK README's
+["Forking servers" section](https://github.com/quonfig/sdk-python#forking-servers-gunicorn---preload-celery-uwsgi-multiprocessing).
+
+Two things worth knowing:
+
+- The **first evaluation** in a forked worker pays one config fetch, under the
+  usual `init_timeout_ms` / `on_init_failure` rules. To pay it before the
+  first request instead, call `init()` on the master-built client in the
+  worker's post-fork hook (only under `--preload`; a client that was built in
+  the worker is already fresh and must not be `init()`ed twice):
+
+```python
+# gunicorn.conf.py, with --preload
+def post_fork(server, worker):
+    from myapp import client   # the client built and init()ed in the master
+    client.init()              # re-initializes this worker now instead of on first use
+```
+
+- Health accessors such as `connection_state()` and `ready()` are
+  diagnostic-only: in a worker that has not evaluated anything yet they report
+  the pre-start state (`initializing`, `False`) without starting threads or
+  making a request.
+
+**Before 1.4.0** the SDK had no fork handling: a forked worker inherited dead
+background threads, stopped receiving updates, and `connection_state()` kept
+reporting `connected`. If you are on an older version, upgrade — or re-create
+the client after the fork:
 
 ```python
 from quonfig import Quonfig
@@ -60,20 +92,10 @@ def post_worker_init(worker):
     client = Quonfig().init()
 ```
 
-You may also do something like using uWSGI decorators
-
-```python
-from quonfig import Quonfig
-
-@uwsgidecorators.postfork
-def post_fork():
-    global client
-    client = Quonfig().init()
-```
-
-
-This re-creates the SDK client after forking to ensure proper configuration updates.
-
+The same shape works with `@uwsgidecorators.postfork`. Re-creating the client
+after the fork is also the right move under **gevent** with a monkey-patched
+master, and on **macOS** development machines, where a forked child that makes
+HTTPS requests can be killed by the platform regardless of the SDK.
 
 </details>
 
