@@ -76,37 +76,97 @@ end
 <details className="alert--warning">
 <summary>
 
-#### Special Considerations with Forking servers like Puma & Unicorn that use workers
+#### Forking servers and forking jobs
 
 </summary>
 
-Many ruby web servers fork. In order to work properly we should have a Quonfig Client running independently in each fork. You do not need to do this if you are only using threads and not workers.
-If using SemanticLogger, you will also need to reopen the logger in each fork.
+Ruby threads do not survive `fork(2)`, so a forked child needs its own Quonfig client. **On Ruby 3.1+ the SDK handles this for you.** It installs a `Process._fork` hook at load time, covering Puma clustered mode, Unicorn workers, Spring, Resque, the `parallel` gem, and a plain `fork { ... }` inside a Sidekiq job. No wiring is required.
+
+**After a fork, the child re-initializes on its first use of the client, exactly like a newly constructed client — including its `on_init_failure` policy: it fetches its own config and starts its own threads. It does not evaluate from the parent's snapshot.** The hook itself does no I/O. So the first call in a forked child pays one fetch, and a child that never uses the client costs nothing — no fetch, no stream, no thread.
+
+That first fetch **blocks**, and it blocks every other thread that reaches the client while it is in flight — they wait for it and then see the fetched config. One fetch, one stream dial, and one telemetry reporter per child, however many threads race the first request.
+
+**The default is `on_init_failure: :raise`**, so if the child's fetch fails against every `api_urls` leg (primary and secondary both unreachable) the failure **raises out of that first lookup**, exactly as `Quonfig::Client.new` would at boot, and later lookups keep raising — without re-fetching — until the update channel lands an envelope. On 1.3.0 and earlier a child in that situation silently served the parent's snapshot. If you would rather a forked child serve defaults through an outage, set `on_init_failure: :return`: a failed first fetch then logs one line and the child serves defaults until its stream or poller lands an envelope.
+
+`connection_state` never triggers the re-initialization: a diagnostic must not open a socket. A child that has not used the client yet reports `:initializing`, and flips to `:connected` on first use.
+
+**Per-job forking pays per job.** A Resque-style worker that forks a child per job (or `Parallel.map` with one row per process) pays, in each child that touches the client, one config fetch, one SSE dial, and — when the child exits normally — one telemetry POST at exit. That is the price of the child holding its own current config and its own telemetry window, and it is deliberate — the delivery service counts each of those connections as a real client. A child that never uses the client pays none of it.
+
+The at-exit drain depends on the child running `at_exit` handlers at all. `Parallel` children do. **Resque children call `exit!` by default**, which skips every `at_exit` handler — so there is no drain and no telemetry POST unless you set `RUN_AT_EXIT_HOOKS=1`. Nothing else about the child changes; it just never flushes the evaluations it collected.
+
+**A fork never touches the process that forked.** The parent keeps its stream, its poller, and its live config straight through any number of forks — so a long-lived process that forks workers *and keeps evaluating* stays current. (Before 1.4.0 the SDK tore the parent's stream down before the fork syscall, and the parent stopped receiving updates permanently. If you fork from a process that keeps evaluating, upgrade to 1.4.0 or later.)
+
+:::note Upgrading from 1.3.0 or earlier
+If you added a manual `Quonfig.instance.after_fork_in_child` call **in the parent** as a workaround for the parent going dark, remove it. As of 1.4.0 that call is a no-op in the process that owns the client — the SDK decides that by comparing the current pid against the one it stamped when the client was built, so it is exact whether or not the parent has any threads running. It will not hurt you, but it is no longer doing anything, and the parent needs no call.
+:::
+
+Sidekiq OSS itself does **not** fork — it runs jobs on threads in one process — so `Quonfig.init` in your initializer is all it needs.
+
+If you use SemanticLogger, you still need to reopen the logger in each fork.
 
 <Tabs groupId="lang">
 <TabItem value="puma" label="Puma">
 
-If using workers in Puma, you can initialize inside an on_worker_boot hook in your puma.rb config file.
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — `Quonfig.fork` is not needed in that block. The SDK has already handled the fork by the time `on_worker_boot` runs, and since 1.4.0 a `Quonfig.fork` call in a child the hook has already prepared simply returns the same client, so a leftover call from older docs is harmless:
 
 ```ruby
-# puma.rb
+# puma.rb (Ruby 3.1+)
 on_worker_boot do
-  Quonfig.fork
+  SemanticLogger.reopen # only if you are using SemanticLogger
+end
+```
+
+On Ruby 3.0 (which has no `Process._fork` hook), rebuild the client yourself:
+
+```ruby
+# puma.rb (Ruby 3.0 only)
+on_worker_boot do
+  Quonfig.fork          # rebuild a fresh client per worker
+  SemanticLogger.reopen # if you are using SemanticLogger
+end
+```
+
+Do **not** add a `before_fork { Quonfig.instance.stop }` — the master does not need to be torn down for the workers to be healthy, and stopping it means the master stops receiving config.
+
+</TabItem>
+
+<TabItem value="unicorn" label="Unicorn">
+
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — `Quonfig.fork` is not needed in that block, for the same reason as Puma above (the SDK has already handled the fork, and since 1.4.0 the call just returns the client the hook prepared):
+
+```ruby
+# unicorn.rb (Ruby 3.1+)
+after_fork do |server, worker|
+  SemanticLogger.reopen # only if you are using SemanticLogger
+end
+```
+
+On Ruby 3.0, rebuild the client yourself:
+
+```ruby
+# unicorn.rb (Ruby 3.0 only)
+after_fork do |server, worker|
+  Quonfig.fork          # rebuild a fresh client per worker
   SemanticLogger.reopen # if you are using SemanticLogger
 end
 ```
 
 </TabItem>
 
-<TabItem value="unicorn" label="Unicorn">
+<TabItem value="sidekiq" label="Sidekiq">
 
-If using workers in Unicorn, you can initialize inside an after_fork hook in your unicorn.rb config file:
+Sidekiq OSS runs jobs on threads, so `Quonfig.init` in your initializer is sufficient — there is nothing to wire up.
+
+Jobs that fork (the `parallel` gem, an explicit `fork { ... }`, Sidekiq Enterprise swarm) are covered automatically on Ruby 3.1+, with nothing to call, and the Sidekiq process itself keeps streaming config throughout.
+
+Ruby 3.0 is end-of-life and has no `Process._fork` hook. The `parallel` gem has no per-worker boot hook to wire a rebuild into either — `Parallel.each` just runs your block in each child, once per row — so calling `Quonfig.fork` at the top of the block builds a **new client per row**, each with its own SSE stream and telemetry reporter. Upgrade to 3.1+ if you can. If you must stay on 3.0, rebuild once per child process by memoizing on the pid:
 
 ```ruby
-# unicorn.rb
-after_fork do |server, worker|
-  Quonfig.fork
-  SemanticLogger.reopen # if you are using SemanticLogger
+# Ruby 3.0 only — one rebuild per child process, not one per row.
+Parallel.each(batch, in_processes: 4) do |row|
+  Quonfig.fork if $quonfig_pid != Process.pid
+  $quonfig_pid = Process.pid
+  # ...
 end
 ```
 
@@ -397,7 +457,7 @@ SemanticLogger.add_appender(
 ```
 
 :::caution
-Please read the [Puma/Unicorn](ruby#special-considerations-with-forking-servers-like-puma--unicorn-that-use-workers) notes for special considerations with forking servers.
+Please read the [Puma/Unicorn](ruby#forking-servers-and-forking-jobs) notes for special considerations with forking servers.
 :::
 
 </TabItem>

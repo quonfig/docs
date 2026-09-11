@@ -297,7 +297,7 @@ language equivalent) is explicitly set to `true`.
 
 Forking servers like Puma and Unicorn need an extra hook to re-initialize the
 Quonfig client (and its file watcher) per worker. See the
-[Puma & Unicorn notes in the Ruby SDK docs](/docs/sdks/ruby#special-considerations-with-forking-servers-like-puma--unicorn-that-use-workers).
+[Puma & Unicorn notes in the Ruby SDK docs](/docs/sdks/ruby#forking-servers-and-forking-jobs).
 
 ## Working with AI agents
 
