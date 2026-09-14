@@ -155,9 +155,9 @@ export default async (req: Request, context: any) => {
   }
 
   const userConfig = quonfig.userSpecificConfig(quonfigContext);
-  
-  // every 60 seconds, check for updates in-process
-  baseQuonfig.updateIfStalerThan(60 * 1000);
+
+  // at most every 60 seconds, kick off a refresh in-process (fire-and-forget)
+  baseQuonfig.updateIfStalerThan(60 * 1000)?.catch(() => {});
   return new Response("ok");
 };
 
@@ -190,8 +190,8 @@ export default async (req: Request, context: any) => {
       // Your code here
     }
 
-    // every 60 seconds, check for updates in-process
-    quonfig.updateIfStalerThan(60 * 1000); // conditional update
+    // at most every 60 seconds, kick off a refresh in-process (fire-and-forget)
+    quonfig.updateIfStalerThan(60 * 1000)?.catch(() => {}); // conditional update
     return new Response("ok");
   });
 };
@@ -225,8 +225,8 @@ export default async (req, context) => {
       // Your code here
     }
 
-    // every 60 seconds, check for updates in-process
-    quonfig.updateIfStalerThan(60 * 1000);
+    // at most every 60 seconds, kick off a refresh in-process (fire-and-forget)
+    quonfig.updateIfStalerThan(60 * 1000)?.catch(() => {});
     return new Response("ok");
   });
 };
@@ -237,4 +237,9 @@ export const config = { path: "/users/:userId" };
 </TabItem>
 </Tabs>
 
-With this approach, most of our requests will be fast, but we'll have a periodic update that will take a bit longer. This is about 50ms in my testing from a Netlify function. We're entirely in control of the frequency here, so it's a judgment call on how real-time you want your feature flag updates. You could even disable the updates altogether if tail latency is of utmost concern and you didn't mind redeploying to update your flags.
+With this approach every request is served from memory. `updateIfStalerThan` does no network round-trip unless the last successful refresh is older than the interval you pass, and when it does start one it returns immediately — the fetch runs in the background and the new config is installed when it lands, about 50ms later in our testing from a Netlify function. Concurrent calls coalesce onto the same in-flight fetch, so a burst of requests during an outage never stacks retries. We're entirely in control of the frequency here, so it's a judgment call on how real-time you want your feature flag updates. You could even disable the updates altogether if you didn't mind redeploying to update your flags.
+
+Two things to know about that background fetch in a frozen lambda:
+
+- **Always attach `.catch()`.** The call returns the in-flight `Promise` when it starts a fetch (and `undefined` when it doesn't need one — hence the `?.`). That promise rejects if the HTTP fetch fails, and an unawaited rejection is an `unhandledRejection`, which crashes modern Node by default. The `?.catch(() => {})` in the snippets above is what keeps a flaky network from taking the function down; log inside it if you want visibility.
+- **It may not complete until the next thaw.** If the platform freezes the process right after the response is sent, the fetch pauses with it and finishes when the function next wakes. That is fine: the SDK's reject-older guard means a late-arriving envelope can never roll your config backwards, and the next request simply sees whatever landed. If you'd rather guarantee the refresh finishes before the freeze, `await` it (or, on Vercel, run it inside `after()`) at the cost of that request's latency.
