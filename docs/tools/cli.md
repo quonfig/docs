@@ -323,7 +323,7 @@ qfg serve --datadir ./our-config --environment development
 
 Options:
 - `--datadir <path>` - Path to the workspace (defaults to `./our-config`, then `./.quonfig`, then `QUONFIG_DIR`)
-- `--environment <slug>` - Environment to evaluate (defaults to `development` / `QUONFIG_ENVIRONMENT`)
+- `--environment <slug>` - Environment to evaluate. The flag wins; otherwise `QUONFIG_ENVIRONMENT`; otherwise `development`. `qfg serve` hosts a service, so it reads the variable the same way an SDK does (see [Environment Variables](#environment-variables)).
 - `--port <n>` - TCP port (default `6580`)
 - `--host <addr>` - Bind address (default `127.0.0.1`; non-loopback requires `--allow-non-loopback`)
 - `--frontend-sdk-key <key>` - If set, require `Authorization: Basic 1:<key>` on every request
@@ -472,7 +472,7 @@ Surface:
 - `qfg override --clear` — remove all of your overrides in the current env.
 
 Flags:
-- `--env <env>` — environment to operate in. Defaults to `$QUONFIG_ENVIRONMENT`. Required if neither is set.
+- `--env <env>` — environment to operate in. Required. `qfg override` never reads `QUONFIG_ENVIRONMENT` (it did before CLI 0.0.74), so a variable left over from local development cannot pick the environment a write lands in.
 - `--remove` — remove your override on the given key.
 - `--clear` — remove every override you have in this env.
 
@@ -708,6 +708,8 @@ qfg log-level log-level.my-app --value=WARN
 
 In an interactive terminal, omitting `--environment` prompts you to pick one. Anywhere that is _not_ an interactive terminal — a script, a CI job, a pipeline, or a `$(...)` command substitution — `--environment` is **required**, and leaving it off fails with `'environment' is required when interactive mode isn't available.`
 
+`qfg get` does not read `QUONFIG_ENVIRONMENT`, and neither does any other command that targets a workspace on your behalf. That variable tells a _service_ which environment it is; the flag tells the CLI which environment to aim at. See [Environment Variables](#environment-variables).
+
 Example: 
 
 ```bash
@@ -781,5 +783,6 @@ echo $QUONFIG_API_URL_OVERRIDE
 - `QUONFIG_WORKSPACE` - The workspace to act on when `QUONFIG_API_KEY` is set: `<org>/<workspace>` (e.g. `acme/production`) or the workspace's UUID. **Service-account keys must use the UUID** — `qf_sa_` principals have no user-level workspace list, so an `org/workspace` slug fails with `No workspace matching ... Available: (none)`. Find the UUID with `GET /v1/whoami` using the same key (it returns `workspaceId`), or read it from the app's URL — every workspace page is `/workspaces/<uuid>/...`.
 - `QUONFIG_API_URL_OVERRIDE` - Override the default API URL
 - `QUONFIG_DIR` - Default local directory for `pull` and `generate` (avoids repeating `--dir`)
+- `QUONFIG_ENVIRONMENT` - Read **only** by the two commands that run as a service: `qfg serve` (flag, then the variable, then `development`) and `qfg run`. Every operator command that reads or writes a workspace (`get`, `set-default`, `set-rollout`, `override`, `log-level`, ...) ignores it and takes `--environment` (or `--env` for `override`) explicitly. The rule: the variable tells a service what it _is_; the flag tells the CLI what to _aim at_. An ambient variable must never choose where a write lands.
 - `QUONFIG_PROFILE` - Set default profile to use
 - `NO_COLOR` - Disable colored output
