@@ -214,9 +214,16 @@ For anything the six can't express — multi-rule targeting, variants,
 metadata, a schema binding — the answer is always the same: create or write
 the simple version, then reshape it with `set_document`.
 
-The full write semantics (value types, rollout percents, sticky bucketing,
-no-op writes, `expectedCommitSha`) are documented once, on the REST page:
-[Updating a flag](/docs/api/rest-api#updating-a-flag).
+The full write semantics are documented once, on the REST page, and each
+tool is a thin wrapper over the endpoint named there: `set_flag` is
+[Updating a flag](/docs/api/rest-api#updating-a-flag) (value types, rollout
+percents, sticky bucketing, no-op writes, `expectedCommitSha`), `set_config`
+is [Updating a config](/docs/api/rest-api#updating-a-config), `create_flag`
+and `create_config` are
+[Creating a flag or config](/docs/api/rest-api#creating-a-flag-or-config)
+(request bodies, the pooled-key `ALREADY_EXISTS` shape), and
+`set_log_level` / `list_log_levels` are
+[Log levels](/docs/api/rest-api#log-levels).
 
 ### Raw documents and undo
 

@@ -269,8 +269,10 @@ A few things worth knowing before you turn it loose in a channel:
   server-side on every call, exactly like a person clicking in the UI. A
   read-only service account is genuinely read-only, whatever anyone types in
   Slack.
-- **Targeting rules are protected.** A `set_flag` or `set_config` write that
-  would delete a scope's targeting rules is refused until someone confirms.
+- **Targeting rules are kept.** `set_flag` and `set_config` write only a
+  scope's fallback and leave its targeting rules in place. Deleting them
+  takes an explicit `replaceTargeting: true`, and the bot's instructions tell
+  it to show the rules and get agreement in the thread before sending that.
   See [The three write shapes](/docs/api/mcp-server#the-three-write-shapes).
 - **A bad change can be undone from the thread.** Every write names the
   version it replaced, and `get_document` / `set_document` read that version

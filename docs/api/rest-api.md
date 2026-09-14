@@ -8,8 +8,9 @@ sidebar_position: 1
 
 The Quonfig REST API lets scripts, CI jobs, and agents manage flags and
 configs over plain HTTPS: list and inspect flags, read the git-backed audit
-trail, update what an environment serves, and read or replace the raw stored
-document — including any earlier version of it. It is the same control plane
+trail, create flags and configs, update what an environment serves, set a
+service's log levels, and read or replace the raw stored document —
+including any earlier version of it. It is the same control plane
 the app and CLI use — a change made here shows up everywhere, with full
 attribution in your workspace's git history.
 
@@ -85,16 +86,21 @@ requests and responses are JSON.
 | GET | `/v1/workspaces` | The workspace(s) this credential can act on |
 | GET | `/v1/environments` | The workspace's environments: names, types, and which are protected |
 | GET | `/v1/flags` | List feature flags (filter with `?tag=` and `?status=`) |
+| POST | `/v1/flags` | Create a feature flag ([see below](#creating-a-flag-or-config)) |
 | GET | `/v1/flags/{key}` | Full flag detail: default rules, per-environment rules, rollouts, variants |
 | GET | `/v1/flags/{key}/history` | Git commits that changed this flag, most recent first |
 | PATCH | `/v1/flags/{key}/environments/{env}` | Update what one environment serves ([see below](#updating-a-flag)) |
 | GET | `/v1/flags/{key}/document` | The raw stored JSON — any commit with `?at=` ([see below](#raw-documents)) |
 | PUT | `/v1/flags/{key}/document` | Replace the raw stored JSON wholesale ([see below](#raw-documents)) |
-| GET | `/v1/configs` | List configs |
+| GET | `/v1/configs` | List configs (filter with `?tag=`) |
+| POST | `/v1/configs` | Create a config ([see below](#creating-a-flag-or-config)) |
 | GET | `/v1/configs/{key}` | Full config detail |
 | GET | `/v1/configs/{key}/history` | Git commits that changed this config |
+| PATCH | `/v1/configs/{key}/environments/{env}` | Set what one scope of a config serves ([see below](#updating-a-config)) |
 | GET | `/v1/configs/{key}/document` | The raw stored JSON for a config |
 | PUT | `/v1/configs/{key}/document` | Replace a config's raw stored JSON |
+| GET | `/v1/log-levels` | Every service's log-level document, projected per scope ([see below](#log-levels)) |
+| PATCH | `/v1/log-levels/{key}` | Set a service's log level — for one logger prefix, or as the fallback ([see below](#log-levels)) |
 | GET | `/v1/log-levels/{key}/document` | The raw stored JSON for a log level |
 | PUT | `/v1/log-levels/{key}/document` | Replace a log level's raw stored JSON |
 | GET | `/v1/segments` | List segments — the reusable membership rule sets targeting rules point at |
@@ -107,17 +113,19 @@ not millions). `/v1/flags` and `/v1/configs` additionally accept opt-in
 [pagination](#pagination), and `/v1/activity` takes `?limit=` (1–100,
 default 30).
 
-Two asymmetries worth noticing in that table. **Log levels** appear only as
-document endpoints — v1 has no log-level list or detail route, so the
-document pair is the whole log-level surface. **Segments** are the reverse:
-list, detail, and history, but no document endpoints, so they stay
-read-only over the API.
+Two asymmetries worth noticing in that table. **Log levels** have a list, a
+surgical PATCH, and the document pair, but no `/v1/log-levels/{key}` detail
+route — the list already carries each document's per-scope projection, and
+the raw JSON is one document GET away. **Segments** are read-only over the
+API: list, detail, and history, but no create, PATCH, or document endpoints.
 
 ### Reading flags and configs
 
 `GET /v1/flags` summarizes each flag: identity and `tags`, the current
 `commitSha`, when it last changed, and its derived lifecycle status.
-Filter server-side with `?tag=` and `?status=`.
+Filter server-side with `?tag=` and `?status=`. `GET /v1/configs` is the
+same summary for configs — `sendToClientSdk` and `schemaKey` in place of a
+lifecycle status — and filters with `?tag=`.
 
 `GET /v1/flags/{key}` returns the flag in full: `default.rules`,
 per-environment `environments[].rules` (including percentage rollouts),
@@ -344,6 +352,14 @@ as **exactly one** of three operations:
 | Serve one value | `{"value": "gpt-5"}` | Any flag: everyone gets this value |
 | Percentage rollout | `{"rollout": [{"value": true, "percent": 25}, {"value": false, "percent": 75}]}` | Splitting traffic across values |
 
+`{env}` is an environment name from `GET /v1/environments` — or the literal
+`default`, which writes the flag's `default.rules`: what every environment
+*without* an entry of its own inherits, and for many flags the only place a
+value is stored. Writing an environment shadows the default in that one
+environment and leaves the rest alone; writing `default` changes what every
+inheriting environment serves. `default` is a reserved name, so it can
+never collide with a real environment.
+
 ```bash
 curl -X PATCH \
   https://api.quonfig.com/v1/flags/checkout-redesign/environments/production \
@@ -453,6 +469,105 @@ If the environment already matches the requested state, the response has
 `changed: false`, the current `commitSha`, and **no commit is made** — no
 audit noise, no metered config update. Retrying a timed-out PATCH is
 therefore safe: the retry converges to a no-op instead of double-writing.
+
+## Updating a config
+
+`PATCH /v1/configs/{key}/environments/{env}` is the flag PATCH's twin. A
+config has no toggle and no rollout, so the body is always `value`:
+
+```bash
+curl -X PATCH \
+  https://api.quonfig.com/v1/configs/checkout.timeout/environments/production \
+  -H "Authorization: Bearer $QUONFIG_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"value": "30s"}'
+```
+
+```json
+{
+  "key": "checkout.timeout",
+  "environment": "production",
+  "changed": true,
+  "commitSha": "8c1f2ab...",
+  "previousCommitSha": "3d9e017...",
+  "rules": [{ "criteria": [{ "operator": "ALWAYS_TRUE" }], "value": { "type": "duration", "value": "30s" } }]
+}
+```
+
+Everything else is [as for flags](#updating-a-flag): `value` is bare JSON
+checked against the config's `valueType`; `{env}` is an environment name or
+the `default` scope; [targeting rules above the fallback are kept](#targeting-rules-are-kept)
+and counted in `preservedTargetingRuleCount`, with a scope that has no rules
+of its own seeded from the default rules first; `replaceTargeting: true`
+collapses the scope and is recoverable through `previousCommitSha` and
+[the undo recipe](#undoing-a-write); `expectedCommitSha` makes the write
+compare-and-set; and a write that changes nothing commits nothing.
+
+Two config-specific points:
+
+- **Schema-bound configs are validated.** If the config has a `schemaKey`,
+  the value is checked against that schema, and a violation is a `400` with
+  `details.code: "SCHEMA_VIOLATION"`, naming the `schemaKey` and listing the
+  `violations`.
+- **Secrets are configs too.** There is no special case for encrypted
+  configs: a secret is a config whose stored value is ciphertext, and the
+  access tier governs who can write it. This endpoint writes exactly the
+  value you send, so it is the wrong tool for rotating a secret — use
+  `qfg secret`, which encrypts locally before it writes.
+
+## Creating a flag or config
+
+`POST /v1/flags` and `POST /v1/configs` add a document. They are
+deliberately minimal: a create writes **one unconditional default rule and
+an empty `environments` array**, so every environment inherits that default
+until one is given an entry of its own. Anything richer — variants,
+targeting rules, `sendToClientSdk`, a non-standard access tier — is a
+follow-up `PUT` to [the document endpoint](#replacing-a-document), using
+the `commitSha` the create returns as `expectedCommitSha`.
+
+```bash
+curl -X POST https://api.quonfig.com/v1/flags \
+  -H "Authorization: Bearer $QUONFIG_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "checkout-redesign", "description": "New checkout flow", "tags": ["checkout"]}'
+```
+
+```json
+{
+  "key": "checkout-redesign",
+  "valueType": "bool",
+  "commitSha": "5e7a9c1...",
+  "document": { "key": "checkout-redesign", "type": "feature_flag", "valueType": "bool", "default": { "rules": [ "..." ] }, "environments": [], "variants": [] }
+}
+```
+
+`document` is the complete JSON as written to git, the same shape
+[`GET .../document`](#reading-a-document) returns.
+
+**Flag body.** `key` is required. `type` defaults to `bool` and may be
+`string`, `int`, `double`, `string_list`, `json`, or `duration` (`boolean`
+and `string-list` are accepted as aliases). A **bool flag is created off in
+every environment and takes no `value`** — creation is atomic and inert,
+and turning it on is a separate [PATCH](#updating-a-flag). Every other
+type requires `value`, which the default rule serves. `description` and
+`tags` are optional.
+
+**Config body.** `key`, `valueType`, and `value` are all required.
+`valueType` is never inferred — `42` is an int or a double, `"90s"` is a
+string or a duration, and whatever a create guessed would be what every
+later write is validated against. The value is stored **plain**: this
+endpoint never encrypts, the config is created at the standard access tier,
+and `sendToClientSdk` is `false`. Secrets belong in `qfg secret`.
+
+**Keys are pooled** case-insensitively across flags, configs, segments, and
+log levels, because they become filenames. A key any of them holds fails
+with `409` and `details.code: "ALREADY_EXISTS"`, carrying
+`details.collidingType` (`feature_flag`, `config`, `segment`, or
+`log_level`) and `details.collidingKey` — the key as stored, which differs
+from yours only on a case-variant collision. Branch on those fields; never
+retry a create with a mutated key. The document written is validated in
+full, so a rejected create is a `400` with
+`details.code: "VALIDATION_FAILED"` and the failing field paths.
 
 ## Raw documents
 
@@ -677,9 +792,99 @@ Two consequences worth stating plainly:
 
 ### Log levels
 
-Log levels have no list or detail endpoint in v1 — the document pair is
-their entire API surface. A log-level document is shaped like any other
-stored config, with `type` `log_level` and `valueType` `log_level`:
+Log levels have their own surface: a list, a surgical PATCH, and the
+document pair. There is **one document per service**
+(`log-level.checkout-service`), and individual loggers are targeting rules
+*inside* it — each a logger path **prefix**, matched on the
+`quonfig-sdk-logging.key` context property the SDKs populate from the
+logger's path, so a rule for `Checkout.Payments` covers that logger and
+everything under it.
+
+`GET /v1/log-levels` lists every service's document, projected per scope —
+the `default` block first, then each environment with an entry of its own
+(an environment absent from `scopes` inherits `default` entirely):
+
+```json
+{
+  "logLevels": [
+    {
+      "key": "log-level.checkout-service",
+      "tags": [],
+      "scopes": [
+        { "scope": "default", "fallbackLevel": "INFO", "targets": [{ "target": "Checkout.Payments", "level": "DEBUG" }], "otherRuleCount": 0 },
+        { "scope": "production", "fallbackLevel": "WARN", "targets": [], "otherRuleCount": 0 }
+      ],
+      "commitSha": "a1b2c3d...",
+      "lastModified": "2026-09-08T18:37:00Z"
+    }
+  ]
+}
+```
+
+- `fallbackLevel` — what the scope's unconditional catch-all serves, i.e.
+  what a logger with no matching rule gets. Absent when the scope has no
+  catch-all, which for an environment means its unmatched loggers fall
+  through to `default`.
+- `targets` — the per-logger rules as `target -> level` pairs, in
+  evaluation order.
+- `otherRuleCount` — rules that are neither a catch-all nor a logger-prefix
+  rule (documents can be hand-written with any operator). Read the document
+  when it isn't `0`.
+
+This is the *stored targeting*, not the answer for one logger name — "what
+level does logger X get" is resolved SDK-side over context the server
+doesn't have. The list is unpaginated: a workspace has one document per
+service, a handful rather than hundreds.
+
+`PATCH /v1/log-levels/{key}` sets one level and preserves every rule it
+didn't name:
+
+```bash
+curl -X PATCH https://api.quonfig.com/v1/log-levels/checkout-service \
+  -H "Authorization: Bearer $QUONFIG_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"level": "DEBUG", "target": "Checkout.Payments", "environment": "production"}'
+```
+
+```json
+{
+  "key": "log-level.checkout-service",
+  "environment": "production",
+  "target": "Checkout.Payments",
+  "level": "DEBUG",
+  "created": false,
+  "changed": true,
+  "commitSha": "8c1f2ab...",
+  "previousCommitSha": "a1b2c3d..."
+}
+```
+
+- `key` names the **service**; the `log-level.` prefix is added when you
+  omit it, and the response returns the full key.
+- `level` is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+- `target` is a logger path prefix. With it, the write adds or overwrites
+  just that prefix's rule. Without it, the write sets only the scope's
+  fallback level, leaving the targeted rules above it in place.
+- `environment` is an environment name or `default`, and — unlike the flag
+  and config PATCHes, where the scope is in the URL — it is optional and
+  **defaults to `default`**, which for most log-level documents is the only
+  place a level is stored. A scope with no rules of its own is seeded from
+  the default rules first, so inherited per-logger targeting is kept.
+- There is **no `replaceTargeting`**. Nothing here is ever flattened; a
+  repeated call converges instead of stacking duplicates.
+- If the service has no document yet, one is **created** with a single
+  unconditional default rule serving `level`, and the response says
+  `created: true`. The new key goes through the same
+  [pooled-key check](#creating-a-flag-or-config) as a create, so a key held
+  by a flag, config, or segment is a `409 ALREADY_EXISTS`. With
+  `expectedCommitSha` set, a missing document is a `404` rather than a
+  create.
+- A changed write returns `previousCommitSha`; the
+  [undo recipe](#undoing-a-write) applies unchanged.
+
+The document pair is the same as for flags and configs. A log-level
+document is shaped like any other stored config, with `type` `log_level`
+and `valueType` `log_level`:
 
 ```json
 {
@@ -704,11 +909,10 @@ stored config, with `type` `log_level` and `valueType` `log_level`:
 }
 ```
 
-Everything above applies unchanged: `?at=` reads any past version, PUT is a
-full replacement with a required `expectedCommitSha`, and the endpoint
-updates only. There's no way to *discover* log-level keys over v1 — the
-[activity feed](#history-and-activity) shows the ones that changed
-recently, and the app lists them all.
+Everything in [Raw documents](#raw-documents) applies unchanged: `?at=`
+reads any past version, PUT is a full replacement with a required
+`expectedCommitSha`, and the document endpoints update only — creating a
+service's first document is the PATCH's job.
 
 ## Errors
 
@@ -729,12 +933,15 @@ causes. Match on `error` (and `details.code`), never on `message` text.
 
 | HTTP | `error` | `details.code` | When |
 |---|---|---|---|
-| 400 | `BAD_REQUEST` | — | Malformed parameter or body; value doesn't match the flag's `valueType`; bad rollout; `limit` out of range or a `cursor` this server didn't mint; a malformed `?at` sha; a `document` whose `key` or `type` disagrees with the URL, or that fails the stored-config schema |
+| 400 | `BAD_REQUEST` | — | Malformed parameter or body; value doesn't match the item's `valueType`; bad rollout; a `value` sent to a bool flag create, or missing from any other create; `limit` out of range or a `cursor` this server didn't mint; a malformed `?at` sha; a `document` whose `key` or `type` disagrees with the URL |
+| 400 | `BAD_REQUEST` | `VALIDATION_FAILED` | The document a create or write would store fails the stored-config schema — `details` lists the failing field paths |
+| 400 | `BAD_REQUEST` | `SCHEMA_VIOLATION` | A schema-bound JSON config's new value breaks its schema — `details.schemaKey` names the schema and `details.violations` the failures |
 | 401 | `UNAUTHORIZED` | — | Missing, invalid, or revoked key; disabled service account |
 | 402 | `BILLING_INACTIVE` | — | The organization's subscription is inactive |
 | 403 | `FORBIDDEN` | `PERMISSION_DENIED` | The key's principal can't edit this flag in this environment, or can't move a document between `access` tiers |
-| 404 | `NOT_FOUND` | — | Unknown flag/config/log-level key, environment, or path; a PUT to a key that doesn't exist; a key that didn't exist yet at the requested `?at` commit |
-| 409 | `CONFLICT` | `STALE_COMMIT_SHA` | `expectedCommitSha` no longer matches — the only 409 any endpoint raises |
+| 404 | `NOT_FOUND` | — | Unknown flag/config/log-level key, environment, or path; a PUT to a key that doesn't exist; a key that didn't exist yet at the requested `?at` commit; a log-level PATCH with `expectedCommitSha` for a service that has no document yet |
+| 409 | `CONFLICT` | `STALE_COMMIT_SHA` | `expectedCommitSha` no longer matches |
+| 409 | `CONFLICT` | `ALREADY_EXISTS` | A create — or a log-level PATCH creating a service's first document — for a key already held by a flag, config, segment, or log level; `details.collidingType` and `details.collidingKey` say what holds it |
 | 422 | `UNPROCESSABLE_CONTENT` | `VERIFY_REJECTION` | The change was rejected by config validation |
 | 422 | `UNPROCESSABLE_CONTENT` | — | The content stored at the requested `?at` commit isn't a JSON object |
 | 429 | — | — | [Rate limit exceeded](#rate-limits) — honor `Retry-After` |
