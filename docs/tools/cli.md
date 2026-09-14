@@ -134,6 +134,14 @@ qfg pull --dir ./my-config
 qfg generate --dir ./my-config --output-directory ./src/generated
 ```
 
+In CI there is no browser to `qfg login` with, so authenticate with an API
+key instead: set `QUONFIG_API_KEY` and name the workspace with
+`QUONFIG_WORKSPACE=<org>/<workspace>` or `--workspace`. If the key is a
+**service-account key** (`qf_sa_...`), name the workspace by its **UUID**
+rather than `org/workspace` — a service account has no user-level workspace
+list to resolve a slug against. See
+[Environment Variables](#environment-variables).
+
 ### Configuration File
 
 Create a `quonfig.config.json` file in your project root to customize output:
@@ -769,6 +777,8 @@ echo $QUONFIG_API_URL_OVERRIDE
 
 ### Environment Variables
 
+- `QUONFIG_API_KEY` - Authenticate with an API key instead of a `qfg login` session — for CI and scripts. Either a personal key (`qf_uk_...`) or a service-account key (`qf_sa_...`); mint both in the app, see [REST API authentication](/docs/api/rest-api#authentication). When set, the workspace must also be named, with `QUONFIG_WORKSPACE` or `--workspace`.
+- `QUONFIG_WORKSPACE` - The workspace to act on when `QUONFIG_API_KEY` is set: `<org>/<workspace>` (e.g. `acme/production`) or the workspace's UUID. **Service-account keys must use the UUID** — `qf_sa_` principals have no user-level workspace list, so an `org/workspace` slug fails with `No workspace matching ... Available: (none)`. Find the UUID with `GET /v1/whoami` using the same key (it returns `workspaceId`), or read it from the app's URL — every workspace page is `/workspaces/<uuid>/...`.
 - `QUONFIG_API_URL_OVERRIDE` - Override the default API URL
 - `QUONFIG_DIR` - Default local directory for `pull` and `generate` (avoids repeating `--dir`)
 - `QUONFIG_PROFILE` - Set default profile to use
