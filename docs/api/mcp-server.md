@@ -142,9 +142,15 @@ back as `cursor` until it's absent. Rows come back ordered by key once you
 paginate, and filters have to be resent with each page — see
 [Pagination](/docs/api/rest-api#pagination).
 
+`list_flags`, `list_configs`, and `list_segments` also return a `total`:
+how many rows matched the filters, before any `limit`. Answer "how many..."
+from that number rather than by counting the rows you got back — it is the
+same on every page and already correct on a partial one. Full semantics:
+[Counting rows](/docs/api/rest-api#counting-rows-total).
+
 The tool descriptions tell the agent the part it can't infer from a schema:
-a partial page is never the whole answer, so a "how many..." or "does any
-flag..." question must not be answered from a page that still carries a
+a partial page is still not the whole answer, so a "does any flag..."
+question must not be answered from a page that still carries a
 `nextCursor`.
 
 ### Scopes: an environment, or the default

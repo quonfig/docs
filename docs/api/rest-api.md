@@ -111,7 +111,8 @@ requests and responses are JSON.
 List responses return the whole workspace by default (hundreds of items,
 not millions). `/v1/flags` and `/v1/configs` additionally accept opt-in
 [pagination](#pagination), and `/v1/activity` takes `?limit=` (1–100,
-default 30).
+default 30). The flag, config, and segment lists each carry a
+[`total`](#counting-rows-total) — how many rows matched your filters.
 
 Two asymmetries worth noticing in that table. **Log levels** have a list, a
 surgical PATCH, and the document pair, but no `/v1/log-levels/{key}` detail
@@ -317,6 +318,35 @@ Three things to know:
   `400`. Because it keys on `key` rather than an offset, a flag created or
   deleted between two pages can't shift the window and make you skip a
   neighbor.
+
+### Counting rows: `total`
+
+`GET /v1/flags`, `GET /v1/configs`, and `GET /v1/segments` each carry a
+`total` alongside their rows — how many rows matched the request's filters,
+counted before `limit` and `cursor` take a page out of them:
+
+```json
+{
+  "flags": [ "..." ],
+  "total": 412,
+  "nextCursor": "v1_YWktc3VtbWFyaWVz"
+}
+```
+
+Two properties make it the right way to answer "how many":
+
+- **It counts the filtered set, not the page.** `?tag=checkout&limit=50`
+  returns at most 50 rows and a `total` of every checkout-tagged flag in the
+  workspace. Filters are applied before paging, so the two always describe
+  the same set. On an unpaginated response `total` is simply the length of
+  the array.
+- **It doesn't move as you page.** Every page of one paginated walk reports
+  the same `total`, and it is already correct on a partial page — so
+  counting never requires exhausting `nextCursor`, and a script or agent can
+  report a number from the first bounded response.
+
+`total` is a non-negative integer and is **always present**: an empty result
+is `"total": 0`, never an omitted field.
 
 ### History and activity
 
