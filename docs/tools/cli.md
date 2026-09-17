@@ -745,6 +745,38 @@ qfg run --env-file=.qfg.env -- next build
 
 The `--` separator between `qfg run` flags and the child command is required. Auth/environment is binary — set either `QUONFIG_BACKEND_SDK_KEY` (Mode A) or use `qfg login` plus `--environment` / `QUONFIG_ENVIRONMENT` (Mode B), never both. See [Running commands with injected env](/docs/tools/qfg-run) for the full reference, package.json patterns, and the `instrumentation.ts` comparison.
 
+## Rolling the whole workspace back to an earlier commit
+
+Something landed that shouldn't have — a bad bulk edit, a script that rewrote more
+than you meant, a merge that went sideways. Your workspace is a git repo, so every
+earlier state is still there, and you go back to one by committing it **forward**:
+a new commit whose content is the old content. Your workspace's `main` is
+append-only, so nothing here rewrites history.
+
+Find the commit you want (`qfg activity feed`, or `git log` in your local checkout),
+then from a local checkout of the workspace:
+
+```bash
+qfg pull                                              # start from what the workspace has right now
+git restore --source=<sha> --staged --worktree -- .   # put every file back to how it was at <sha>
+git commit -m "restore <sha>"
+qfg push
+```
+
+That publishes one new commit on top of the current history whose files are exactly
+the files from `<sha>` — your SDKs pick it up like any other push, and the commits in
+between stay in the history as a record of what happened.
+
+**Do not use `git checkout <sha> -- .` for this.** It overlays the files that existed
+at `<sha>` and never deletes anything, so every flag or config *added* after `<sha>`
+survives and keeps being served — you get a mix of the two states, not the state you
+asked for. `git restore --staged --worktree -- .` removes those files too, which is
+what "put the workspace back how it was" actually means.
+
+To bring back a single flag or config that was deleted, run
+`qfg activity restore <key>` instead — this recipe is for putting the whole
+workspace back.
+
 ## Troubleshooting
 
 ### Common Issues
