@@ -488,10 +488,26 @@ correct).
 
 For check-then-act flows — "disable this flag *only if* it's still the
 version I just read" — pass the `commitSha` from a prior GET as
-`expectedCommitSha`. That makes the write single-shot compare-and-set: if
-the flag changed since, you get `409` with
-`details.code: "STALE_COMMIT_SHA"` and nothing is written. Re-read and
-decide again; the server never retries a pinned write.
+`expectedCommitSha`. That makes the write single-shot compare-and-set: you
+get `409` with `details.code: "STALE_COMMIT_SHA"`, and nothing is written,
+**if the flag's content differs from its content at that commit**. Re-read
+and decide again; the server never retries a pinned write.
+
+The comparison is by content, not by activity. Two consequences worth
+knowing:
+
+- A commit that did not touch this flag does not invalidate your token. Any
+  `commitSha` you read for this flag stays usable until the flag's own
+  content changes — including a change that was later reverted back to the
+  bytes you read.
+- A `409` means the stored content is genuinely not what you based your
+  write on. It is not a report that "something happened here"; the history
+  is still the place to look for that.
+
+A token that is not a full 40-character commit sha — a branch or ref name,
+an abbreviated sha, anything else — is also a `409`. Send the `commitSha`
+a read gave you, verbatim, or omit the field; a present-but-empty
+`expectedCommitSha` is a `400`.
 
 ### No-op writes
 
@@ -711,10 +727,11 @@ write added.)
 **`expectedCommitSha` is required**, and must come from a fresh GET of the
 same document. A full replacement built on a stale read would silently
 discard whatever landed in between, so read-before-write is enforced by
-contract here rather than left to you. If the document changed since, the
-write fails with `409` and `details.code: "STALE_COMMIT_SHA"`, and nothing
-is written — re-read, re-apply your edit, and send again. Never retry the
-same body.
+contract here rather than left to you. If the document's content differs
+from its content at that commit, the write fails with `409` and
+`details.code: "STALE_COMMIT_SHA"`, and nothing is written — re-read,
+re-apply your edit, and send again. Never retry the same body. A token that
+is not a full 40-character commit sha is a `409` too.
 
 ```bash
 curl -X PUT \
