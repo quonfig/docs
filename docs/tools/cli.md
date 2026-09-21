@@ -617,6 +617,46 @@ qfg workspace create acme-prod --name "Acme Production" --org acme-corp
 
 On success, prints the workspace ID, slug, Gitea repo URL, and the default environments (`development`, `production`, `staging`). Returns a non-zero exit code with a clear message on slug collisions, missing org membership, or auth failure.
 
+#### workspace bootstrap
+
+`qfg workspace bootstrap --dir <path>` lands a local git repo, **with its
+commit history**, on a freshly created workspace. This is the move from the
+[fully local](/docs/how-tos/open-source-local) workflow to a hosted account
+for anyone who wants to keep the history they built up locally; `qfg push`
+lands the same files as a single commit.
+
+Which workspace it pushes to is resolved the same way `push`, `pull` and
+`sync` resolve theirs, in this order:
+
+1. `QUONFIG_WORKSPACE`, if set (`<org>/<workspace>`, or the workspace UUID).
+2. The `workspace` pin in `<dir>/quonfig.json`, if the directory has one.
+3. Your active profile (`qfg workspace`).
+
+The confirmation prompt names the workspace that won, so check it before
+answering. If the directory is pinned to one workspace and something else
+selects another, bootstrap refuses and pushes nothing.
+
+Bootstrap is for a **fresh** workspace only: one that holds no configs,
+flags, segments, log levels or schemas yet. A workspace that is already in
+use is refused with a pointer to `qfg push --dir <path>`. It never
+force-pushes: your history is replayed onto the workspace's own first
+commits, and your local branch is not moved. On success it prints the
+commands that point your clone at the workspace.
+
+Options:
+- `--dir <path>` - The local git repo to push (defaults to the current directory)
+- `--skip-validate` - Skip config validation before pushing
+
+Examples:
+```bash
+qfg workspace bootstrap --dir ./my-config
+QUONFIG_WORKSPACE=acme/prod qfg workspace bootstrap --dir ./my-config
+```
+
+Bootstrap needs no git identity on the machine: on a CI runner or a fresh
+laptop with no `user.name` / `user.email`, the replayed commits keep your
+authors and are committed as `quonfig migrator`.
+
 ### set-default
 
 `qfg set-default NAME` sets the **fallback** value for a flag or config in one environment — the unconditional rule at the end of that environment's rule list, i.e. what users receive when no targeting rule matches.
