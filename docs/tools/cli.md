@@ -785,6 +785,31 @@ qfg run --env-file=.qfg.env -- next build
 
 The `--` separator between `qfg run` flags and the child command is required. Auth/environment is binary — set either `QUONFIG_BACKEND_SDK_KEY` (Mode A) or use `qfg login` plus `--environment` / `QUONFIG_ENVIRONMENT` (Mode B), never both. See [Running commands with injected env](/docs/tools/qfg-run) for the full reference, package.json patterns, and the `instrumentation.ts` comparison.
 
+## Your workspace's `main` is append-only
+
+Every workspace is a git repo, and you can push to it with plain `git` as well as
+with `qfg push`. Whatever tool you use, every push to `main` has to
+**fast-forward** from the current tip. A force-push, deleting `main`, or creating
+`main` by push is rejected by the server with a message that says what to do
+instead. Branches other than `main` are yours to rewrite.
+
+The reason: config delivery follows `main` forward. A rewritten `main` cannot be
+fast-forwarded by the delivery servers, and connected SDKs ignore a snapshot whose
+generation is not newer than the one they hold, so a force-push does not roll
+anything back for your users; it silently freezes what they receive. A forward
+commit does what a force-push was meant to do, and the next section shows how.
+
+If a push is rejected because someone else pushed first, pull and rebase, then push
+again:
+
+```bash
+qfg pull && qfg push          # or: git pull --rebase origin main && git push origin main
+```
+
+If the rejection came from `qfg workspace bootstrap` on an older CLI, upgrade the
+CLI (`npm install -g @quonfig/cli@latest`); bootstrap has not force-pushed since
+0.1.0.
+
 ## Rolling the whole workspace back to an earlier commit
 
 Something landed that shouldn't have — a bad bulk edit, a script that rewrote more
