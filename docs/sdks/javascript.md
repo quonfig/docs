@@ -352,6 +352,38 @@ Quonfig also stores the context that you pass in. The context keys are used to p
 | `SHAPE_ONLY`               | Stores context keys only.                                      |
 | `NONE`                     | Stores nothing. Context will only be used for rule evaluation. |
 
+### Delivery options
+
+How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
+every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
+The browser option names and defaults, passed to `quonfig.init()` (`@quonfig/javascript` 1.3.0+):
+
+| Option                            | Default           |
+| --------------------------------- | ----------------- |
+| `telemetryFlushIntervalMs`        | `30000` (30s)     |
+| `telemetryTimeoutMs`              | `10000` (10s)     |
+| `telemetryMaxRetainedBatches`     | `5`               |
+| `telemetryMaxRetainedBytes`       | `524288` (512KB)  |
+| `telemetryMaxRetainedAgeMs`       | `300000` (5 min)  |
+| `telemetryMaxEvaluationSummaries` | `10000`           |
+
+Invalid values (non-finite or `<= 0`) fall back to the default. The eval-fetch `timeout` option
+does not apply to telemetry. Failed batches are kept in memory for the life of the page, and
+`Retry-After` is honored only when the page can read the header.
+
+**When the page goes away.** On `pagehide` the SDK sends the current window once with
+`fetch(..., { keepalive: true })` and a 2s deadline, without blocking unload. Kept batches from an
+earlier failure are not resent.
+
+Telemetry drops log one `console.warn` and recovery one `console.info`. Debug lines print (via
+`console.debug`) only when the `log-level.quonfig-javascript.quonfig.telemetry` config evaluates to
+`DEBUG`.
+
+Changes in 1.3.0: the final flush moved from `beforeunload` to a `pagehide` keepalive POST;
+telemetry has its own 10s timeout instead of sharing the eval-fetch `timeout`; the per-window cap
+dropped from 100,000 to 10,000 evaluation-summary keys; a telemetry network error is no longer an
+unhandled promise rejection.
+
 ## Testing
 
 In your test suite, you should skip `quonfig.init` altogether and instead use `quonfig.hydrate` to set up your test state.
@@ -393,9 +425,9 @@ it("shows the turbo button when the feature is enabled", () => {
 | `poll`          | `quonfig.poll({frequencyInMs})`                 | starts polling every `frequencyInMs` ms.                                                                                                                                                 |
 | `shouldLog`     | `quonfig.shouldLog({loggerPath, desiredLevel})` | returns whether a message at `desiredLevel` should emit; accepts either `{loggerPath}` (uses init-time `loggerKey`) or `{configKey}`                                                     |
 | `stopPolling`   | `quonfig.stopPolling()`                         | stops the polling process                                                                                                                                                                |
-| `flush`         | `await quonfig.flush()`                         | drains pending telemetry counters to the telemetry endpoint without tearing the SDK down. Useful before a context swap in a long-lived SPA. Returns a Promise.                           |
-| `close`         | `await quonfig.close()`                         | drains telemetry (via `flush`), then stops polling and telemetry timers. Returns a Promise. Prefer this over `stopTelemetry()` for normal teardown so in-flight counters aren't dropped. |
-| `stopTelemetry` | `quonfig.stopTelemetry()`                       | stops telemetry aggregator timers without draining. Prefer `close()` or `flush()` — they drain pending counters first.                                                                   |
+| `flush`         | `await quonfig.flush()`                         | sends the current telemetry window now without tearing the SDK down. Useful before a context swap in a long-lived SPA. After a failed POST it waits out the 30s floor and `Retry-After`. Returns a Promise that never rejects. |
+| `close`         | `await quonfig.close()`                         | stops polling and the telemetry timer, removes the `pagehide` listener, then sends the current telemetry window once with a 2s deadline and `keepalive`. Returns a Promise that never rejects. Prefer this over `stopTelemetry()` for normal teardown so the last window isn't dropped. |
+| `stopTelemetry` | `quonfig.stopTelemetry()`                       | stops telemetry aggregator timers without sending. Prefer `close()` or `flush()` — they send the current window first.                                                                   |
 | `updateContext` | `quonfig.updateContext(newContext)`             | update the context and refetch. Pass `true` as the second argument (`skipLoad`) to update the context **without** refetching; the default (`false`) refetches immediately.               |
 
 ### `init()` Options

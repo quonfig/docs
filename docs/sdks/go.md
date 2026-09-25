@@ -348,6 +348,32 @@ sdk, err := quonfig.NewClient(
 )
 ```
 
+### Delivery options
+
+How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
+every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
+The Go option names and defaults (v1.3.0+):
+
+| Option                                 | Default               |
+| -------------------------------------- | --------------------- |
+| `WithTelemetrySyncInterval`            | `60 * time.Second`    |
+| `WithTelemetryTimeout`                 | `15 * time.Second`    |
+| `WithTelemetryConnectTimeout`          | `5 * time.Second`     |
+| `WithTelemetryMaxRetainedBatches`      | `5`                   |
+| `WithTelemetryMaxRetainedBytes`        | `2097152` (2MB)       |
+| `WithTelemetryMaxRetainedAge`          | `5 * time.Minute`     |
+| `WithTelemetryMaxEvaluationSummaries`  | `10000`               |
+| `WithTelemetryMaxContextShapeFields`   | `10000`               |
+| `WithTelemetryMaxExampleContexts`      | `10000`               |
+
+The timeout rides the request context, so it holds even when you pass your own client with
+`WithHTTPClient`; in that case your client's transport decides the connect timeout. Telemetry logs
+through the `*slog.Logger` from `WithLogger` (default `slog.Default()`).
+
+Changes in 1.3.0: telemetry now logs (before, failures were invisible); the timeout went from 30s
+to 15s; the immediate 5x retry is replaced by keeping the batch and resending it later; `Close()`
+returns within 5s even if the telemetry endpoint hangs.
+
 ## Offline and Testing Modes
 
 ### Local Data Directory (Datafiles)

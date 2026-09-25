@@ -190,10 +190,41 @@ The SDK ships an App Store `PrivacyInfo.xcprivacy` (wired into the SPM package
 resources), and disables the eval request's `URLCache` so the context-bearing
 eval URL is never written to an on-device cache.
 
+### Delivery options
+
+How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
+every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
+The Swift `Configuration` options and defaults (v0.1.0+):
+
+| option                            | default                 |
+| --------------------------------- | ----------------------- |
+| `telemetryFlushInterval`          | `60` (seconds)          |
+| `telemetryTimeout`                | `15` (seconds, foreground POST, connect and TLS included) |
+| `telemetryMaxRetainedBatches`     | `5`                     |
+| `telemetryMaxRetainedBytes`       | `524_288` (512KB)       |
+| `telemetryMaxRetainedAge`         | `300` (seconds)         |
+| `telemetryMaxEvaluationSummaries` | `100_000`               |
+| `logSink`                         | `nil` (`os.Logger`, subsystem `com.quonfig.sdk`, category `Telemetry`) |
+
+**Disk queue.** Each window is serialized once and written to an on-disk queue (Application
+Support, one file per batch) before it is POSTed, and deleted only after a `2xx`. A window in flight
+when the app is backgrounded or killed is resent byte for byte on the next foreground tick or
+launch, unless it is older than 5 minutes by then.
+
+**Background.** When the app goes to the background (and on `shutdown()`), the live window is
+written to disk and POSTed once inside a ~5s background task. Older queued batches wait for the
+next foreground tick.
+
+Changes in 0.1.0: a `401`, `403` or `404` now stops telemetry for the process with one error and
+deletes the queue (before, it was retried forever); the flush interval is a fixed 60s (was an 8s
+to 300s backoff); the foreground timeout is 15s (was the 60s URLSession default); the disk queue is
+capped at 5 batches / 512KB / 5 minutes (was 50 windows with no age limit). The 0.0.1 queue file is
+deleted on first launch and its windows are not resent.
+
 ## Teardown
 
 ```swift
-await quonfig.shutdown()   // stops polling + telemetry, flushing one last window
+await quonfig.shutdown()   // stops polling + telemetry, sending one last window (~5s max)
 ```
 
 ## Reference
@@ -211,7 +242,7 @@ await quonfig.shutdown()   // stops polling + telemetry, flushing one last windo
 | `updateContext(_:)` | switch identity and refetch |
 | `shouldLog(_:loggerKey:)` | whether a record at a level should emit under a `log_level` config |
 | `logLevelThreshold(for:)` | the resolved `QuonfigLogLevel` for a `log_level` config, or `nil` |
-| `shutdown()` | stop polling + telemetry (drains one last window) |
+| `shutdown()` | stop polling + telemetry (sends one last window; queued batches are not drained) |
 | `context` / `isReady` | current context; whether an envelope has been applied |
 
 ### `Configuration` options
@@ -223,7 +254,7 @@ await quonfig.shutdown()   // stops polling + telemetry, flushing one last windo
 | `apiURLs` | `[URL]?` | derived from `domain` | explicit API base URLs (failover order); wins over `domain` |
 | `telemetryURL` | `URL?` | derived from `domain` | explicit telemetry base URL; wins over `domain` |
 | `pollInterval` | `TimeInterval` | `60` | foreground poll interval; `0` disables polling |
-| `collectEvaluationSummaries` | `Bool` | `true` | upload per-flag evaluation summaries |
+| `collectEvaluationSummaries` | `Bool` | `true` | upload per-flag evaluation summaries; other `telemetry*` options are under [Delivery options](#delivery-options) |
 | `collectContextMode` | `CollectContextMode` | `.periodicExample` | `.periodicExample`, `.shapeOnly`, or `.none` |
 | `requestTimeout` / `resourceTimeout` | `TimeInterval?` | `nil` | per-request / resource timeouts |
 | `customHeaders` | `@Sendable () -> [String: String]` | `{}` | headers recomputed per request (e.g. rotating proxy tokens) |

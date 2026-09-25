@@ -67,7 +67,7 @@ Quonfig quonfig = new Quonfig(
 );
 ```
 
-`Quonfig` implements `AutoCloseable`. We recommend using it as a singleton in your application and calling `quonfig.close()` on shutdown to stop the SSE stream and flush telemetry.
+`Quonfig` implements `AutoCloseable`. We recommend using it as a singleton in your application and calling `quonfig.close()` on shutdown to stop the SSE stream and send the last telemetry window.
 
 ### Initialization is asynchronous
 
@@ -425,7 +425,7 @@ By default Quonfig uploads telemetry that powers the dashboard's evaluation coun
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------ |
 | `disableTelemetry`            | Disable all telemetry uploads.                                                                                               | `false`            |
 | `collectEvaluationSummaries`  | Send aggregate counts of config/flag evaluation results back to Quonfig.                                                     | `true`             |
-| `contextUploadMode`           | How named-context data is reported. One of `NONE`, `SHAPES_ONLY` (names + types only), `PERIODIC_EXAMPLE` (full sample, redacted). | `PERIODIC_EXAMPLE` |
+| `contextUploadMode`           | How named-context data is reported. One of `NONE`, `SHAPES_ONLY` (names + types only), `PERIODIC_EXAMPLE` (shapes plus example contexts with values). | `PERIODIC_EXAMPLE` |
 
 ```java
 import com.quonfig.sdk.telemetry.ContextUploadMode;
@@ -448,7 +448,32 @@ Options.builder()
     .build();
 ```
 
-`quonfig.flush()` drains any pending telemetry synchronously — useful from short-lived processes (CLI, batch job) before exit. `quonfig.close()` stops the SSE client, telemetry reporter, and background threads.
+`quonfig.flush()` sends the current telemetry window and waits for the POST — useful from short-lived processes (CLI, batch job) before exit. It does not throw on a failed POST. `quonfig.close()` sends the current window once with a 5s deadline and stops the SSE client, telemetry reporter, and background threads.
+
+### Delivery options
+
+How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
+every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
+The Java builder methods and defaults (`com.quonfig:sdk-java` 1.3.0+):
+
+| `Options.builder()` method         | Default                   |
+| ---------------------------------- | ------------------------- |
+| `telemetryFlushInterval`           | `Duration.ofSeconds(60)`  |
+| `telemetryTimeout`                 | `Duration.ofSeconds(15)`  |
+| `telemetryConnectTimeout`          | `Duration.ofSeconds(5)`   |
+| `telemetryMaxRetainedBatches`      | `5`                       |
+| `telemetryMaxRetainedBytes`        | `2097152` (2MB)           |
+| `telemetryMaxRetainedAge`          | `Duration.ofMinutes(5)`   |
+| `telemetryMaxEvaluationSummaries`  | `10000`                   |
+| `telemetryMaxContextShapeFields`   | `10000`                   |
+| `telemetryMaxExampleContexts`      | `10000`                   |
+
+Invalid values (null, zero, negative) fall back to the default. Telemetry logs through SLF4J, or
+the `logger(...)` you pass (default `com.quonfig.sdk`).
+
+Changes in 1.3.0: the timeout went from 30s to 15s and the connect timeout from 10s to 5s; a failed
+POST now logs at DEBUG instead of WARN every time; the flush cadence is a fixed 60s.
+`telemetryMaxInterval` is deprecated and has no effect (the builder method still compiles).
 
 ## Testing
 
@@ -509,5 +534,5 @@ Options options = Options.builder()
 | `disableTelemetry`            | Disable all telemetry uploads.                                                                                                             | `false`                                |
 | `collectEvaluationSummaries`  | Send aggregate evaluation counts to Quonfig.                                                                                               | `true`                                 |
 | `contextUploadMode`           | `NONE`, `SHAPES_ONLY`, or `PERIODIC_EXAMPLE`.                                                                                              | `PERIODIC_EXAMPLE`                     |
-| `telemetryFlushInterval`      | How often the background reporter flushes pending telemetry.                                                                               | `60s`                                  |
-| `telemetryMaxInterval`        | Maximum back-off between telemetry flushes after repeated failures.                                                                        | `600s`                                 |
+| `telemetryFlushInterval`      | How often the background reporter sends telemetry. Other telemetry options: [Delivery options](#delivery-options).                         | `60s`                                  |
+| `telemetryMaxInterval`        | Deprecated since 1.3.0; no effect. See [Delivery options](#delivery-options).                                                              | n/a                                    |

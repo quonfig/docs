@@ -516,6 +516,37 @@ module MyApplication
 end
 ```
 
+### Delivery options
+
+How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
+every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
+The Ruby option names and defaults (`quonfig` gem 1.5.0+), all passed to `Quonfig::Options.new`:
+
+| Option                             | Default                                                           |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| `collect_sync_interval`            | `60` (seconds)                                                    |
+| `telemetry_timeout_ms`             | `15_000` (15s)                                                    |
+| `telemetry_connect_timeout_ms`     | `5_000` (5s)                                                      |
+| `telemetry_max_retained_batches`   | `5`                                                               |
+| `telemetry_max_retained_bytes`     | `2_097_152` (2MB)                                                 |
+| `telemetry_max_retained_age_ms`    | `300_000` (5 min)                                                 |
+| `collect_max_evaluation_summaries` | `10_000`                                                          |
+| `context_max_size`                 | `10_000` (context-shape fields, and separately example contexts) |
+
+Invalid values (non-numeric or `<= 0`) fall back to the default. The SDK's default logger prints
+warnings and errors only; pass `logger:` to see the debug and info lines. `stop` and the reporter's
+`at_exit` hook send the current window once with a 5s deadline.
+
+**Keeping batches small.** A single batch larger than `telemetry_max_retained_bytes` is sent once
+and, if that POST fails, dropped rather than kept. Large batches come from example contexts. If you
+see telemetry drop warnings with large batches, use `context_upload_mode: :shapes_only` or a lower
+`context_max_size`.
+
+Changes in 1.5.0: the per-window caps dropped from 100,000 to 10,000; the flush interval is a fixed
+60s (before, it started at 8s and grew to 600s); a telemetry POST now has its own 15s timeout
+(before, Faraday's 60s connect plus 60s read); a failed POST logs at debug instead of warning every
+time.
+
 ## Debugging
 
 In the rare

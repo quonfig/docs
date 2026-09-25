@@ -947,7 +947,7 @@ to run code when new config arrives.
 
 ```typescript
 // Properly close all connections and clean up resources
-await quonfig.close(); // Drains telemetry, stops SSE, clears timeouts
+await quonfig.close(); // Sends the last telemetry window (5s max), stops SSE, clears timeouts
 ```
 
 **Important**: Always call `quonfig.close()` when shutting down your application to ensure proper
@@ -976,6 +976,33 @@ const quonfig = new Quonfig({
 - `"periodic_example"` - Sends both context structure and example values
 - `"shapes_only"` - Sends only context keys and types, no values
 - `"none"` - Disables context collection entirely
+
+### Delivery options
+
+How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
+every SDK and is explained once on the [Telemetry](../../explanations/architecture/telemetry.md)
+page. The Node option names and defaults (`@quonfig/node` 1.3.0+):
+
+| Option                            | Default          |
+| --------------------------------- | ---------------- |
+| `telemetryFlushIntervalMs`        | `60000` (60s)    |
+| `telemetryTimeoutMs`              | `15000` (15s)    |
+| `telemetryMaxRetainedBatches`     | `5`              |
+| `telemetryMaxRetainedBytes`       | `2097152` (2MB)  |
+| `telemetryMaxRetainedAgeMs`       | `300000` (5 min) |
+| `telemetryMaxEvaluationSummaries` | `10000`          |
+| `telemetryMaxContextShapeFields`  | `10000`          |
+| `telemetryMaxExampleContexts`     | `10000`          |
+
+Invalid values (non-finite or `<= 0`) fall back to the default. Node's `fetch` has no separate
+connect timeout, so `telemetryTimeoutMs` also covers connect and TLS.
+
+Telemetry lines go to the `logger` you pass. The default console logger does not print debug
+lines, so pass a `logger` to see failed POSTs.
+
+Changes in 1.3.0: the flush interval went from 8s to 60s and the timeout from 3s to 15s; a failed
+POST now logs at debug instead of warning on every failure; `close()` sends the current window once
+with a 5s deadline instead of waiting on retries.
 
 ## Reference
 

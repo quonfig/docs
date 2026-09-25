@@ -868,6 +868,13 @@ Quonfig also stores the context that you pass in. The context keys are used to p
 | `SHAPE_ONLY`               | Stores context keys only.                                      |
 | `NONE`                     | Stores nothing. Context will only be used for rule evaluation. |
 
+Delivery (flush interval, timeout, retry and caps) comes from the underlying `@quonfig/javascript`
+client: `@quonfig/react` 1.3.0 requires `@quonfig/javascript` 1.3.0 or later and has no telemetry
+props of its own. The option names are listed under
+[JavaScript delivery options](./javascript.md#delivery-options), and the behavior is explained on
+the [Telemetry](../explanations/architecture/telemetry.md) page. Unmounting `QuonfigProvider` calls
+`close()`, which sends the last window with a 2s `keepalive` POST.
+
 ## Testing
 
 Wrap the component under test in a `QuonfigTestProvider` and provide a config object to set up your test state.

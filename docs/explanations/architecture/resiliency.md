@@ -87,8 +87,10 @@ primary platform is down:
   secondary learns about key changes on a short delay (under a minute in
   normal operation), so a key minted moments before the outage may not work
   until the primary returns. All previously issued keys keep working.
-- **Telemetry ingestion pauses.** SDKs buffer telemetry in bounded memory and
-  drop it rather than block your application; flag evaluation is unaffected.
+- **Telemetry ingestion pauses.** SDKs keep failed telemetry batches for up to
+  5 minutes and resend them when the endpoint recovers, dropping the oldest
+  rather than growing or blocking your application; flag evaluation is
+  unaffected. See [Telemetry](./telemetry.md#when-the-telemetry-endpoint-is-slow-or-down).
 - **Live updates pause.** SSE streams reconnect automatically when the primary
   returns — and since no writes can happen during the outage, there are no
   updates to miss.

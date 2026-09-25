@@ -407,6 +407,41 @@ logger.debug("filtered by Quonfig")
 | `QuonfigLoggerFilter(client, logger_path=None)`       | `root.addFilter(QuonfigLoggerFilter(client))`                                | Stdlib `logging.Filter`. Reads the record's `name` into `quonfig-sdk-logging.key`.                                   |
 | `QuonfigLoggerProcessor(client, logger_path=None)`    | `structlog.configure(processors=[..., QuonfigLoggerProcessor(client)])`      | structlog processor. Requires `structlog` to be installed.                                                           |
 
+## Telemetry
+
+The SDK sends evaluation summaries and context data in the background so the dashboard can show
+which flags are used and with what contexts. Opt out with `collect_evaluation_summaries=False` and
+`context_upload_mode="shapes_only"` (no example contexts) or `"none"` (no context data); see
+[constructor parameters](#available-constructor-parameters).
+
+How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
+every SDK and is explained once on the [Telemetry](../../explanations/architecture/telemetry.md)
+page. The Python option names and defaults (`quonfig` 1.5.0+), all keyword arguments to
+`Quonfig(...)`:
+
+| Option                               | Default           |
+| ------------------------------------ | ----------------- |
+| `telemetry_flush_interval_ms`        | `60_000` (60s)    |
+| `telemetry_timeout_ms`               | `15_000` (15s)    |
+| `telemetry_connect_timeout_ms`       | `5_000` (5s)      |
+| `telemetry_max_retained_batches`     | `5`               |
+| `telemetry_max_retained_bytes`       | `2_097_152` (2MB) |
+| `telemetry_max_retained_age_ms`      | `300_000` (5 min) |
+| `telemetry_max_evaluation_summaries` | `10_000`          |
+| `telemetry_max_context_shape_fields` | `10_000`          |
+| `telemetry_max_example_contexts`     | `10_000`          |
+
+`None` or a non-positive value means the default. `telemetry_timeout_ms` bounds each read of the
+response (`requests` has no whole-request deadline), so a server that never answers is abandoned
+after 15s. Telemetry logs through the stdlib logger `quonfig.telemetry`.
+
+A client you never close still sends its last window at interpreter exit, from an `atexit` hook
+(all clients in parallel, 5s at most in total). A forked child never re-sends its parent's window.
+
+Changes in 1.5.0: the flush interval went from 30s to 60s, so telemetry reaches the dashboard up to
+a minute after an evaluation; the in-place 3x retry is replaced by keeping the batch and resending
+it later; the `atexit` final flush is new.
+
 ## Testing
 
 Point the client at a local data directory instead of the remote CDN with `datadir`:

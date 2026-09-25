@@ -246,6 +246,8 @@ const posthog = new PostHog("YOUR_POSTHOG_API_KEY", {
 
 By default, Quonfig will collect summary counts of feature flag evaluations to help you understand how your flags are being used in the real world. You can opt out of this behavior by passing `collectEvaluationSummaries={false}` when initializing `QuonfigProvider`.
 
+Telemetry delivery (flush interval, timeout, retry and caps) comes from the underlying `@quonfig/javascript` client; see [JavaScript delivery options](./javascript.md#delivery-options) for the option names and the [Telemetry](../explanations/architecture/telemetry.md) page for how it behaves when the endpoint is slow or down. The browser defaults apply with `@quonfig/react` 1.3.0 or later installed.
+
 ## Testing
 
 Wrap the component under test in a `QuonfigTestProvider` and provide a config object to set up your test state.

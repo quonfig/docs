@@ -98,7 +98,7 @@ await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 await client.InitAsync();
 ```
 
-`Quonfig` implements `IAsyncDisposable`. We recommend wiring it as a singleton in your DI container and letting the container call `DisposeAsync()` on shutdown to stop the SSE stream and flush telemetry. In ASP.NET Core the [`Quonfig.Sdk.AspNetCore`](#aspnet-core-integration) package handles this for you.
+`Quonfig` implements `IAsyncDisposable`. We recommend wiring it as a singleton in your DI container and letting the container call `DisposeAsync()` on shutdown to stop the SSE stream and send the last telemetry window. In ASP.NET Core the [`Quonfig.Sdk.AspNetCore`](#aspnet-core-integration) package handles this for you.
 
 ### Initialization is asynchronous
 
@@ -560,17 +560,33 @@ Use these primitives for telemetry, dashboards, and alerting on extended outages
 
 By default Quonfig uploads telemetry that powers the dashboard's evaluation counts, context-shape detection, and example-context capture. Tune or disable via `QuonfigOptions`:
 
-| Name                          | Description                                                                                                                  | Default       |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `CollectEvaluationSummaries`  | Send aggregate counts of config/flag evaluation results back to Quonfig.                                                     | `true`        |
-| `ContextUploadMode`           | How named-context data is reported. One of `None`, `ShapesOnly` (names + types), or `PeriodicExample` (full sample, redacted). | `ShapesOnly`  |
+| Name                          | Description                                                                                                                  | Default           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `CollectEvaluationSummaries`  | Send aggregate counts of config/flag evaluation results back to Quonfig.                                                     | `true`            |
+| `ContextUploadMode`           | How named-context data is reported. One of `None`, `ShapesOnly` (names + types), or `PeriodicExample` (shapes plus example contexts with values). | `PeriodicExample` |
+
+:::note ContextUploadMode default changed in 1.3.0
+
+Before `Quonfig.Sdk` 1.3.0 the default was `ShapesOnly`, which uploads only context field names and
+types. The default is now `PeriodicExample`, matching every other Quonfig SDK. It additionally
+uploads **example contexts**: for each distinct context `key` (or `trackingId`), at most once per
+hour, the full evaluation context of that evaluation, meaning every named context (`user`, `team`,
+...) including the `GlobalContext`, with **all property values** (for example `user.email`,
+`user.name`, `team.plan`). Contexts with neither a `key` nor a `trackingId` are never sampled.
+Example contexts power the dashboard's context drill-down and rule-editor autocomplete; see
+[What gets saved](../explanations/concepts/context.md#what-gets-saved--keys-example-contexts-and-your-bill).
+
+To keep the old behavior, set `ContextUploadMode = ContextUploadMode.ShapesOnly` (names and types,
+no values), or `ContextUploadMode.None` to send no context data at all.
+
+:::
 
 ```csharp
 await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     SdkKey = "sdk-...",
     CollectEvaluationSummaries = true,
-    ContextUploadMode = ContextUploadMode.ShapesOnly,
+    ContextUploadMode = ContextUploadMode.ShapesOnly, // opt out of example contexts
 });
 ```
 
@@ -585,7 +601,37 @@ new QuonfigOptions
 };
 ```
 
-`client.DisposeAsync()` (or `CloseAsync()`) stops the SSE client, fallback poller, datadir watcher, and telemetry reporter, and drains any pending telemetry before returning.
+`client.DisposeAsync()` (or `CloseAsync()`) stops the SSE client, fallback poller, datadir watcher, and telemetry reporter. It sends the current telemetry window once with a 5s deadline and never blocks shutdown on a slow telemetry endpoint.
+
+### Delivery options
+
+How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
+every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
+The .NET property names on `QuonfigOptions` and their defaults (`Quonfig.Sdk` 1.3.0+):
+
+| Property                           | Default                     |
+| ---------------------------------- | --------------------------- |
+| `TelemetryFlushInterval`           | `TimeSpan.FromSeconds(60)`  |
+| `TelemetryTimeout`                 | `TimeSpan.FromSeconds(15)`  |
+| `TelemetryConnectTimeout`          | `TimeSpan.FromSeconds(5)`   |
+| `TelemetryMaxRetainedBatches`      | `5`                         |
+| `TelemetryMaxRetainedBytes`        | `2097152` (2MB)             |
+| `TelemetryMaxRetainedAge`          | `TimeSpan.FromMinutes(5)`   |
+| `TelemetryMaxEvaluationSummaries`  | `10000`                     |
+| `TelemetryMaxContextShapeFields`   | `10000`                     |
+| `TelemetryMaxExampleContexts`      | `10000`                     |
+
+Non-positive values fall back to the default. `TelemetryConnectTimeout` applies on net8.0 when the
+SDK builds its own HTTP handler; on netstandard2.0, or with an injected `HttpMessageHandler`,
+`TelemetryTimeout` covers connect too. `TelemetryInitialDelay` and `TelemetryMaxInterval` are kept
+for source compatibility but no longer used.
+
+Telemetry logs through `QuonfigOptions.Logger`. The default is a no-op logger, so pass an
+`ILogger` to see telemetry drops (`Warning`), recovery (`Information`) and auth errors.
+
+Changes in 1.3.0: besides the `ContextUploadMode` default above, a timed-out telemetry POST no
+longer stops telemetry for the rest of the process; the timeout went from 30s to 15s; a failed POST
+logs at `Debug` instead of `Warning` every time.
 
 ## Testing
 
@@ -648,7 +694,7 @@ var options = new QuonfigOptions
     OnNoDefault = OnNoDefault.Throw,
     LoggerKey = "log-level.my-app",
     CollectEvaluationSummaries = true,
-    ContextUploadMode = ContextUploadMode.ShapesOnly,
+    ContextUploadMode = ContextUploadMode.PeriodicExample,
 };
 ```
 
@@ -676,7 +722,7 @@ var options = new QuonfigOptions
 | `SseReadTimeout`              | Layer 1 SSE read watchdog. Pass `TimeSpan.Zero` to disable.                                                                                | `90s`                                                    |
 | `LoggerKey`                   | Config key consulted by `ShouldLog(...)`. When set, enables single-config dispatch via injected `quonfig-sdk-logging.key`.                  | `null`                                                   |
 | `CollectEvaluationSummaries`  | Send aggregate evaluation counts to Quonfig.                                                                                                | `true`                                                   |
-| `ContextUploadMode`           | `None`, `ShapesOnly`, or `PeriodicExample`.                                                                                                | `ShapesOnly`                                             |
+| `ContextUploadMode`           | `None`, `ShapesOnly`, or `PeriodicExample`. See [Telemetry](#telemetry).                                                                   | `PeriodicExample`                                        |
 | `Logger`                      | Optional `ILogger`. Defaults to a no-op logger.                                                                                            | no-op                                                    |
 | `HttpMessageHandler`          | Optional `HttpMessageHandler` for tests / DI. Ownership stays with the caller.                                                              | `null`                                                   |
 | `EnvLookup`                   | Optional env-var lookup override (testability).                                                                                            | `Environment.GetEnvironmentVariable`                     |
