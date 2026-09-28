@@ -104,12 +104,21 @@ provider = Quonfig::OpenFeature::Provider.new(
 
 ## Native SDK escape hatch
 
-Access the underlying `Quonfig::Client` for features not available in OpenFeature:
+Access the underlying `Quonfig::Client` for features not available in OpenFeature.
+Any extra keyword arguments to `Provider.new` are forwarded to `Quonfig::Client.new`, so
+set `logger_key:` there if you want `should_log?(logger_path:)` (without it, `should_log?`
+raises `Quonfig::Error`):
 
 ```ruby
+provider = Quonfig::OpenFeature::Provider.new(
+  sdk_key:    'qf_sk_production_...',
+  logger_key: 'log-level.my-app'   # the log-level config should_log? evaluates
+)
+OpenFeature::SDK.set_provider_and_wait(provider)
+
 native = provider.client
 
-# Log level integration
+# Log level integration (requires logger_key above)
 native.should_log?(
   logger_path:   'auth',
   desired_level: :debug,
