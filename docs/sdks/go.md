@@ -213,8 +213,6 @@ Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app
 
 ```go
 import (
-    "log/slog"
-    "os"
     quonfig "github.com/quonfig/sdk-go"
 )
 
@@ -323,7 +321,7 @@ By default, Quonfig uploads telemetry that enables a number of useful features. 
 | Name                       | Description                                                                                                                           | Default          |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                       | true             |
-| contextTelemetryMode       | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts | PERIODIC_EXAMPLE |
+| contextTelemetryMode       | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts | `quonfig.ContextTelemetryPeriodicExample` |
 
 If you want to change any of these options, you can pass options when initializing the Quonfig SDK:
 
@@ -365,6 +363,7 @@ The Go option names and defaults (v1.3.0+):
 | `WithTelemetryMaxEvaluationSummaries`  | `10000`               |
 | `WithTelemetryMaxContextShapeFields`   | `10000`               |
 | `WithTelemetryMaxExampleContexts`      | `10000`               |
+| `WithTelemetryMaxExampleContextsSeen`  | `100000` (v1.4.0+)    |
 
 The timeout rides the request context, so it holds even when you pass your own client with
 `WithHTTPClient`; in that case your client's transport decides the connect timeout. Telemetry logs
@@ -373,6 +372,12 @@ through the `*slog.Logger` from `WithLogger` (default `slog.Default()`).
 Changes in 1.3.0: telemetry now logs (before, failures were invisible); the timeout went from 30s
 to 15s; the immediate 5x retry is replaced by keeping the batch and resending it later; `Close()`
 returns within 5s even if the telemetry endpoint hangs.
+
+Changes in 1.4.0: with the default `periodic_example` context telemetry, each distinct context is
+sent as an example at most once per hour (before, every distinct context was re-sent in every
+60-second window); the SDK remembers up to `WithTelemetryMaxExampleContextsSeen` recently sent
+contexts, and a new context seen while that limit is full is picked up on a later evaluation once
+older entries expire. Evaluations and targeting are not affected.
 
 ## Offline and Testing Modes
 
@@ -417,7 +422,7 @@ client, err := quonfig.NewClient(
 | WithEnvironment                | Which environment to evaluate when loading from a local data dir (overrides `QUONFIG_ENVIRONMENT`)                                     | from env var     |
 | WithGlobalContext              | Set a static context to be used as the base layer in all configuration evaluation                                                     | empty            |
 | WithCollectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                      | true             |
-| WithContextTelemetryMode       | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts | PERIODIC_EXAMPLE |
+| WithContextTelemetryMode       | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts | `quonfig.ContextTelemetryPeriodicExample` |
 | WithAllTelemetryDisabled       | Disable all telemetry (evaluation summaries and context telemetry)                                                                    | n/a              |
 | WithOnInitFailure              | Behavior if the initial config fetch fails/times out: `quonfig.ReturnError` (default) or `quonfig.ReturnZeroValue`                     | ReturnError      |
 | WithInitTimeout                | Timeout for the initial config fetch, as a `time.Duration` (e.g. `10*time.Second`)                                                    | 10s              |

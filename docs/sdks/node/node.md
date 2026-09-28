@@ -830,7 +830,7 @@ const personalizedContentObject = quonfig.dynamicContent(userContext);
 
 const personalizedMessage = personalizedContentObject.message({
   name: "Alice",
-  isPremium: true,
+  planName: "Premium", // template variables are always strings
   deviceType: "desktop",
 });
 
@@ -885,8 +885,10 @@ Access raw configuration metadata and structure:
 <TabItem value="typegen" label="⭐ TypeScript + Generated Types (Recommended)">
 
 ```typescript
+// rawConfig and getRawMatch live on the base client, not the generated
+// QuonfigTypesafeNode class. Call them on baseQuonfig (or quonfig.quonfig).
 // Get raw config with full metadata (no evaluation)
-const rawConfig = quonfig.rawConfig("api.retry.count");
+const rawConfig = baseQuonfig.rawConfig("api.retry.count");
 if (rawConfig) {
   console.log("Config type:", rawConfig.type);
   console.log("Value type:", rawConfig.valueType);
@@ -894,7 +896,7 @@ if (rawConfig) {
 }
 
 // Get the raw value that matches a given context, without unwrapping it
-const rawMatch = quonfig.getRawMatch("api.retry.count", {
+const rawMatch = baseQuonfig.getRawMatch("api.retry.count", {
   user: { key: "user-123" },
 });
 ```

@@ -18,7 +18,7 @@ to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/quonfig/sdk-swift.git", from: "0.0.1"),
+    .package(url: "https://github.com/quonfig/sdk-swift.git", from: "0.1.0"),
 ],
 targets: [
     .target(
@@ -211,9 +211,13 @@ Support, one file per batch) before it is POSTed, and deleted only after a `2xx`
 when the app is backgrounded or killed is resent byte for byte on the next foreground tick or
 launch, unless it is older than 5 minutes by then.
 
-**Background.** When the app goes to the background (and on `shutdown()`), the live window is
-written to disk and POSTed once inside a ~5s background task. Older queued batches wait for the
-next foreground tick.
+**Background.** When the app goes to the background, the live window is written to disk and
+POSTed once inside an OS background activity (`ProcessInfo.performExpiringActivity`), with a ~5s
+network budget. `shutdown()` does the same final write-then-POST with the same ~5s bound, but runs
+it directly in your `await`, not inside a background activity. In both cases older queued batches
+wait for the next foreground tick, and the final POST is skipped if another POST is already in
+flight or the 30s post-failure floor or a server `Retry-After` has not elapsed yet; the window
+stays on disk and is sent on the next foreground tick or launch.
 
 Changes in 0.1.0: a `401`, `403` or `404` now stops telemetry for the process with one error and
 deletes the queue (before, it was retried forever); the flush interval is a fixed 60s (was an 8s

@@ -533,7 +533,9 @@ The Ruby option names and defaults (`quonfig` gem 1.5.0+), all passed to `Quonfi
 | `collect_max_evaluation_summaries` | `10_000`                                                          |
 | `context_max_size`                 | `10_000` (context-shape fields, and separately example contexts) |
 
-Invalid values (non-numeric or `<= 0`) fall back to the default. The SDK's default logger prints
+For the five `telemetry_*` options, an invalid value (non-numeric, or `<= 0`) falls back to the
+default. `collect_sync_interval` falls back to `60` only when it is `nil`. `collect_max_evaluation_summaries`
+and `context_max_size` are not validated: set either to `0` to turn off that aggregator. The SDK's default logger prints
 warnings and errors only; pass `logger:` to see the debug and info lines. `stop` and the reporter's
 `at_exit` hook send the current window once with a 5s deadline.
 
@@ -624,18 +626,17 @@ options = Quonfig::Options.new(
   sdk_key: ENV['QUONFIG_BACKEND_SDK_KEY'],
   api_urls: ['https://primary.quonfig.com', 'https://secondary.quonfig.com'], # primary + secondary (failover on by default). Derived from ENV['QUONFIG_DOMAIN'] when omitted; SSE URL is derived by prepending 'stream.'
   on_no_default: Quonfig::Options::ON_NO_DEFAULT::RAISE, # ::RAISE (:raise) or ::RETURN_NIL (:return_nil)
-  initialization_timeout_sec: 10, # how long to wait before on_init_failure (alias for init_timeout_ms)
+  init_timeout_ms: 10_000, # how long to wait before on_init_failure (the old initialization_timeout_sec, in seconds, is a deprecated alias)
   on_init_failure: Quonfig::Options::ON_INITIALIZATION_FAILURE::RAISE, # choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup
   datadir: ENV['QUONFIG_DIR'], # local workspace dir for offline/datadir mode
   logger_key: nil, # the `log_level` config key consulted by `should_log?(logger_path:, ...)`, e.g. "log-level.my-app"
   enable_quonfig_user_context: nil, # inject quonfig-user.email from ~/.quonfig/tokens.json (qfg login). Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set false or QUONFIG_DEV_CONTEXT=false to opt out.
   collect_max_paths: Quonfig::Options::DEFAULT_MAX_PATHS,
-  collect_sync_interval: nil,
+  collect_sync_interval: 60, # seconds between telemetry flushes (nil also means 60)
   context_upload_mode: :periodic_example, # :periodic_example, :shapes_only, :none
   context_max_size: Quonfig::Options::DEFAULT_MAX_EVAL_SUMMARIES,
   collect_evaluation_summaries: true, # send counts of config/flag evaluation results back to Quonfig to view in web app
   collect_max_evaluation_summaries: Quonfig::Options::DEFAULT_MAX_EVAL_SUMMARIES,
-  allow_telemetry_in_local_mode: false,
   global_context: {}
 )
 

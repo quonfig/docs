@@ -444,12 +444,14 @@ it later; the `atexit` final flush is new.
 
 ## Testing
 
-Point the client at a local data directory instead of the remote CDN with `datadir`:
+Point the client at a local data directory instead of the remote CDN with `datadir`. Datadir mode
+requires an environment: pass `environment=` or set `QUONFIG_ENVIRONMENT`, otherwise `init()` raises
+`RuntimeError`.
 
 ```python
 from quonfig import Quonfig
 
-client = Quonfig(datadir="path/to/quonfig-data").init()
+client = Quonfig(datadir="path/to/quonfig-data", environment="development").init()
 client.get(...)
 ```
 
@@ -463,11 +465,15 @@ All parameters are keyword arguments to `Quonfig(...)`.
 - `api_urls` - override the API endpoints your SDK key connects to (list of base URLs).
 - `datadir` - path to a local data directory to load config from instead of the remote CDN.
 - `environment` - which environment to evaluate (`production`, `staging`, `development`); falls back to `QUONFIG_ENVIRONMENT`.
+  Applies only in `datadir` mode, where it is required. With an SDK key the environment comes from the key, so this
+  setting is ignored and the SDK logs a warning.
 - `on_no_default` - one of `"error"` (default), `"warn"`, or `"ignore"`. Controls behavior when a config has no value and
   no default is supplied: raise `QuonfigKeyNotFoundError`, log a warning and return `None`, or silently return `None`.
 - `on_init_failure` - one of `"raise"` (default), `"return"`, or `"return_zero_value"`. Controls what happens if the initial
   fetch fails or times out.
-- `init_timeout_ms` - how long `init()` waits for the first successful fetch (defaults to `10000`).
+- `init_timeout_ms` - how long to wait for the first successful fetch (defaults to `10000`). With an SDK key, `init()`
+  returns immediately and fetches in the background; the first getter call waits up to this long for that fetch, then
+  applies `on_init_failure`. In `datadir` mode `init()` loads synchronously and this setting does not apply.
 - `collect_evaluation_summaries` - send aggregate data about config and feature flag evaluations (defaults to `True`).
 - `context_upload_mode` - send context information to Quonfig. One of `"none"`, `"shapes_only"` (field names and types only),
   or `"periodic_example"` (types plus example contexts; the default).
