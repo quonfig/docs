@@ -860,7 +860,7 @@ If you're using [Quonfig for A/B testing](/docs/how-tos/experiment.md), you can 
 
 By default, Quonfig will collect summary counts of config and feature flag evaluations to help you understand how your configs and flags are being used in the real world. You can opt out of this behavior by passing `collectEvaluationSummaries={false}` when initializing `QuonfigProvider`.
 
-Quonfig also stores the context that you pass in. The context keys are used to power autocomplete in the rule editor, and the individual values power the Contexts page for troubleshooting targeting rules and individual flag overrides. If you want to change what Quonfig stores, set `collectContextMode` on the underlying [`@quonfig/javascript`](./javascript.md#telemetry) client — `QuonfigProvider` does not accept this prop. You can configure it by calling `quonfig.init({ collectContextMode: … })` directly (for example in the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration)).
+Quonfig also stores the context that you pass in. The context keys are used to power autocomplete in the rule editor, and the individual values power the Contexts page for troubleshooting targeting rules and individual flag overrides. `collectContextMode` controls what Quonfig stores. `QuonfigProvider` does not accept it as a prop, and you can't set it for the browser by calling `quonfig.init({ collectContextMode: … })` yourself: the provider calls `init()` again with its own options, which don't include `collectContextMode`, so it resets to `PERIODIC_EXAMPLE`. In React apps, the browser always uses the default. The only place a `collectContextMode` you pass takes effect is a server-side `quonfig.init()` call in the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration), and it applies only to that server-side client.
 
 | `collectContextMode` value | Behavior                                                       |
 | -------------------------- | -------------------------------------------------------------- |
@@ -868,12 +868,19 @@ Quonfig also stores the context that you pass in. The context keys are used to p
 | `SHAPE_ONLY`               | Stores context keys only.                                      |
 | `NONE`                     | Stores nothing. Context will only be used for rule evaluation. |
 
-Delivery (flush interval, timeout, retry and caps) comes from the underlying `@quonfig/javascript`
-client: `@quonfig/react` 1.3.0 requires `@quonfig/javascript` 1.3.0 or later and has no telemetry
-props of its own. The option names are listed under
-[JavaScript delivery options](./javascript.md#delivery-options), and the behavior is explained on
-the [Telemetry](../explanations/architecture/telemetry.md) page. Unmounting `QuonfigProvider` calls
-`close()`, which sends the last window with a 2s `keepalive` POST.
+The underlying `@quonfig/javascript` client handles telemetry delivery (flush interval, timeout,
+retry and caps). `@quonfig/react` 1.3.0 requires `@quonfig/javascript` 1.3.0 or later. React apps
+always get the JavaScript defaults. Apart from `collectEvaluationSummaries`, `QuonfigProvider` has
+no telemetry props: it doesn't forward the
+[JavaScript delivery options](./javascript.md#delivery-options), and a direct `quonfig.init()` call
+with them is overridden when the provider re-initializes the client. The
+[Telemetry](../explanations/architecture/telemetry.md) page explains how delivery behaves.
+Unmounting `QuonfigProvider` calls `close()`, which sends the last window with a 2s `keepalive`
+POST. In the browser, a `pagehide` listener also sends a final flush when the page goes away.
+
+With `initialFlags` ([SSR hydration](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration)),
+the provider hydrates the client and doesn't call `init()` in the browser. No telemetry reporter
+starts, so the browser sends no evaluation summaries and no `pagehide` flush happens.
 
 ## Testing
 
@@ -1528,7 +1535,7 @@ const MyComponent = () => {
 
 :::info Custom Hook Requirements
 
-Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/main/src/QuonfigProvider.tsx#L109-L132) implementation for additional details.
+Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/main/src/QuonfigProvider.tsx#L106-L129) implementation for additional details.
 
 You must implement `get` method + expose the javascript `quonfig` property directly in custom implementations.
 :::

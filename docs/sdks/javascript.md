@@ -29,10 +29,12 @@ yarn add @quonfig/javascript
 </TabItem>
 <TabItem value="script" label="<script> tag">
 
-We recommend using [jsDelivr][jsDelivr] for a minified/bundled version.
+Without a bundler, import the ES module build from [jsDelivr][jsDelivr] in a `<script type="module">`:
 
-```
-<script src="https://cdn.jsdelivr.net/npm/@quonfig/javascript@1/dist/quonfig.bundle.js"></script>
+```html
+<script type="module">
+  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@1/+esm";
+</script>
 ```
 
 See the <a href="#context">context</a> section for more information on how to initialize with the `<script>` tag and a user context.
@@ -71,16 +73,22 @@ You aren't required to `await` the `init` -- it is a promise, so you can use `.t
 
 <TabItem value="script" label="<script> tag">
 
-```javascript
-// `quonfig` is available globally on the window object
-const options = {
-  sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
-};
+```html
+<script type="module">
+  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@1/+esm";
 
-quonfig.init(options).then(() => {
-  console.log(options);
-  console.log("test-flag is " + quonfig.isEnabled("test-flag"));
-});
+  const options = {
+    sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
+    // context is required -- init() rejects without one
+    context: {
+      user: { email: "test@example.com" },
+    },
+  };
+
+  quonfig.init(options).then(() => {
+    console.log("test-flag is " + quonfig.isEnabled("test-flag"));
+  });
+</script>
 ```
 
 </TabItem>
@@ -152,27 +160,28 @@ await quonfig.init(options);
 
 <TabItem value="script" label="<script> tag">
 
-```javascript
-// `quonfig` is available globally on the window object
-const options = {
-  sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
-  // highlight-start
-  context: {
-    user: {
-      email: "test@example.com",
+```html
+<script type="module">
+  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@1/+esm";
+
+  const options = {
+    sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
+    // highlight-start
+    context: {
+      user: {
+        email: "test@example.com",
+      },
+      device: { mobile: true },
     },
-    device: { mobile: true },
-  },
-  // highlight-end
-};
+    // highlight-end
+  };
 
-quonfig.init(options).then(() => {
-  console.log(options);
-  console.log("test-flag is " + quonfig.isEnabled("test-flag"));
+  quonfig.init(options).then(() => {
+    console.log("test-flag is " + quonfig.isEnabled("test-flag"));
 
-  console.log("ex1-copywrite " + quonfig.get("ex1-copywrite"));
-  $(".copywrite").text(quonfig.get("ex1-copywrite"));
-});
+    document.querySelector(".copywrite").textContent = quonfig.get("ex1-copywrite");
+  });
+</script>
 ```
 
 </TabItem>
@@ -249,10 +258,10 @@ The browser SDK evaluates log levels against the **context snapshot captured at 
 
 ### Concept
 
-- One `log_level` config per app, keyed like `log-level.my-app`. Value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
-- Tell the SDK which config to consult with the `loggerKey` init option.
-- Each `shouldLog({loggerPath, ...})` call pushes `loggerPath` into the evaluation context as `quonfig-sdk-logging.key` (verbatim — no normalization) so a single config can drive per-logger rules.
-- Logger names flowing through `quonfig-sdk-logging.key` are captured by example-context telemetry, so the dashboard can auto-suggest rule targets.
+- A `log_level` config, keyed like `log-level.my-app`. Value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+- Tell the SDK which config to consult with the `loggerKey` init option. `shouldLog({loggerPath, ...})` always reads that one config; `loggerPath` does not change which config is read.
+- The browser SDK does not evaluate rules itself. The server evaluates every config for the context you pass to `init()` / `updateContext()`, and `shouldLog` compares `desiredLevel` against that one pre-evaluated value. So every `loggerPath` gets the same answer from a given config.
+- `shouldLog` also records `loggerPath` in the SDK's context as `quonfig-sdk-logging.key` (verbatim, no normalization). This makes logger names visible to example-context telemetry, so the dashboard can suggest them as rule targets. It does **not** change the current evaluation.
 
 ### Basic usage
 
@@ -274,27 +283,29 @@ The primitive shape — `shouldLog({configKey, desiredLevel, defaultLevel})` —
 
 ### Rule example
 
-Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+Rules on a browser `log_level` config should target the context you pass to `init()`, such as user email, app version or deploy ring. For example, a `log-level.my-app` config with default `INFO` and a rule that returns `DEBUG` when `user.email` ends with `@mycompany.com` turns on debug logging for internal users only.
 
-```yaml
-# Default to INFO
-default: INFO
+Do not write browser rules on `quonfig-sdk-logging.key`. The logger path is not part of the context when the value is evaluated. The SDK keeps the last `loggerPath` it saw in its context, so a later poll or `updateContext()` sends whichever logger happened to call `shouldLog` last, and the result is unpredictable. Per-logger rules on `quonfig-sdk-logging.key` work in the server SDKs, which evaluate locally for each call.
 
-rules:
-  # DEBUG for the checkout subsystem
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "checkout."
-    value: DEBUG
+### Per-logger levels
 
-  # Turn DEBUG on for internal users
-  - criteria:
-      user.email:
-        ends-with: "@mycompany.com"
-    value: DEBUG
+For different levels per logger in the browser, create a separate `log_level` config for each logger and use the `configKey` form. If a key has no value, `shouldLog` tries its parent key: `log-level.my-app.checkout.cart` falls back to `log-level.my-app.checkout`, then to `log-level.my-app`, then to `defaultLevel`.
+
+```javascript
+// log-level.my-app          = INFO
+// log-level.my-app.checkout = DEBUG
+quonfig.shouldLog({
+  configKey: "log-level.my-app.checkout.cart",
+  desiredLevel: "DEBUG",
+  defaultLevel: "WARN",
+}); // true: falls back to log-level.my-app.checkout
+
+quonfig.shouldLog({
+  configKey: "log-level.my-app.search",
+  desiredLevel: "DEBUG",
+  defaultLevel: "WARN",
+}); // false: falls back to log-level.my-app (INFO)
 ```
-
-Because the evaluator sees the full init-time context — not just `quonfig-sdk-logging.*` — you can combine logger rules with global context (app version, deploy ring, user email) for targeted debugging.
 
 ### Updating context
 
@@ -376,8 +387,8 @@ does not apply to telemetry. Failed batches are kept in memory for the life of t
 earlier failure are not resent.
 
 Telemetry drops log one `console.warn` and recovery one `console.info`. Debug lines print (via
-`console.debug`) only when the `log-level.quonfig-javascript.quonfig.telemetry` config evaluates to
-`DEBUG`.
+`console.debug`) only when the `log-level.quonfig-javascript.quonfig.telemetry` config (or a parent
+key such as `log-level.quonfig-javascript`) evaluates to `DEBUG` or `TRACE`.
 
 Changes in 1.3.0: the final flush moved from `beforeunload` to a `pagehide` keepalive POST;
 telemetry has its own 10s timeout instead of sharing the eval-fetch `timeout`; the per-window cap

@@ -246,7 +246,7 @@ const posthog = new PostHog("YOUR_POSTHOG_API_KEY", {
 
 By default, Quonfig will collect summary counts of feature flag evaluations to help you understand how your flags are being used in the real world. You can opt out of this behavior by passing `collectEvaluationSummaries={false}` when initializing `QuonfigProvider`.
 
-Telemetry delivery (flush interval, timeout, retry and caps) comes from the underlying `@quonfig/javascript` client; see [JavaScript delivery options](./javascript.md#delivery-options) for the option names and the [Telemetry](../explanations/architecture/telemetry.md) page for how it behaves when the endpoint is slow or down. The browser defaults apply with `@quonfig/react` 1.3.0 or later installed.
+Telemetry delivery (flush interval, timeout, retry and caps) comes from the underlying `@quonfig/javascript` client; see [JavaScript delivery options](./javascript.md#delivery-options) for the option names and the [Telemetry](../explanations/architecture/telemetry.md) page for how it behaves when the endpoint is slow or down. React Native uses the same defaults with `@quonfig/react` 1.3.0 or later installed, with one exception: the browser's final flush on `pagehide` needs `window.addEventListener`, which React Native generally doesn't have. On React Native, the only final flush is the `close()` call that runs when `QuonfigProvider` unmounts. Evaluations recorded after the last periodic flush are lost if the app is killed before the provider unmounts.
 
 ## Testing
 
