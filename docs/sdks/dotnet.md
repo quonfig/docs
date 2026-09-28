@@ -6,13 +6,13 @@ title: .NET
 
 [GitHub](https://github.com/quonfig/sdk-net) | [NuGet](https://www.nuget.org/profiles/quonfig)
 
-Replace `1.2.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
+Replace `1.4.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
 
 <Tabs groupId="dotnet-build">
 <TabItem value="dotnet-cli" label=".NET CLI">
 
 ```bash
-dotnet add package Quonfig.Sdk --version 1.2.0
+dotnet add package Quonfig.Sdk --version 1.4.0
 ```
 
 </TabItem>
@@ -21,7 +21,7 @@ dotnet add package Quonfig.Sdk --version 1.2.0
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Quonfig.Sdk" Version="1.2.0" />
+  <PackageReference Include="Quonfig.Sdk" Version="1.4.0" />
 </ItemGroup>
 ```
 
@@ -30,7 +30,7 @@ dotnet add package Quonfig.Sdk --version 1.2.0
 <TabItem value="paket" label="Paket">
 
 ```paket
-nuget Quonfig.Sdk ~> 1.2.0
+nuget Quonfig.Sdk ~> 1.4.0
 ```
 
 </TabItem>
@@ -40,7 +40,7 @@ nuget Quonfig.Sdk ~> 1.2.0
 ```xml
 <Project>
   <ItemGroup>
-    <PackageVersion Include="Quonfig.Sdk" Version="1.2.0" />
+    <PackageVersion Include="Quonfig.Sdk" Version="1.4.0" />
   </ItemGroup>
 </Project>
 ```
@@ -362,7 +362,7 @@ if (details.Reason == Reason.Error)
 | `VariantIndex`    | Weighted-bucket index — reserved and not yet wired, so always `null`. Read the bucket from `Metadata["weightedValueIndex"]` (or parse `Variant`). |
 | `ErrorCode`       | `FlagNotFound`, `TypeMismatch`, or `General` on `Error`; `null` otherwise.                           |
 | `ErrorMessage`    | Companion to `ErrorCode`.                                                                            |
-| `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex` (on `TargetingMatch` / `Split`) and `weightedValueIndex` (on `Split`), `environment`. |
+| `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex` (on `TargetingMatch` / `Split`) and `weightedValueIndex` (on `Split`), `environment`, and `hashPropertyMissing` (`true` only when a weighted rollout's hash property was missing from the context, so an empty value was hashed; since 1.4.0). |
 
 :::note Weighted splits report `Split`, but `VariantIndex` is still `null`
 
@@ -375,10 +375,10 @@ Weighted-value configs resolve to the correct value and report `Reason.Split` wi
 The `Quonfig.Sdk.AspNetCore` companion package wires `Quonfig` into the ASP.NET Core host: it registers the singleton, runs `InitAsync` via `IHostedService`, and (optionally) binds per-request `ContextSet` from `HttpContext` so controllers can inject `IBoundQuonfig` directly.
 
 ```bash
-dotnet add package Quonfig.Sdk.AspNetCore --version 1.2.0
+dotnet add package Quonfig.Sdk.AspNetCore --version 1.4.0
 ```
 
-Replace `1.2.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.AspNetCore). The companion packages ship lock-step with `Quonfig.Sdk` from the same tag, so keep the versions aligned.
+Replace `1.4.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.AspNetCore). The companion packages ship lock-step with `Quonfig.Sdk` from the same tag, so keep the versions aligned.
 
 ```csharp
 // Program.cs
@@ -435,10 +435,10 @@ If no log-level config is found at any level, `ShouldLog` returns `true` — the
 The `Quonfig.Sdk.Extensions.Logging` package wires `ShouldLog` into the BCL logging pipeline by wrapping the providers already registered on the `ILoggingBuilder`:
 
 ```bash
-dotnet add package Quonfig.Sdk.Extensions.Logging --version 1.2.0
+dotnet add package Quonfig.Sdk.Extensions.Logging --version 1.4.0
 ```
 
-Replace `1.2.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Extensions.Logging). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
+Replace `1.4.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Extensions.Logging). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
 
 `AddQuonfigFilter(quonfig)` takes the client instance and must be called **last** in the logging setup — it snapshots and wraps every `ILoggerProvider` registered up to that point. Because it needs the instance at logging-config time, construct the client up front and register the same instance with DI:
 
@@ -468,10 +468,10 @@ Every `ILogger<T>` call site is then automatically gated by Quonfig: the logger 
 For Serilog, use `Quonfig.Sdk.Serilog`. The `QuonfigLoggingLevelSwitchProvider` manages a set of Serilog `LoggingLevelSwitch` instances keyed by source context and re-evaluates them whenever the config envelope changes (it subscribes to the SDK's `OnConfigChange`, which fires after every successful install).
 
 ```bash
-dotnet add package Quonfig.Sdk.Serilog --version 1.2.0
+dotnet add package Quonfig.Sdk.Serilog --version 1.4.0
 ```
 
-Replace `1.2.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Serilog). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
+Replace `1.4.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Serilog). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
 
 The provider resolves levels via `IQuonfig.GetLogLevel(...)`, so the config key is configured by `LoggerKey` on the **client** options — you don't pass a key to the provider. `GetSwitch(category)` returns (and caches) the switch for a source context; pass an empty string for the root switch used by `MinimumLevel.ControlledBy`:
 
@@ -524,7 +524,7 @@ Because the evaluator sees your full context — global, bound, and the injected
 
 ### Manual gating
 
-If you'd rather gate a single call site by hand instead of installing the filter, call `ShouldLog` directly. The `LogLevel` enum lives in `Quonfig.Sdk` (its values mirror `Microsoft.Extensions.Logging.LogLevel`).
+If you'd rather gate a single call site by hand instead of installing the filter, call `ShouldLog` directly. The `LogLevel` enum lives in `Quonfig.Sdk`. It is Quonfig's own level set, shared with the other Quonfig SDKs, ordered most-severe-first: `Fatal`, `Error`, `Warn`, `Info`, `Debug`, `Trace`. It is not `Microsoft.Extensions.Logging.LogLevel`, so qualify it as `Quonfig.Sdk.LogLevel` if both namespaces are imported.
 
 ```csharp
 using Quonfig.Sdk;
@@ -713,6 +713,9 @@ var options = new QuonfigOptions
 | `DatadirAutoReload`           | Opt-in: watch `Datadir` for file changes and reload atomically.                                                                            | `false`                                                  |
 | `DatadirAutoReloadDebounce`   | Debounce window when `DatadirAutoReload` is on.                                                                                            | `200ms`                                                  |
 | `InitTimeout`                 | How long the initial fetch / load may take before `OnInitFailure` applies.                                                                 | `10s`                                                    |
+| `ConfigFetchTimeout`          | Per-URL deadline for one config-fetch attempt (initial fetch, fallback poller, refresh). A hung primary aborts after this and the next URL is tried within the remaining `InitTimeout`. Never applies to the SSE stream. | `3s`                                                     |
+| `ConfigFetchHedgeDelay`       | How long the hedged fetch waits on the primary before also firing the secondary in parallel (the primary is not cancelled). Must be less than `ConfigFetchHedgeAbort`. | `2s`                                                     |
+| `ConfigFetchHedgeAbort`       | Per-leg hard-abort deadline on the hedged fetch path. Must be less than `InitTimeout` (a warning is logged at construction otherwise). | `6s`                                                     |
 | `OnInitFailure`               | `Throw` or `ReturnDefaults` when init exceeds `InitTimeout`.                                                                               | `Throw`                                                  |
 | `OnNoDefault`                 | `Throw`, `Warn`, or `Ignore` when a getter has no value and no `defaultValue`.                                                             | `Throw`                                                  |
 | `GlobalContext`               | A `ContextSet` merged into every evaluation as the base layer.                                                                             | `null`                                                   |
@@ -723,6 +726,9 @@ var options = new QuonfigOptions
 | `LoggerKey`                   | Config key consulted by `ShouldLog(...)`. When set, enables single-config dispatch via injected `quonfig-sdk-logging.key`.                  | `null`                                                   |
 | `CollectEvaluationSummaries`  | Send aggregate evaluation counts to Quonfig.                                                                                                | `true`                                                   |
 | `ContextUploadMode`           | `None`, `ShapesOnly`, or `PeriodicExample`. See [Telemetry](#telemetry).                                                                   | `PeriodicExample`                                        |
+| `TelemetrySender`             | Optional `ITelemetrySender` used instead of the built-in HTTP sender (tests / DI). Telemetry opt-outs still apply; a sender that throws is treated as a retryable failure. | `null`                                                   |
+| `OnConfigChange`              | Optional `Action` fired after every config install (initial load and each SSE / fallback / datadir refresh). Same as subscribing to the client's `OnConfigChange` event before the first load. Must not throw. | `null`                                                   |
+| `EnableQuonfigUserContext`    | Auto-inject the dev-only `quonfig-user.email` context from the `qfg login` tokens file. `null` falls through to the `QUONFIG_DEV_CONTEXT` env var, then on; inert when no tokens file exists (e.g. production). Set `false` to force off. | `null` (on)                                              |
 | `Logger`                      | Optional `ILogger`. Defaults to a no-op logger.                                                                                            | no-op                                                    |
 | `HttpMessageHandler`          | Optional `HttpMessageHandler` for tests / DI. Ownership stays with the caller.                                                              | `null`                                                   |
 | `EnvLookup`                   | Optional env-var lookup override (testability).                                                                                            | `Environment.GetEnvironmentVariable`                     |

@@ -6,14 +6,14 @@ title: Java
 
 [GitHub](https://github.com/quonfig/sdk-java) | [Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java)
 
-Replace `1.2.0` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
+Replace `1.4.0` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
 
 <Tabs groupId="java-build">
 <TabItem value="gradle-kotlin" label="Gradle (Kotlin DSL)">
 
 ```kotlin
 dependencies {
-    implementation("com.quonfig:sdk-java:1.2.0")
+    implementation("com.quonfig:sdk-java:1.4.0")
 }
 ```
 
@@ -23,7 +23,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.quonfig:sdk-java:1.2.0'
+    implementation 'com.quonfig:sdk-java:1.4.0'
 }
 ```
 
@@ -35,7 +35,7 @@ dependencies {
 <dependency>
     <groupId>com.quonfig</groupId>
     <artifactId>sdk-java</artifactId>
-    <version>1.2.0</version>
+    <version>1.4.0</version>
 </dependency>
 ```
 
@@ -305,7 +305,7 @@ if (details.reason() == Reason.ERROR) {
 | `variantIndex()`  | The selected weighted-bucket index on `SPLIT`; `null` otherwise.                                     |
 | `errorCode()`     | `FLAG_NOT_FOUND`, `TYPE_MISMATCH`, or `GENERAL` on `ERROR`; `null` otherwise.                        |
 | `errorMessage()`  | Companion to `errorCode()`.                                                                          |
-| `metadata()`      | `configId`, `configKey`, `configType`, optional `ruleIndex`, `weightedValueIndex`, `environment`.    |
+| `metadata()`      | `configId`, `configKey`, `configType`, optional `ruleIndex`, `weightedValueIndex`, `environment`, `hashPropertyMissing` (1.4.0+; `true` when a weighted rollout's hash property was missing). |
 
 ## Dynamic Log Levels
 
@@ -371,7 +371,7 @@ Because the evaluator sees your full context — global, bound, and the injected
 The `sdk-java-logback` module ships a `TurboFilter` that gates **every** Logback logger dynamically from Quonfig — no per-call-site `if (shouldLog)` wrapping. Add the dependency (you bring your own Logback; the module declares it `provided`):
 
 ```kotlin
-implementation("com.quonfig:sdk-java-logback:1.2.0")
+implementation("com.quonfig:sdk-java-logback:1.4.0")
 implementation("ch.qos.logback:logback-classic:1.5.18")
 ```
 
@@ -472,7 +472,7 @@ Invalid values (null, zero, negative) fall back to the default. Telemetry logs t
 the `logger(...)` you pass (default `com.quonfig.sdk`).
 
 Changes in 1.3.0: the timeout went from 30s to 15s and the connect timeout from 10s to 5s; a failed
-POST now logs at DEBUG instead of WARN every time; the flush cadence is a fixed 60s.
+POST now logs at DEBUG instead of WARN every time; the flush cadence is a fixed interval set by `telemetryFlushInterval` (default 60s).
 `telemetryMaxInterval` is deprecated and has no effect (the builder method still compiles).
 
 ## Testing
@@ -504,7 +504,6 @@ import java.util.List;
 Options options = Options.builder()
     .sdkKey(System.getenv("QUONFIG_BACKEND_SDK_KEY"))
     .domain("quonfig.com")
-    .environment("production")
     .globalContext(global)
     .initTimeout(Duration.ofSeconds(10))
     .loggerKey("log-level.my-app")
@@ -522,7 +521,7 @@ Options options = Options.builder()
 | `apiUrls`                     | Explicit API base URLs. Takes precedence over `domain`.                                                                                    | `[https://primary.<domain>, https://secondary.<domain>]` |
 | `streamUrls`                  | Explicit SSE stream base URLs. Defaults to `apiUrls` rewritten with a `stream.` prefix on each host.                                        | derived from `apiUrls`                 |
 | `telemetryUrl`                | Explicit telemetry endpoint.                                                                                                               | `https://telemetry.<domain>`           |
-| `environment`                 | Environment name to evaluate against. Required in datadir mode. Falls back to `QUONFIG_ENVIRONMENT` env var.                               | (env var)                              |
+| `environment`                 | Datadir mode only: environment name to evaluate against (required there). Falls back to `QUONFIG_ENVIRONMENT` env var. Ignored with a warning in SDK-key mode, where the SDK key determines the environment. | (env var)                              |
 | `datadir`                     | Path to a Quonfig workspace directory. Switches the client to datadir mode (no HTTP fetch, no SSE).                                        | `null`                                 |
 | `dataDirAutoReload`           | In datadir mode, watch the directory and re-read the envelope on file changes (fires `onConfigUpdate`).                                     | `false`                                |
 | `dataDirAutoReloadDebounceMs` | Debounce window (ms) coalescing filesystem bursts when `dataDirAutoReload` is on.                                                          | `200`                                  |
