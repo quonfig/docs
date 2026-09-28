@@ -23,7 +23,8 @@ delivered the SDK drops it rather than slow down or grow your process.
   passes, for example `user.email: string`. These power autocomplete in the
   rule editor.
 - **Example contexts.** For each distinct context `key`, at most one full
-  context per hour, with its values. See
+  context per hour, with its values (Go: v1.4.0+; earlier Go versions send one
+  per flush window). See
   [What gets saved](../concepts/context.md#what-gets-saved--keys-example-contexts-and-your-bill)
   for how keys, example contexts and MTK billing relate.
 - **Failover counters.** How often the SDK used the secondary delivery leg.
@@ -51,7 +52,9 @@ defaults; the [defaults table](#defaults) has the browser and Swift values.
   window, so memory tracks the number of distinct flags and contexts, not your
   traffic.
 - **Timeout.** Each POST gets 15s end to end. SDKs whose HTTP client supports a
-  separate connect deadline also bound TCP connect and TLS at 5s.
+  separate connect deadline also bound TCP connect and TLS at 5s. In Python the
+  15s bounds each socket read rather than the whole request, so a server that
+  never answers is abandoned at 15s.
 - **Failed batches are kept and resent exactly.** On a timeout, network error,
   408, 429 or 5xx, the SDK keeps the serialized batch byte-for-byte and resends
   it unchanged later. It never merges a kept batch with newer data, so if the
@@ -74,7 +77,7 @@ defaults; the [defaults table](#defaults) has the browser and Swift values.
   its kept batches, and disables telemetry for the rest of the process. Flag
   evaluation is unaffected.
 - **Rejected payload drops one batch.** Any other 4xx (400, 413, 422) drops
-  that one batch with an error, and telemetry continues on the next tick.
+  that one batch, and telemetry continues on the next tick.
 
 So a short telemetry outage costs nothing: batches wait, then land once. A long
 one (past 5 batches or 5 minutes) loses the oldest telemetry, and only
@@ -91,7 +94,7 @@ Telemetry is quiet unless data is actually lost or the state changes.
 | Further drops while the outage continues           | DEBUG | Plus one summary WARN at most every 10 minutes |
 | First successful POST after failures               | INFO  | Once per outage                               |
 | 401, 403 or 404                                    | ERROR | Once, then silence (telemetry is off)         |
-| Other 4xx                                          | ERROR | Once per rejected batch                       |
+| Other 4xx (batch rejected and dropped)             | ERROR | At most every 10 minutes, with a count of rejects since the last one; DEBUG in between |
 
 A timeout whose batch is later resent successfully never logs above DEBUG. If
 you see a telemetry WARN, telemetry data was dropped; flag evaluation was not
@@ -100,18 +103,25 @@ and how to see DEBUG lines.
 
 ## Shutdown
 
-Closing the client (`close()`, `Close()`, `stop`, `CloseAsync()`, depending on
-the SDK) sends the current window once with a 5s deadline. It does not resend
-kept batches from an earlier failure, and it never blocks your process from
-exiting longer than that deadline. In short-lived processes such as serverless
-handlers, call `flush()` before returning; after a failure, `flush()` still
-respects the 30s wait and any `Retry-After`.
+Closing a backend client (`close()`, `Close()`, `stop`, `CloseAsync()`,
+depending on the SDK) sends the current window once with a 5s deadline. It does
+not resend kept batches from an earlier failure, and it never blocks your
+process from exiting longer than that deadline. In short-lived processes such
+as serverless handlers, send telemetry before returning: Node, Python and Java
+have `flush()`; in Go, Ruby and .NET, close the client (`Close()`, `stop`,
+`CloseAsync()`). After a failure, `flush()` still respects the 30s wait and any
+`Retry-After`.
 
-- **Browser:** on `pagehide`, the SDK sends the current window once with a
-  `keepalive` fetch and a 2s deadline, without blocking unload.
+- **Browser:** `close()` and `pagehide` send the current window once with a
+  `keepalive` fetch and a 2s deadline (or `telemetryTimeoutMs`, if that is
+  lower). `pagehide` does not block unload.
 - **iOS and macOS:** when the app goes to the background, the Swift SDK writes
   the current window to disk and POSTs it once inside a background task of
-  about 5s. Older queued batches wait for the next foreground tick.
+  about 5s. `shutdown()` does the same final POST with the same 5s bound, but
+  not inside a background task. The POST is skipped if another POST is still in
+  flight or the 30s wait or a `Retry-After` has not elapsed; the window stays on
+  disk and is sent on the next foreground tick or launch. Older queued batches
+  also wait for the next foreground tick.
 
 ## Defaults
 
@@ -137,7 +147,8 @@ the 5 minute age limit.
 Option names and the versions that introduced these defaults:
 
 - [Node](../../sdks/node/node.md#telemetry) (`@quonfig/node` 1.3.0+)
-- [Go](../../sdks/go.md#telemetry) (v1.3.0+)
+- [Go](../../sdks/go.md#telemetry) (v1.3.0+; v1.4.0+ for the once-per-hour
+  example-context limit)
 - [Python](../../sdks/python/python.md#telemetry) (`quonfig` 1.5.0+)
 - [Ruby](../../sdks/ruby.md#telemetry) (`quonfig` gem 1.5.0+)
 - [Java](../../sdks/java.md#telemetry) (`com.quonfig:sdk-java` 1.3.0+)
