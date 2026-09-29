@@ -241,6 +241,8 @@ It checks:
 - No duplicate keys across the workspace
 - Segment references (`IN_SEG` / `NOT_IN_SEG`) resolve to real segments
 - Schema references (`schemaKey`) resolve to real schemas
+- Every schema compiles, and every value of a schema-bound config matches its
+  schema (`@quonfig/cli` 0.2.0 or later)
 - Variant-only configs only emit declared variants
 
 Examples:
