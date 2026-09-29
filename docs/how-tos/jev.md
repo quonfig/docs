@@ -247,7 +247,14 @@ export async function triage(email: string, user: { key: string; plan: string })
     model: quonfig.jevModel(ctx),
     questions, // no cast
   });
-  return answers; // answers.urgent.noul, answers.frustration.score, answers.topic.choice
+  // Each answer is a union: narrow on `type` before reading its value.
+  const results: Record<string, number | string> = {};
+  for (const [name, answer] of Object.entries(answers)) {
+    if (answer.type === "noul") results[name] = answer.noul; // 0 to 1
+    else if (answer.type === "score") results[name] = answer.score; // rubric position
+    else results[name] = answer.choice; // a label key
+  }
+  return results; // { urgent: 0.9, frustration: 2, topic: "billing" }
 }
 ```
 
