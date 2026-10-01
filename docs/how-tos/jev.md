@@ -23,66 +23,129 @@ Copy this schema as it is. It mirrors the `Questions` type of
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Jev questions",
-  "description": "A set of named Jev questions in TypeSafe's request shape.",
+  "description": "A set of named Jev questions in TypeSafe's request shape. Each name becomes a key in the answers object, so pick names your code can read, like is_urgent or frustration.",
   "type": "object",
-  "required": ["questions"],
+  "required": [
+    "questions"
+  ],
   "additionalProperties": false,
   "properties": {
     "questions": {
       "type": "object",
+      "title": "Questions",
+      "description": "One entry per question. The name is the key Jev answers under; the value is what you ask.",
       "minProperties": 1,
-      "propertyNames": { "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
+      "propertyNames": {
+        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+      },
       "additionalProperties": {
         "oneOf": [
           {
             "title": "Yes / No",
+            "description": "Jev answers with a probability between 0 and 1 that the answer is yes.",
             "type": "object",
-            "required": ["type"],
+            "required": [
+              "type",
+              "instructions"
+            ],
             "additionalProperties": false,
             "properties": {
-              "type": { "const": "noul" },
-              "instructions": { "type": "string", "title": "Question" },
+              "type": {
+                "const": "noul",
+                "title": "Question type"
+              },
+              "instructions": {
+                "type": "string",
+                "title": "Question",
+                "description": "Ask it as a yes / no question. Jev reads the state you pass alongside it.",
+                "minLength": 1
+              },
               "criteria": {
                 "type": "object",
+                "title": "What counts",
+                "description": "Optional. Spell out what a yes and a no look like when the question alone could be read two ways.",
                 "additionalProperties": false,
                 "properties": {
-                  "true": { "type": "string", "title": "Means yes" },
-                  "false": { "type": "string", "title": "Means no" }
+                  "true": {
+                    "type": "string",
+                    "title": "Means yes",
+                    "description": "Describe the situation that should count as yes."
+                  },
+                  "false": {
+                    "type": "string",
+                    "title": "Means no",
+                    "description": "Describe the situation that should count as no."
+                  }
                 }
               }
             }
           },
           {
             "title": "Score",
+            "description": "Jev answers with an expected score on the rubric: 0 is the first line, 1 the second, and so on. It can land between levels, so 1.5 means between the second and third line.",
             "type": "object",
-            "required": ["type", "criteria"],
+            "required": [
+              "type",
+              "instructions",
+              "criteria"
+            ],
             "additionalProperties": false,
             "properties": {
-              "type": { "const": "score" },
-              "instructions": { "type": "string", "title": "Question" },
+              "type": {
+                "const": "score",
+                "title": "Question type"
+              },
+              "instructions": {
+                "type": "string",
+                "title": "Question",
+                "description": "What is being rated. The rubric below defines the scale.",
+                "minLength": 1
+              },
               "criteria": {
                 "title": "Rubric, lowest first",
-                "description": "Jev returns the position counted from 0: first line = 0.",
+                "description": "One line per level, lowest first. The first line is level 0, the second is level 1. At least two lines.",
                 "type": "array",
                 "minItems": 2,
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string",
+                  "title": "Level",
+                  "description": "What this level looks like, in a sentence."
+                }
               }
             }
           },
           {
             "title": "Choice",
+            "description": "Jev picks exactly one of the labels and answers with its name.",
             "type": "object",
-            "required": ["type", "criteria"],
+            "required": [
+              "type",
+              "instructions",
+              "criteria"
+            ],
             "additionalProperties": false,
             "properties": {
-              "type": { "const": "choice" },
-              "instructions": { "type": "string", "title": "Question" },
+              "type": {
+                "const": "choice",
+                "title": "Question type"
+              },
+              "instructions": {
+                "type": "string",
+                "title": "Question",
+                "description": "What to classify. The labels below are the only possible answers.",
+                "minLength": 1
+              },
               "criteria": {
                 "title": "Labels",
+                "description": "The label is the name Jev answers with; the text tells Jev when to pick it. At least two labels.",
                 "type": "object",
                 "minProperties": 2,
                 "maxProperties": 255,
-                "additionalProperties": { "type": "string" }
+                "additionalProperties": {
+                  "type": "string",
+                  "title": "When to pick it",
+                  "description": "Describe the case this label covers."
+                }
               }
             }
           }
@@ -99,8 +162,13 @@ What the schema enforces:
   There must be at least one question.
 - `type` is `noul`, `score` or `choice`, and each type allows only its own
   fields.
-- A `score` rubric is a list of at least two lines, lowest first. Jev returns
-  the position counted from 0, so the first line is 0.
+- Every question has non-empty `instructions`. Jev rejects a yes/no question
+  that has neither instructions nor criteria, so the schema asks for the
+  question text every time.
+- A `score` rubric is a list of at least two lines, lowest first. The first
+  line is level 0, the second is level 1. Jev answers with an expected score,
+  which can fall between levels: `1.5` means between the second and third
+  line.
 - A `choice` has between 2 and 255 labels, each with a description.
 
 Quonfig checks every value against the schema on every write: saves in the
@@ -251,10 +319,10 @@ export async function triage(email: string, user: { key: string; plan: string })
   const results: Record<string, number | string> = {};
   for (const [name, answer] of Object.entries(answers)) {
     if (answer.type === "noul") results[name] = answer.noul; // 0 to 1
-    else if (answer.type === "score") results[name] = answer.score; // rubric position
+    else if (answer.type === "score") results[name] = answer.score; // expected level, e.g. 1.4
     else results[name] = answer.choice; // a label key
   }
-  return results; // { urgent: 0.9, frustration: 2, topic: "billing" }
+  return results; // { urgent: 0.9, frustration: 1.4, topic: "billing" }
 }
 ```
 
