@@ -214,42 +214,41 @@ const WrappedApp = () => {
 
 <TabItem value="python" label="Python">
 
-Python supports global context set in options, context set as thread local, and JIT context.
+Python supports global context set in options, thread-local context with `scoped_context`, and JIT context.
 
 ```python
-from Quonfig_cloud_python import Options, Client, Context
+from quonfig import Quonfig
 
 global_context = {
-    "deployment" {
-       "key" : "api"
-       "az" : "us-east-1"
-     }
+    "deployment": {
+        "key": "api",
+        "az": "us-east-1",
+    }
 }
-Quonfig = Client(Options(global_context=global_context))
-
+client = Quonfig(sdk_key="sdk-...", global_context=global_context)
+client.init()
 
 context = {
     "user": {
         "key": 123,
         "subscription_level": "pro",
-        "email": "bob@example.com"
+        "email": "bob@example.com",
     },
     "team": {
         "key": 432,
     },
     "device": {
         "key": "abcdef",
-        "mobile": False
-    }
+        "mobile": False,
+    },
 }
 
-shared_context = Context(context)
+# set thread-local context for the duration of the block
+with client.scoped_context(context):
+    client.is_feature_enabled("my-first-feature-flag")
 
-#set in thread local
-Context.set_current(shared_context)
-
-# optionally pass directly to the client
-Quonfig.enabled("my-first-feature-flag", context={...})
+    # optionally pass JIT context directly to the call
+    client.is_feature_enabled("my-first-feature-flag", contexts={"device": {"mobile": True}})
 ```
 
 </TabItem>
@@ -407,3 +406,33 @@ But then the current context after that evaluation is still
 ```
 
 You can, of course, do your own merging before re-setting the context key.
+
+### Nested scopes
+
+Scopes stack by the same rule. When you open a scope inside another scope, the inner scope replaces only the named contexts it sets. The outer scope's other named contexts stay in effect, and when the inner scope ends, the outer scope's context is back exactly as it was.
+
+Say the outer scope sets this context:
+
+```json
+{
+  "user": { "key": "u_123", "email": "bob@example.com" },
+  "team": { "key": "t_9" }
+}
+```
+
+An inner scope that sets only `user: { plan: "pro" }` evaluates with
+
+```json
+{
+  "user": { "plan": "pro" },
+  "team": { "key": "t_9" }
+}
+```
+
+The inner `user` replaced the whole outer `user` context, so `key` and `email` are gone inside the inner scope. `team` was not mentioned, so it survives. Global context sits underneath every scope and follows the same rule.
+
+### OpenFeature providers
+
+OpenFeature has its own context tiers: API (global), transaction, client and invocation. The OpenFeature SDK merges those tiers before the Quonfig provider sees them, and, as the OpenFeature spec requires, it merges per flat key: a key set at a more specific tier overrides the same key from a less specific tier, and every other key survives. So API context `"user.email": "bob@example.com"` plus invocation context `"user.plan": "pro"` gives the provider both keys.
+
+The provider then maps the merged flat keys to named contexts with dot notation (`"user.plan"` becomes `user: { plan: ... }`) and passes the result to the native Quonfig SDK as JIT context for that one evaluation. From there the rule above applies: a named context in that JIT context replaces the same named context in any global or scoped context you set on the native SDK directly.
