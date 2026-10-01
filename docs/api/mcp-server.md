@@ -107,8 +107,9 @@ Things the tools are good at, in practice:
   rules serving it to specific users, killing it for *them* too is
   `replaceTargeting: true`, and the agent should show you those rules before
   sending it.
-- **"Set the poll interval to 30s."** — `set_config` with
-  `environment: "default"`, because that's where most configs actually keep
+- **"Set the poll interval to 30 seconds."** — `set_config` with
+  `environment: "default"` and the value `PT30S` (durations are ISO 8601,
+  such as `PT5M`, `PT1H30M` or `P1DT6H`; only seconds may have a fraction), because that's where most configs actually keep
   their value. See [Scopes: an environment, or the default](#scopes-an-environment-or-the-default).
 - **"Turn on debug logging for the cache."** — `set_log_level` with a
   `target` of the logger prefix. It changes that one rule and leaves the

@@ -119,7 +119,7 @@ In both cases we want to be able to have sophisticated targeting rules based on 
 ### Duration
 Ever written `http.connect(timeout: Quonfig.get("my.timeout'))` and been worried that someone might use millisecond or seconds or minutes? Naming all your time duration configs `kafka.retry.timeout-in-seconds` to try to be really explicit? We've got a better way!
 
-Durations is a type of config that acts like the `java.time.Duration` object or `ActiveSupport::Duration` in Ruby. You can specify it in whatever units you like and then retrieve it in whatever units you like. Under the covers it's stored as an ISO 8601 duration.
+Durations is a type of config that acts like the `java.time.Duration` object or `ActiveSupport::Duration` in Ruby. You can specify it in whatever units you like and then retrieve it in whatever units you like. Under the covers it's stored as an ISO 8601 duration such as `PT30S`, `PT5M`, `PT1H30M` or `P1DT6H`: optional days, then `T` and hours, minutes and seconds; only seconds may have a fraction.
 
 ![duration datatype](/img/docs/how-tos/best-practices/duration.jpg)
 

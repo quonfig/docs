@@ -526,7 +526,7 @@ curl -X PATCH \
   https://api.quonfig.com/v1/configs/checkout.timeout/environments/production \
   -H "Authorization: Bearer $QUONFIG_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"value": "30s"}'
+  -d '{"value": "PT30S"}'
 ```
 
 ```json
@@ -536,12 +536,14 @@ curl -X PATCH \
   "changed": true,
   "commitSha": "8c1f2ab...",
   "previousCommitSha": "3d9e017...",
-  "rules": [{ "criteria": [{ "operator": "ALWAYS_TRUE" }], "value": { "type": "duration", "value": "30s" } }]
+  "rules": [{ "criteria": [{ "operator": "ALWAYS_TRUE" }], "value": { "type": "duration", "value": "PT30S" } }]
 }
 ```
 
 Everything else is [as for flags](#updating-a-flag): `value` is bare JSON
-checked against the config's `valueType`; `{env}` is an environment name or
+checked against the config's `valueType` (a duration is an ISO 8601 string
+such as `PT30S`, `PT5M`, `PT1H30M` or `P1DT6H`; only seconds may have a
+fraction); `{env}` is an environment name or
 the `default` scope; [targeting rules above the fallback are kept](#targeting-rules-are-kept)
 and counted in `preservedTargetingRuleCount`, with a scope that has no rules
 of its own seeded from the default rules first; `replaceTargeting: true`
@@ -599,7 +601,7 @@ type requires `value`, which the default rule serves. `description` and
 `tags` are optional.
 
 **Config body.** `key`, `valueType`, and `value` are all required.
-`valueType` is never inferred — `42` is an int or a double, `"90s"` is a
+`valueType` is never inferred — `42` is an int or a double, `"PT90S"` is a
 string or a duration, and whatever a create guessed would be what every
 later write is validated against. The value is stored **plain**: this
 endpoint never encrypts, the config is created at the standard access tier,

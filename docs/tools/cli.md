@@ -697,7 +697,9 @@ It follows the same rules as `set-default`: targeting rules above the fallback a
 
 `qfg create NAME` creates a new flag or config in Quonfig. You can use this to create basic values, encrypted secrets, or values provided by ENV vars.
 
-Supported types: `boolean-flag`, `boolean`, `string`, `double`, `int`, `string-list`, `json`, `duration`, `int-range`, `bytes`, `log_level`
+Supported types: `boolean-flag`, `boolean`, `string`, `double`, `int`, `string-list`, `json`, `duration`, `log_level`
+
+A `duration` value is an ISO 8601 duration such as `PT30S`, `PT5M`, `PT1H30M` or `P1DT6H`: optional days, then `T` and hours, minutes and seconds; only seconds may have a fraction (`PT1.5S`).
 
 Examples:
 
@@ -711,9 +713,7 @@ qfg create my.price --type double --value=19.99
 # Complex types
 qfg create my.tags --type string-list --value="tag1,tag2,tag3"
 qfg create my.config --type json --value='{"key": "value"}'
-qfg create my.duration --type duration --value="30s"
-qfg create my.range --type int-range --value="1-100"
-qfg create my.size --type bytes --value="1GB"
+qfg create my.duration --type duration --value="PT30S"
 
 # Encrypted values (requires string type)
 qfg create my.secret --type string --value="sensitive data" --secret
