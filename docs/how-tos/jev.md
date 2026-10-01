@@ -181,16 +181,50 @@ match is rejected with the field that is wrong.
 
 1. **Add the schema.** Go to **Schemas**, click **+ Add Schema**, set the key
    to `jev-questions` and paste the schema.
+
+   ![The jev-questions schema page in Quonfig, showing the pasted JSON Schema and the + Add config using this schema button](/img/docs/how-tos/jev-schema.png)
+
 2. **Create the config.** On the schema's page, click **+ Add config using
-   this schema**. Or go to **Configs**, click **+ Add Config**, choose the
-   `json` type and pick `jev-questions` as the schema. Write the value in the
-   JSON editor. It checks your value against the schema as you type. See
-   [the example value](#the-config-file) below.
-3. **Pass the questions to Jev.** Generate typed accessors and pass
+   this schema**. Name it `support.triage.questions`. Or go to **Configs**,
+   click **+ Add Config**, choose the `json` type and pick `jev-questions` as
+   the schema.
+3. **Write the questions in the form.** The editor opens on the **Form** tab.
+   Each question is a card. Pick its type with the **Yes / No**, **Score** or
+   **Choice** switcher, then fill in the fields. The labels and hints on each
+   field come from the schema, so the form asks for a rubric on a Score and
+   for labels on a Choice. The form checks your value against the schema as
+   you type. Switch to the **Raw JSON** tab to see or paste the whole value.
+   See [the example value](#the-config-file) below.
+
+   ![The support.triage.questions value in the Form tab: an urgent Yes / No question, a frustration Score question with a three-level rubric and a topic Choice question, with the Form and Raw JSON tabs at the top](/img/docs/how-tos/jev-questions-form.png)
+
+4. **Pass the questions to Jev.** Generate typed accessors and pass
    `questions` straight to `typesafe.systemOne`. See [the code](#the-code).
 
-Rules, per-environment values and history work as they do for any other
-config.
+When you save, running SDKs get the new questions over their live connection.
+In our test, a new question reached a running Node process about 12 seconds
+after **Save**, with no restart. Per-environment values and history work as
+they do for any other config.
+
+## Different questions per customer
+
+Add a targeting rule to ask some customers more. For example:
+
+- A rule on `customer.plan` is one of `enterprise` gets its own question set
+  with an extra `churn_risk` question.
+- A rule on `customer.key` is one of `globex` gets its own set with a
+  `language` Choice question, for a customer that writes in German.
+
+The rule matches the context you pass in code (see [the code](#the-code)).
+Rules are checked top to bottom and the first match wins. A customer that
+matches no rule gets the default.
+
+![The Rules panel of support.triage.questions: an enterprise rule on customer.plan, a globex rule on customer.key, and the default value](/img/docs/how-tos/jev-targeting-rules.png)
+
+Each rule holds its own full question set. It is a complete copy, not a list
+of changes to the default. So when you add a question to the default, the
+rules do not get it. Add it to each rule's set too: edit it in the form, or
+paste the whole set in the **Raw JSON** tab.
 
 ## Set it up with files (agents and git)
 
@@ -212,9 +246,9 @@ The schema goes in `schemas/jev-questions.json`, as shown
 Each question set is one config with `"schemaKey": "jev-questions"`. This one
 asks three questions about every support email:
 
-```json title="configs/support.triage.jev.json"
+```json title="configs/support.triage.questions.json"
 {
-  "key": "support.triage.jev",
+  "key": "support.triage.questions",
   "type": "config",
   "valueType": "json",
   "schemaKey": "jev-questions",
@@ -260,6 +294,37 @@ asks three questions about every support email:
 }
 ```
 
+### A rule for one plan
+
+A [targeting rule](#different-questions-per-customer) goes in the same
+`rules` list, above the `ALWAYS_TRUE` default. Its value is a full question
+set. This rule gives enterprise customers the three questions above plus
+`churn_risk`. The three shared questions are cut here for space; in the file
+they are written out in full.
+
+```json title="configs/support.triage.questions.json (one rule)"
+{
+  "criteria": [
+    {
+      "propertyName": "customer.plan",
+      "operator": "PROP_IS_ONE_OF",
+      "valueToMatch": { "type": "string_list", "value": ["enterprise"] }
+    }
+  ],
+  "value": {
+    "type": "json",
+    "value": {
+      "questions": {
+        "churn_risk": {
+          "type": "noul",
+          "instructions": "Is this account at risk of cancelling or not renewing?"
+        }
+      }
+    }
+  }
+}
+```
+
 ### The model name
 
 Keep the model name in its own string config, `jev.model`. Then production
@@ -302,28 +367,36 @@ import { Quonfig } from "@quonfig/node";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { QuonfigTypesafeNode } from "./generated/quonfig-server";
 
-const client = new Quonfig({ sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY });
+const client = new Quonfig({ sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY! });
 await client.init();
 const quonfig = new QuonfigTypesafeNode(client);
-const typesafe = new TypeSafeClient({ apiKey: process.env.TYPESAFE_API_KEY });
+const typesafe = new TypeSafeClient({ apiKey: process.env.TYPESAFE_API_KEY! });
 
-export async function triage(email: string, user: { key: string; plan: string }) {
-  const ctx = { user };
-  const { questions } = quonfig.supportTriageJev(ctx); // typed from the schema
+export async function triage(email: string, customer: { key: string; plan: string; country: string }) {
+  // Rules on customer.plan and customer.key match this context.
+  const ctx = { customer };
+  const { questions } = quonfig.supportTriageQuestions(ctx); // typed from the schema
   const { answers } = await typesafe.systemOne({
-    state: { email, plan: user.plan },
+    state: { email, plan: customer.plan, country: customer.country },
     model: quonfig.jevModel(ctx),
     questions, // no cast
   });
-  // Each answer is a union: narrow on `type` before reading its value.
-  const results: Record<string, number | string> = {};
-  for (const [name, answer] of Object.entries(answers)) {
-    if (answer.type === "noul") results[name] = answer.noul; // 0 to 1
-    else if (answer.type === "score") results[name] = answer.score; // expected level, e.g. 1.4
-    else results[name] = answer.choice; // a label key
-  }
-  return results; // { urgent: 0.9, frustration: 1.4, topic: "billing" }
+  return answers;
 }
 ```
+
+`answers` has one entry per question, under the question's name. Each answer
+is a union, so narrow on `type` before you read its value:
+
+- `noul`: the probability that the answer is yes, from 0 to 1.
+- `score`: the expected level on the rubric. It is a number such as `0.47` or
+  `1.4`, not a whole-number position, so compare it with a threshold
+  (`score >= 1.5`) rather than an exact level.
+- `choice`: the name of the label Jev picked.
+
+In our test, an angry enterprise email about an outage got `urgent` 0.94,
+`churn_risk` 0.95, `frustration` 2 and `topic` `bug`. A polite German billing
+email from Globex got `urgent` 0.18, `frustration` 0.47, `topic` `billing` and
+`language` `de`.
 
 For SDK setup and options, see the [Node SDK](../sdks/node/node.md).
