@@ -318,11 +318,27 @@ Quonfig stores int configs as 64-bit values everywhere. `GetInt` narrows to `int
 
 ### OnNoDefault policy
 
-If you call a getter without a `defaultValue` and the key cannot be resolved, the SDK consults the `OnNoDefault` option:
+If you call a plain typed getter (`GetString`, `GetInt`, `GetLong`, `GetBool`, `GetDouble`, `GetStringList`, `GetJson`, `GetDuration`) without a `defaultValue` and the config's value cannot be resolved (the cases in the table below), the SDK consults the `OnNoDefault` option:
 
-- `OnNoDefault.Throw` (default) — throws `QuonfigKeyNotFoundException`.
-- `OnNoDefault.Warn` — logs a warning and returns `null` / `default(T)`.
-- `OnNoDefault.Ignore` — silent default.
+- `OnNoDefault.Throw` (default) — throws the `QuonfigException` subtype that says what went wrong (see the table below).
+- `OnNoDefault.Warn` — logs a warning and returns `null`.
+- `OnNoDefault.Ignore` — returns `null`.
+
+Under `OnNoDefault.Throw` a plain typed getter with no `defaultValue` throws in these cases:
+
+| Case                                                                                                      | Exception                      |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| The key does not exist in the active environment.                                                         | `QuonfigKeyNotFoundException`  |
+| The value comes from an environment variable that is not set.                                             | `QuonfigEnvVarNotSetException` |
+| The environment variable is set but cannot be converted to the config's type.                             | `QuonfigCoercionException`     |
+| A confidential value cannot be decrypted (for example, a wrong or missing key).                           | `QuonfigDecryptionException`   |
+| The stored value cannot be converted by the getter, for example `GetInt` on a value above `int.MaxValue`. | `QuonfigCoercionException`     |
+
+A config whose value type does not match the getter, such as `GetInt` on a string config, is not one of these cases: the getter returns your default (or `null`) in every `OnNoDefault` mode, without throwing or logging. Pass a `defaultValue` to get your default instead of an exception in every case above. Apart from a missing key, each case also logs one warning per config key, whatever the `OnNoDefault` setting; the warning never includes the raw value.
+
+In `Quonfig.Sdk` 1.4.0 and earlier, only a missing key threw; the other cases returned `null` without a log.
+
+The `GetXDetails` getters (see [Evaluation details](#evaluation-details-reason-variant-errors)) never throw, whatever the `OnNoDefault` setting. In every case above, and for a value of a different type, they return your default (or `null`) with `Reason.Error` and an `ErrorCode`: `FlagNotFound` for a missing key, `TypeMismatch` for a value the getter cannot convert or a value of a different type, and `General` for an environment-variable or decryption failure.
 
 `IsFeatureEnabled` always returns `bool` and bypasses `OnNoDefault` — it defaults to `false` on missing.
 `ShouldLog` always returns `bool` and walks the dotted-key hierarchy before falling back to `true`.
@@ -665,6 +681,10 @@ To soft-fail instead of throwing, set `OnInitFailure = OnInitFailure.ReturnDefau
 ### `QuonfigKeyNotFoundException` on a typed getter
 
 The key isn't in the active envelope and you didn't pass a `defaultValue` while `OnNoDefault = Throw`. Either pass a default, switch `OnNoDefault` to `Warn` / `Ignore`, or check `client.Keys()` to confirm the key was loaded for the current `Environment`.
+
+### `QuonfigEnvVarNotSetException`, `QuonfigCoercionException`, or `QuonfigDecryptionException` on a typed getter
+
+The key exists but its value could not be resolved, and you didn't pass a `defaultValue` while `OnNoDefault = Throw`. The exception type and message give the cause: an unset environment variable, a value that cannot be converted to the getter's type, or a failed decryption. Fix the value or the environment, or pass a default. See [OnNoDefault policy](#onnodefault-policy).
 
 ### Datadir mode loads zero keys
 
