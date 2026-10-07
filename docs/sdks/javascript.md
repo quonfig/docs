@@ -261,7 +261,7 @@ The browser SDK evaluates log levels against the **context snapshot captured at 
 - A `log_level` config, keyed like `log-level.my-app`. Value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
 - Tell the SDK which config to consult with the `loggerKey` init option. `shouldLog({loggerPath, ...})` always reads that one config; `loggerPath` does not change which config is read.
 - The browser SDK does not evaluate rules itself. The server evaluates every config for the context you pass to `init()` / `updateContext()`, and `shouldLog` compares `desiredLevel` against that one pre-evaluated value. So every `loggerPath` gets the same answer from a given config.
-- `shouldLog` also records `loggerPath` in the SDK's context as `quonfig-sdk-logging.key` (verbatim, no normalization). This makes logger names visible to example-context telemetry, so the dashboard can suggest them as rule targets. It does **not** change the current evaluation.
+- `shouldLog` does not add `loggerPath` to the SDK's context, so it never changes what is fetched (since 1.4.0). Earlier versions added it as `quonfig-sdk-logging.key`, which changed the context of every later fetch.
 
 ### Basic usage
 
@@ -285,7 +285,7 @@ The primitive shape — `shouldLog({configKey, desiredLevel, defaultLevel})` —
 
 Rules on a browser `log_level` config should target the context you pass to `init()`, such as user email, app version or deploy ring. For example, a `log-level.my-app` config with default `INFO` and a rule that returns `DEBUG` when `user.email` ends with `@mycompany.com` turns on debug logging for internal users only.
 
-Do not write browser rules on `quonfig-sdk-logging.key`. The logger path is not part of the context when the value is evaluated. The SDK keeps the last `loggerPath` it saw in its context, so a later poll or `updateContext()` sends whichever logger happened to call `shouldLog` last, and the result is unpredictable. Per-logger rules on `quonfig-sdk-logging.key` work in the server SDKs, which evaluate locally for each call.
+Do not write browser rules on `quonfig-sdk-logging.key`. The browser SDK does not send the logger path with the context, so such a rule never matches (before 1.4.0 it sent whichever logger last called `shouldLog`, and the result was unpredictable). Per-logger rules on `quonfig-sdk-logging.key` work in the server SDKs, which evaluate locally for each call.
 
 ### Per-logger levels
 
