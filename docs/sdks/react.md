@@ -74,7 +74,7 @@ yarn add @quonfig/react @quonfig/javascript
 </Tabs>
 
 :::note Why is `@quonfig/javascript` a peer dep?
-The React SDK is a thin wrapper around the JavaScript SDK and shares its module-level singleton with your app. Keeping `@quonfig/javascript` as a peer guarantees a single instance in your bundle — required for the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration) where you call `quonfig.init()` / `quonfig.extract()` directly from `@quonfig/javascript` on the server and `<QuonfigProvider initialFlags={…}>` on the client.
+The React SDK is a thin wrapper around the JavaScript SDK and, in the browser, shares its module-level `quonfig` singleton with your app. Keeping `@quonfig/javascript` as a peer guarantees a single copy of the package in your bundle, so `import { quonfig }` and the provider see the same browser client. On the server, the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration) uses a per-request `new Quonfig()` from `@quonfig/javascript` rather than the singleton, and `QuonfigProvider` gives every server render its own client.
 :::
 
 TypeScript types are included with the package.
@@ -860,7 +860,7 @@ If you're using [Quonfig for A/B testing](/docs/how-tos/experiment.md), you can 
 
 By default, Quonfig will collect summary counts of config and feature flag evaluations to help you understand how your configs and flags are being used in the real world. You can opt out of this behavior by passing `collectEvaluationSummaries={false}` when initializing `QuonfigProvider`.
 
-Quonfig also stores the context that you pass in. The context keys are used to power autocomplete in the rule editor, and the individual values power the Contexts page for troubleshooting targeting rules and individual flag overrides. `collectContextMode` controls what Quonfig stores. `QuonfigProvider` does not accept it as a prop, and you can't set it for the browser by calling `quonfig.init({ collectContextMode: … })` yourself: the provider calls `init()` again with its own options, which don't include `collectContextMode`, so it resets to `PERIODIC_EXAMPLE`. In React apps, the browser always uses the default. The only place a `collectContextMode` you pass takes effect is a server-side `quonfig.init()` call in the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration), and it applies only to that server-side client.
+Quonfig also stores the context that you pass in. The context keys are used to power autocomplete in the rule editor, and the individual values power the Contexts page for troubleshooting targeting rules and individual flag overrides. `collectContextMode` controls what Quonfig stores. `QuonfigProvider` does not accept it as a prop, and you can't set it for the browser by calling `quonfig.init({ collectContextMode: … })` yourself: the provider calls `init()` again with its own options, which don't include `collectContextMode`, so it resets to `PERIODIC_EXAMPLE`. In React apps, the browser always uses the default. The only place a `collectContextMode` you pass takes effect is the server-side `client.init()` call on the per-request client in the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration), and it applies only to that server-side client.
 
 | `collectContextMode` value | Behavior                                                       |
 | -------------------------- | -------------------------------------------------------------- |
@@ -1086,14 +1086,14 @@ The SSR + rehydration pattern works by:
 
 ### Server-Side Implementation
 
-First, fetch and extract flag data on your server:
+First, fetch and extract flag data on your server. Create a **new `Quonfig` client for each request**. Don't call `init()` on the shared `quonfig` singleton on the server: every request in the process shares it, so two concurrent requests can overwrite each other's flags and one user's values can end up in another user's page. Pass `collectEvaluationSummaries: false`, because `init()` otherwise starts a telemetry timer for each client, and `extract()` doesn't evaluate anything, so no telemetry is lost.
 
 <Tabs groupId="framework">
 <TabItem value="nextjs" label="Next.js App Router">
 
 ```tsx
 // app/page.tsx or your server component
-import { quonfig, Contexts } from "@quonfig/javascript";
+import { Quonfig, Contexts } from "@quonfig/javascript";
 import { AppWithPreloadedQuonfig } from "../components/AppWithPreloadedQuonfig";
 
 export default async function Page() {
@@ -1103,14 +1103,18 @@ export default async function Page() {
     // Add any server-side context you have available
   };
 
+  // A new client per request: never init() the shared singleton on the server
+  const client = new Quonfig();
+
   // Wait for flags to load
-  await quonfig.init({
+  await client.init({
     sdkKey: process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!,
     context: contextAttributes,
+    collectEvaluationSummaries: false,
   });
 
   // Extract data for client hydration
-  const initialFlags = quonfig.extract();
+  const initialFlags = client.extract();
 
   return (
     <div>
@@ -1128,7 +1132,7 @@ export default async function Page() {
 
 ```tsx
 // pages/index.tsx
-import { quonfig, Contexts } from "@quonfig/javascript";
+import { Quonfig, Contexts } from "@quonfig/javascript";
 import type { GetServerSideProps } from "next";
 import { AppWithPreloadedQuonfig } from "../components/AppWithPreloadedQuonfig";
 
@@ -1155,12 +1159,16 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     // Add any server-side context you have available
   };
 
-  await quonfig.init({
+  // A new client per request: never init() the shared singleton on the server
+  const client = new Quonfig();
+
+  await client.init({
     sdkKey: process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY!,
     context: contextAttributes,
+    collectEvaluationSummaries: false,
   });
 
-  const initialFlags = quonfig.extract();
+  const initialFlags = client.extract();
 
   return {
     props: {
@@ -1178,7 +1186,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 // app/routes/_index.tsx
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { quonfig, Contexts } from "@quonfig/javascript";
+import { Quonfig, Contexts } from "@quonfig/javascript";
 import { AppWithPreloadedQuonfig } from "../components/AppWithPreloadedQuonfig";
 
 interface LoaderData {
@@ -1193,12 +1201,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Add any server-side context you have available
   };
 
-  await quonfig.init({
+  // A new client per request: never init() the shared singleton on the server
+  const client = new Quonfig();
+
+  await client.init({
     sdkKey: process.env.QUONFIG_FRONTEND_SDK_KEY!,
     context: contextAttributes,
+    collectEvaluationSummaries: false,
   });
 
-  const initialFlags = quonfig.extract();
+  const initialFlags = client.extract();
 
   return json<LoaderData>({
     initialFlags,
@@ -1438,20 +1450,26 @@ Handle cases where server-side flag loading fails:
 
 ```tsx
 // Server-side error handling
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  try {
-    // Get user context from request, session, etc.
-    const contextAttributes: Contexts = {
-      user: { key: "user-123", email: "user@example.com" },
-      // Add any server-side context you have available
-    };
+import { Quonfig, Contexts } from "@quonfig/javascript";
 
-    await quonfig.init({
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  // Get user context from request, session, etc.
+  const contextAttributes: Contexts = {
+    user: { key: "user-123", email: "user@example.com" },
+    // Add any server-side context you have available
+  };
+
+  try {
+    // A new client per request: never init() the shared singleton on the server
+    const client = new Quonfig();
+
+    await client.init({
       sdkKey: process.env.QUONFIG_FRONTEND_SDK_KEY!,
       context: contextAttributes,
+      collectEvaluationSummaries: false,
     });
 
-    const initialFlags = quonfig.extract();
+    const initialFlags = client.extract();
 
     return { props: { initialFlags, contextAttributes } };
   } catch (error) {
