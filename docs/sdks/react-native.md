@@ -8,26 +8,45 @@ Note: right now, this is a thin wrapper around the [React Client](./react.md). I
 
 Use your favorite package manager to install `@quonfig/react-native` [npm](https://www.npmjs.com/package/@quonfig/react-native) | [github](https://github.com/quonfig/sdk-react-native)
 
-`@quonfig/react-native` is a thin polyfill wrapper around [`@quonfig/react`](./react.md), which is declared as a peer dependency. You will also need to install `base-64` and `react-native-get-random-values`. Install all four together:
+`@quonfig/react-native` is a thin polyfill wrapper around [`@quonfig/react`](./react.md), which is declared as a peer dependency, and `@quonfig/react` in turn declares `@quonfig/javascript` as a peer. npm 7+ installs peers for you, but Yarn does not, so list them explicitly. You will also need to install `base-64` and `react-native-get-random-values`. Install all five together:
 
 <Tabs groupId="lang">
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig/react-native @quonfig/react base-64 react-native-get-random-values
+npm install @quonfig/react-native @quonfig/react @quonfig/javascript base-64 react-native-get-random-values
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig/react-native @quonfig/react base-64 react-native-get-random-values
+yarn add @quonfig/react-native @quonfig/react @quonfig/javascript base-64 react-native-get-random-values
 ```
 
 </TabItem>
 </Tabs>
 
 TypeScript types are included with the package.
+
+## Import order
+
+`@quonfig/react-native` installs the `crypto.getRandomValues` and `btoa`/`atob` polyfills when it is imported. Those polyfills must be in place before `@quonfig/javascript` loads, because that package creates its client (and calls `crypto.getRandomValues()`) as soon as it is imported. So:
+
+1. Import `@quonfig/react-native` once at your app entry (`index.js`), before anything else:
+
+   ```jsx
+   // index.js
+   import "@quonfig/react-native";
+   import { AppRegistry } from "react-native";
+   import App from "./App";
+
+   AppRegistry.registerComponent("MyApp", () => App);
+   ```
+
+2. Import hooks and components from `@quonfig/react-native`, never from `@quonfig/react`. This also applies when you follow examples from the [React Client](./react.md) docs.
+
+If `@quonfig/react` or `@quonfig/javascript` is evaluated first, the app can crash at startup with `crypto.getRandomValues() not supported`.
 
 ## Initialize the Client
 
