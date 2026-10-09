@@ -301,7 +301,7 @@ qfg pull
 
 #### Editing JSON for targeting rules
 
-Once you have a local copy, editing the JSON file is how you express rules that go beyond a catch-all default or a simple percentage rollout — for example "`user.email == jdwyah@gmail.com` → `true`, everyone else → `false`", segment membership, or custom properties. See the [Targeting rules](#targeting-rules) section below for the full workflow and a sample rule.
+Once you have a local copy, editing the JSON file is how you express rules that go beyond a catch-all default or a simple percentage rollout — for example "this one user gets `true`, everyone else `false`", segment membership, or custom properties. See the [Targeting rules](#targeting-rules) section below for the full workflow and a sample rule.
 
 After editing files:
 ```bash
@@ -451,6 +451,26 @@ This displays:
 - Usage statistics over the last 24 hours
 - Evaluation breakdowns by value
 
+### contexts search
+
+`qfg contexts search <contextType> <query>` finds a context's key from a name, so a targeting rule can match the key (`organization.key`, `user.key`) instead of a slug or email.
+
+Options:
+- `--environment <env>` - Only contexts reported from this environment (default: all)
+- `--limit <n>` - Maximum matches, 1-100 (default 20)
+- `--json` - Print `{"contexts": [{"key", "name", "email"?}]}`
+
+Example:
+```bash
+qfg contexts search organization formhealth
+# KEY        NAME        EMAIL
+# org_8f3k2  Formhealth  ops@formhealth.example
+#
+# Target these in a rule with propertyName "organization.key".
+```
+
+`NAME` and `EMAIL` are blank when the context never reported them. Pass a key as the query to see its name. The search covers only contexts your SDKs have reported, so no match means the key is unknown — get it from whoever owns that customer rather than targeting a slug or email. Full semantics: [Finding a context's key](/docs/api/rest-api#finding-a-contexts-key).
+
 ### interactive
 
 `qfg interactive` (or just `qfg`) launches an interactive CLI mode where you can browse and manage your resources through a menu-driven interface.
@@ -502,9 +522,11 @@ Quonfig evaluates a flag by walking its rules in order, and the last rule is nor
 | Set the fallback (what users get when no targeting rule matches) | `qfg set-default`   |
 | Run a percentage rollout / A-B test / canary    | `qfg set-rollout`   |
 | Set one value for EVERYONE, deleting that environment's targeting rules | `qfg set-default --replace-targeting` |
-| Target by user email, plan, segment, or any custom property | Edit the JSON config directly |
+| Target specific customers or users, a plan, a segment, or any custom property | Edit the JSON config directly |
 
 `set-default` and `set-rollout` change only the fallback: every targeting rule in that environment is kept unless you pass `--replace-targeting`.
+
+To target a particular customer or user, match their **key** (`organization.key`, `user.key`), not a slug or email — run [`qfg contexts search`](#contexts-search) to find it from a name.
 
 `override` is deliberately NOT on this list — it only affects *your* SDK key. For production targeting, reach for one of the options above.
 
@@ -521,7 +543,15 @@ For IDE autocomplete while editing, point your editor at `our-config/quonfig.sch
 
 #### Sample rule — target a single user
 
-To express "`user.email == jdwyah@gmail.com` → `true`, everyone else → `false`" for `forcerank.my.flag`:
+To turn `forcerank.my.flag` on for one user and off for everyone else, first look up their key:
+
+```bash
+qfg contexts search user jdwyah@gmail.com
+# KEY       NAME        EMAIL
+# u_41d9a2  Jeff Dwyer  jdwyah@gmail.com
+```
+
+Then express "`user.key == u_41d9a2` → `true`, everyone else → `false`":
 
 ```json
 {
@@ -534,8 +564,8 @@ To express "`user.email == jdwyah@gmail.com` → `true`, everyone else → `fals
         "criteria": [
           {
             "operator": "PROP_IS_ONE_OF",
-            "propertyName": "user.email",
-            "valueToMatch": { "type": "string_list", "value": ["jdwyah@gmail.com"] }
+            "propertyName": "user.key",
+            "valueToMatch": { "type": "string_list", "value": ["u_41d9a2"] }
           }
         ],
         "value": { "type": "bool", "value": true }
@@ -558,7 +588,7 @@ qfg pull --dir ./my-config                       # clone or refresh local copy
 $EDITOR ./my-config/feature-flags/forcerank.my.flag.json
 qfg verify ./my-config                           # catch typos: unknown operators, missing propertyName, etc.
 git -C ./my-config add -A
-git -C ./my-config commit -m "feat: target jdwyah for forcerank.my.flag"
+git -C ./my-config commit -m "feat: target u_41d9a2 for forcerank.my.flag"
 git -C ./my-config push
 ```
 

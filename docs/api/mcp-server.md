@@ -31,7 +31,7 @@ of the two [authentication methods](#authentication) below.
 
 ## Tools
 
-Twenty tools: fourteen reads and six writes.
+Twenty-one tools: fifteen reads and six writes.
 
 | Tool | What it does |
 |---|---|
@@ -45,6 +45,7 @@ Twenty tools: fourteen reads and six writes.
 | `list_segments` | List the workspace's segments and how many membership rules each has. |
 | `get_segment` | One segment's membership rules — who a segment-targeted flag actually reaches. |
 | `get_segment_history` | The git commits that changed a segment. |
+| `search_contexts` | Find a customer's or user's context key from a name (or a name from a key), so a targeting rule can match `organization.key` / `user.key`. Returns `key`, `name`, and `email` when the context has one. |
 | `list_environments` | The workspace's environments: name, type, and whether each is protected. |
 | `get_recent_changes` | The workspace change feed, translated into readable messages — or one item's full history. |
 | `list_workspaces` | The workspaces this credential can act on. |
@@ -56,7 +57,7 @@ Twenty tools: fourteen reads and six writes.
 | `set_log_level` | Set one service's level — for a whole scope, or for one logger prefix. Creates the document on first write. |
 | `set_document` | Replace the raw stored JSON for one flag, config, or log level. The escape hatch, and the undo. |
 
-The fourteen read tools are annotated `readOnlyHint`, so a client can tell at
+The fifteen read tools are annotated `readOnlyHint`, so a client can tell at
 a glance that they can't change anything. `set_flag`, `set_config`,
 `set_log_level` and `set_document` are annotated `destructiveHint` — clients
 that confirm destructive tool calls will ask before any of them runs.
@@ -114,6 +115,9 @@ Things the tools are good at, in practice:
 - **"Turn on debug logging for the cache."** — `set_log_level` with a
   `target` of the logger prefix. It changes that one rule and leaves the
   rest of the service's levels alone.
+- **"Turn the beta on for Formhealth."** — `search_contexts` first, to turn
+  "Formhealth" into its context key, then a targeting rule on
+  `organization.key`. See [Targeting a named customer](#targeting-a-named-customer).
 - **"Add a flag for the new onboarding flow."** — `create_flag` makes it,
   off in every environment; enabling it anywhere is a separate, explicit
   `set_flag`.
@@ -121,6 +125,29 @@ Things the tools are good at, in practice:
   stood at the commit the bad write named, and `set_document` writes that
   version back. Two tool calls, no UI trip. See
   [Raw documents and undo](#raw-documents-and-undo).
+
+### Targeting a named customer
+
+Targeting rules should match a context by its **key** — `organization.key`,
+`user.key` — never by a slug, email, or name, which can change under you.
+People ask by name, so the agent's first step is `search_contexts` with the
+context type and the name; it then writes the rule against the key that
+comes back. The server's instructions and every write tool's description
+carry this rule, so agents follow it without being told.
+
+What the agent does with the answer:
+
+- **One match** — target its key.
+- **Several matches** — show them and ask which one you mean.
+- **No match** — the key is unknown, and the agent asks you for it rather
+  than guessing a key or falling back to a slug. The search only covers
+  contexts your SDKs have reported through telemetry, so a real customer
+  your app hasn't sent with a `key` yet won't be found.
+
+It works in reverse too: pass a key as the query to get its name back, which
+is how an agent explains an existing rule ("this targets `org_8f3k2`,
+Formhealth"). The parameters and response shape are on the REST page:
+[Finding a context's key](/docs/api/rest-api#finding-a-contexts-key).
 
 ### Flag status, precisely
 
@@ -328,7 +355,7 @@ and `set_log_level`, per access tier for `set_document` and the creates. See
 config tiers compose.
 
 A service-account key with no config-tier role goes one step further: the
-six write tools aren't listed for it at all, so an agent sees fourteen read
+six write tools aren't listed for it at all, so an agent sees fifteen read
 tools and nothing that could change anything. That's a courtesy, not the
 control — the permission check on every call is what actually refuses a
 write, and it refuses one just the same if a client calls a tool it wasn't

@@ -264,6 +264,8 @@ The `key` is a special attribute of a context. It should be the unchanging, prim
 
 The `name` is a user friendly helper to lookup the key. When you target by `key`, you'll be able to use the `name` to lookup the entity.
 
+To find a key from a name, use the Contexts tool in the app, [`qfg contexts search`](/docs/tools/cli#contexts-search), the MCP server's [`search_contexts`](/docs/api/mcp-server#targeting-a-named-customer) tool, or [`GET /v1/contexts`](/docs/api/rest-api#finding-a-contexts-key).
+
 It's ok if there isn't a good key. If you add `{cloud: {region: us-east, availability-zone: us-east-1a}}`, you'll be able to target `cloud.region` or `cloud.availability-zone` with rules. If you add `cloud.key: "i-1234567890abcdef0"` you'll additionally be able to search for this context entity in context search tool. Don't set `key` for ephemeral entities that you don't want a saved context for. They will just clutter things up.
 
 If you provide a `name` attributes (as a sibling to `key`), it will be used in the Quonfig UI to display the context entity as a "friendly" alternative to `key`. If you don't provide a `name`, Quonfig will use the `key` as the display name.

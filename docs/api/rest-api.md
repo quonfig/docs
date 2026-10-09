@@ -107,6 +107,7 @@ requests and responses are JSON.
 | GET | `/v1/segments/{key}` | A segment's membership rules: who it actually matches |
 | GET | `/v1/segments/{key}/history` | Git commits that changed this segment |
 | GET | `/v1/activity` | Workspace-wide change feed, or one item's translated history |
+| GET | `/v1/contexts` | Find a context's key from a name, to target it in a rule ([see below](#finding-a-contexts-key)) |
 
 List responses return the whole workspace by default (hundreds of items,
 not millions). `/v1/flags` and `/v1/configs` additionally accept opt-in
@@ -284,6 +285,54 @@ elevated role, so you can check before a write comes back `403`.
 a flag's `statuses` map. Archived environments are omitted, and the list is
 ordered development, test, staging, production — alphabetically within a
 type.
+
+### Finding a context's key
+
+Targeting rules should match a customer or user by their **key** —
+`organization.key`, `user.key` — not by a slug, email, or name. Keys don't
+change; names and emails do. But a person asking for a change usually knows
+the name ("add Formhealth to the beta"), so look the key up first:
+
+```bash
+curl -s "https://api.quonfig.com/v1/contexts?contextType=organization&query=formhealth" \
+  -H "Authorization: Bearer $QUONFIG_API_KEY"
+```
+
+```json
+{
+  "contexts": [
+    { "key": "org_8f3k2", "name": "Formhealth", "email": "ops@formhealth.example" }
+  ]
+}
+```
+
+Then write the rule against `organization.key` with `org_8f3k2` as the value.
+
+| Parameter | Required | Meaning |
+|---|---|---|
+| `contextType` | yes | The part before the dot in a rule's property: `organization` for `organization.key`, `user` for `user.key`. Whatever your SDKs send. |
+| `query` | yes | Case-insensitive substring matched against each context's key **and** its reported properties, so a name, a domain, or part of a key all work. Pass a key to get its name back. |
+| `environment` | no | Only contexts reported from this environment (a name from [`GET /v1/environments`](#environments)). Omit to search all of them. |
+| `limit` | no | 1–100, default 20. |
+
+Each match carries exactly three fields: `key`; `name`, the context's own
+`name` property, or `null` if it never reported one; and `email`, present
+only when the context reported one. No other context properties come back.
+Matches are ordered most recently seen first.
+
+The search covers the contexts your SDKs have reported through telemetry —
+the same [example contexts](/docs/explanations/concepts/context#what-gets-saved--keys-example-contexts-and-your-bill)
+that power autocomplete in the rule editor. So:
+
+- **An empty list means the key is unknown**, not that the customer doesn't
+  exist. Ask whoever owns that customer for the key; don't fall back to
+  targeting a slug or email.
+- **Several matches are several contexts.** Pick the right one with the
+  person asking rather than taking the first.
+
+A missing or empty `query` or `contextType` is a `400`. If the context store
+is unreachable the call fails with `503` rather than returning an empty
+list, so an empty list always means "no match" — retry a `503`.
 
 ### Pagination
 

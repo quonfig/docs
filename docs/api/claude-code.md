@@ -80,7 +80,7 @@ A useful pattern while working in a codebase: **"find every flag this service
 reads, and tell me which ones are still off in production."** The code search
 is local, the flag state comes from Quonfig, and the answer is one message.
 
-Twenty tools are available — fourteen reads plus six writes. See
+Twenty-one tools are available — fifteen reads plus six writes. See
 [Tools](/docs/api/mcp-server#tools) for the full list and what each returns.
 
 ### Writes ask first

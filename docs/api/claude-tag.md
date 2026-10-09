@@ -157,7 +157,7 @@ audit log tell the same story.
 
 ## What it can and can't do
 
-Twenty tools — fourteen reads plus six writes. The full list is on the
+Twenty-one tools — fifteen reads plus six writes. The full list is on the
 [MCP server](/docs/api/mcp-server#tools) page.
 
 A few things worth knowing before you turn it loose in a channel:
