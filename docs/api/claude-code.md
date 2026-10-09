@@ -14,6 +14,17 @@ guards.
 There is no API key to create, paste, or rotate: you sign in through your
 browser, and the session acts with your own Quonfig permissions.
 
+If you also want Claude to know *how* to use Quonfig in your code — set up
+the SDK, create flags with `qfg`, gate code with the right context — install
+the [Quonfig agent skill](/docs/tools/agent-skill) plugin instead. It includes
+this same MCP server, so you can skip the next step and go straight to
+[Sign in](#sign-in):
+
+```bash
+claude plugin marketplace add quonfig/skills
+claude plugin install quonfig@quonfig
+```
+
 ## Add the server
 
 Run this in your terminal, not inside a Claude Code session:
