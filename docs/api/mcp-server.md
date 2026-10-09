@@ -115,8 +115,8 @@ Things the tools are good at, in practice:
 - **"Turn on debug logging for the cache."** — `set_log_level` with a
   `target` of the logger prefix. It changes that one rule and leaves the
   rest of the service's levels alone.
-- **"Turn the beta on for Formhealth."** — `search_contexts` first, to turn
-  "Formhealth" into its context key, then a targeting rule on
+- **"Turn the beta on for Acme Corp."** — `search_contexts` first, to turn
+  "Acme Corp" into its context key, then a targeting rule on
   `organization.key`. See [Targeting a named customer](#targeting-a-named-customer).
 - **"Add a flag for the new onboarding flow."** — `create_flag` makes it,
   off in every environment; enabling it anywhere is a separate, explicit
@@ -146,7 +146,7 @@ What the agent does with the answer:
 
 It works in reverse too: pass a key as the query to get its name back, which
 is how an agent explains an existing rule ("this targets `org_8f3k2`,
-Formhealth"). The parameters and response shape are on the REST page:
+Acme Corp"). The parameters and response shape are on the REST page:
 [Finding a context's key](/docs/api/rest-api#finding-a-contexts-key).
 
 ### Flag status, precisely

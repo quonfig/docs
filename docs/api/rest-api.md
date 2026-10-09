@@ -291,17 +291,17 @@ type.
 Targeting rules should match a customer or user by their **key** —
 `organization.key`, `user.key` — not by a slug, email, or name. Keys don't
 change; names and emails do. But a person asking for a change usually knows
-the name ("add Formhealth to the beta"), so look the key up first:
+the name ("add Acme Corp to the beta"), so look the key up first:
 
 ```bash
-curl -s "https://api.quonfig.com/v1/contexts?contextType=organization&query=formhealth" \
+curl -s "https://api.quonfig.com/v1/contexts?contextType=organization&query=acme" \
   -H "Authorization: Bearer $QUONFIG_API_KEY"
 ```
 
 ```json
 {
   "contexts": [
-    { "key": "org_8f3k2", "name": "Formhealth", "email": "ops@formhealth.example" }
+    { "key": "org_8f3k2", "name": "Acme Corp", "email": "ops@acme.example" }
   ]
 }
 ```

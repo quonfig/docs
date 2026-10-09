@@ -462,9 +462,9 @@ Options:
 
 Example:
 ```bash
-qfg contexts search organization formhealth
+qfg contexts search organization acme
 # KEY        NAME        EMAIL
-# org_8f3k2  Formhealth  ops@formhealth.example
+# org_8f3k2  Acme Corp  ops@acme.example
 #
 # Target these in a rule with propertyName "organization.key".
 ```
