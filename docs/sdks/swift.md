@@ -18,7 +18,7 @@ to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/quonfig/sdk-swift.git", from: "0.1.0"),
+    .package(url: "https://github.com/quonfig/sdk-swift.git", from: "0.4.0"),
 ],
 targets: [
     .target(
@@ -110,6 +110,17 @@ let token = await quonfig.subscribe {
 // Hold the token; dropping it unsubscribes.
 ```
 
+### Invalid or revoked SDK key
+
+If a poll is rejected because Quonfig no longer accepts the SDK key, sdk-swift
+0.4.0+ logs one ERROR (`config fetch rejected: the SDK key is invalid or
+revoked`, with the HTTP status and host, never the key), then waits
+`max(T, pollInterval)` between polls, with T picked at random between 150 and
+300 seconds. Going to the background and back keeps the slow cadence. The first
+accepted poll logs one INFO and polling returns to `pollInterval`. The initial
+fetch, the foreground catch-up and `updateContext` are not affected. The full
+rule is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
 ## Dynamic log levels
 
 Drive a logger's minimum level from a Quonfig `log_level` config, so you can
@@ -194,7 +205,7 @@ eval URL is never written to an on-device cache.
 
 How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
 every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
-The Swift `Configuration` options and defaults (v0.1.0+):
+The Swift `Configuration` options and defaults (0.2.0+):
 
 | option                            | default                 |
 | --------------------------------- | ----------------------- |
@@ -203,7 +214,7 @@ The Swift `Configuration` options and defaults (v0.1.0+):
 | `telemetryMaxRetainedBatches`     | `5`                     |
 | `telemetryMaxRetainedBytes`       | `524_288` (512KB)       |
 | `telemetryMaxRetainedAge`         | `300` (seconds)         |
-| `telemetryMaxEvaluationSummaries` | `100_000`               |
+| `telemetryMaxEvaluationSummaries` | `10_000`                |
 | `logSink`                         | `nil` (`os.Logger`, subsystem `com.quonfig.sdk`, category `Telemetry`) |
 
 **Disk queue.** Each window is serialized once and written to an on-disk queue (Application
@@ -223,7 +234,8 @@ Changes in 0.1.0: a `401`, `403` or `404` now stops telemetry for the process wi
 deletes the queue (before, it was retried forever); the flush interval is a fixed 60s (was an 8s
 to 300s backoff); the foreground timeout is 15s (was the 60s URLSession default); the disk queue is
 capped at 5 batches / 512KB / 5 minutes (was 50 windows with no age limit). The 0.0.1 queue file is
-deleted on first launch and its windows are not resent.
+deleted on first launch and its windows are not resent. Changes in 0.2.0:
+`telemetryMaxEvaluationSummaries` defaults to 10,000 (was 100,000), matching the other SDKs.
 
 ## Teardown
 

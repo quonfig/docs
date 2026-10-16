@@ -442,6 +442,18 @@ Changes in 1.5.0: the flush interval went from 30s to 60s, so telemetry reaches 
 a minute after an evaluation; the in-place 3x retry is replaced by keeping the batch and resending
 it later; the `atexit` final flush is new.
 
+## Invalid or revoked SDK key
+
+If Quonfig rejects the SDK key while the client is running, `quonfig` 1.8.0+
+stops streaming, probes every 150-300 seconds until the key works again, and
+logs one ERROR naming the HTTP status and host (never the key). The full rule
+is on the [Reliability](../../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
+While the key is rejected, `connection_state()` returns `"disconnected"`
+(never `"falling_back"`) and `fallback_poller_active()` returns `False`.
+Evaluation keeps serving the last installed configuration, and the client
+recovers by itself on the first accepted probe.
+
 ## Testing
 
 Point the client at a local data directory instead of the remote CDN with `datadir`. Datadir mode

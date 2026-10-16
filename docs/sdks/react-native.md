@@ -267,6 +267,15 @@ By default, Quonfig will collect summary counts of feature flag evaluations to h
 
 Telemetry delivery (flush interval, timeout, retry and caps) comes from the underlying `@quonfig/javascript` client; see [JavaScript delivery options](./javascript.md#delivery-options) for the option names and the [Telemetry](../explanations/architecture/telemetry.md) page for how it behaves when the endpoint is slow or down. React Native uses the same defaults with `@quonfig/react` 1.3.0 or later installed, with one exception: the browser's final flush on `pagehide` needs `window.addEventListener`, which React Native generally doesn't have. On React Native, the only final flush is the `close()` call that runs when `QuonfigProvider` unmounts. Evaluations recorded after the last periodic flush are lost if the app is killed before the provider unmounts.
 
+## Invalid or revoked SDK key
+
+`@quonfig/react-native` polls through `@quonfig/javascript`, so it follows the
+browser SDK's rule once `@quonfig/javascript` is at 1.5.0 or later: a rejected
+SDK key logs one `console.error` and slows polling to once every 150-300
+seconds until a poll is accepted. See
+[JavaScript: invalid or revoked SDK key](./javascript.md#invalid-or-revoked-sdk-key)
+and the full rule on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
 ## Testing
 
 Wrap the component under test in a `QuonfigTestProvider` and provide a config object to set up your test state.
