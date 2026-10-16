@@ -214,6 +214,17 @@ quonfig.updateContext({
 </TabItem>
 </Tabs>
 
+### Invalid or revoked SDK key
+
+The browser SDK has no stream, so the rule applies to `poll()`. If a poll is
+rejected because Quonfig no longer accepts the SDK key, `@quonfig/javascript`
+1.5.0+ logs one `console.error` naming the HTTP status and host (never the
+key), then waits `max(T, frequencyInMs)` between polls, with T picked at random
+between 150 and 300 seconds. The first accepted poll logs one `console.info`
+and polling returns to `frequencyInMs`. `init()` and `updateContext()` are not
+affected, and a returning visitor still gets the last-known-good copy. The full
+rule is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
 ## Bootstrapping
 
 If your server already knows the evaluation results for the current context, you can seed them into the page so the SDK renders the correct values on first paint — no initial HTTP request, and no flash of default content.

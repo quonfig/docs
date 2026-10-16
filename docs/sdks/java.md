@@ -6,14 +6,14 @@ title: Java
 
 [GitHub](https://github.com/quonfig/sdk-java) | [Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java)
 
-Replace `1.4.0` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
+Replace `1.7.0` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
 
 <Tabs groupId="java-build">
 <TabItem value="gradle-kotlin" label="Gradle (Kotlin DSL)">
 
 ```kotlin
 dependencies {
-    implementation("com.quonfig:sdk-java:1.4.0")
+    implementation("com.quonfig:sdk-java:1.7.0")
 }
 ```
 
@@ -23,7 +23,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.quonfig:sdk-java:1.4.0'
+    implementation 'com.quonfig:sdk-java:1.7.0'
 }
 ```
 
@@ -35,7 +35,7 @@ dependencies {
 <dependency>
     <groupId>com.quonfig</groupId>
     <artifactId>sdk-java</artifactId>
-    <version>1.4.0</version>
+    <version>1.7.0</version>
 </dependency>
 ```
 
@@ -371,7 +371,7 @@ Because the evaluator sees your full context — global, bound, and the injected
 The `sdk-java-logback` module ships a `TurboFilter` that gates **every** Logback logger dynamically from Quonfig — no per-call-site `if (shouldLog)` wrapping. Add the dependency (you bring your own Logback; the module declares it `provided`):
 
 ```kotlin
-implementation("com.quonfig:sdk-java-logback:1.4.0")
+implementation("com.quonfig:sdk-java-logback:1.7.0")
 implementation("ch.qos.logback:logback-classic:1.5.18")
 ```
 
@@ -474,6 +474,18 @@ the `logger(...)` you pass (default `com.quonfig.sdk`).
 Changes in 1.3.0: the timeout went from 30s to 15s and the connect timeout from 10s to 5s; a failed
 POST now logs at DEBUG instead of WARN every time; the flush cadence is a fixed interval set by `telemetryFlushInterval` (default 60s).
 `telemetryMaxInterval` is deprecated and has no effect (the builder method still compiles).
+
+## Invalid or revoked SDK key
+
+If Quonfig rejects the SDK key while the client is running,
+`com.quonfig:sdk-java` 1.7.0+ stops streaming, probes every 150-300 seconds
+until the key works again, and logs one ERROR naming the HTTP status and host
+(never the key). The full rule is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
+While the key is rejected, `quonfig.connectionState()` returns
+`ConnectionState.DISCONNECTED`, never `FALLING_BACK`. Evaluation keeps serving
+the last installed configuration, and the client recovers by itself on the
+first accepted probe.
 
 ## Testing
 
