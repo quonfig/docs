@@ -104,20 +104,55 @@ await client.InitAsync();
 
 `InitAsync()` runs the first config fetch (or datadir read) and completes once the initial envelope has been installed. After it returns, every typed getter (`GetString`, `GetBool`, etc.) is a synchronous in-memory read — no `Async` suffix, no `Task` allocation per call.
 
-If initialization fails or times out, the `OnInitFailure` option decides what happens:
+### If Quonfig is unreachable at startup
 
-- `OnInitFailure.Throw` (default) — `InitAsync()` throws `QuonfigInitTimeoutException`.
-- `OnInitFailure.ReturnDefaults` — `InitAsync()` returns; subsequent getter calls fall back to the caller's `defaultValue` until the background fetch eventually succeeds.
+:::info Next release (version TBD)
+This section describes the next `Quonfig.Sdk` minor release (version TBD).
+Earlier versions make a single attempt, offer only `Throw` (default) and
+`ReturnDefaults`, and a client whose `InitAsync()` threw does not recover.
+:::
+
+`InitAsync()` retries through blips (jittered backoff from 0.5s, capped at 30s)
+until it has config or `InitTimeout` (default 10s, measured from construction)
+runs out. It completes as soon as the first config lands. If no config has
+loaded by then, `OnInitFailure` decides:
+
+| `OnInitFailure` | At `InitTimeout` | Every leg rejects the SDK key (401/403) |
+|---|---|---|
+| `OnInitFailure.Fail` (default) | `InitAsync()` throws `QuonfigInitException` (`Reason` `Unavailable`), or its subclass `QuonfigInitTimeoutException` (`Reason` `Timeout`) when the legs hung. | Throws at once (`Reason` `Unauthorized`). |
+| `OnInitFailure.Wait` | `InitAsync()` keeps waiting and retrying, with no upper bound. | Logs an Error and keeps retrying. |
+| `OnInitFailure.Continue` | `InitAsync()` returns and logs an Error; getters return the caller's `defaultValue`. | Returns at once. |
 
 ```csharp
 await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 {
     SdkKey = "sdk-...",
     InitTimeout = TimeSpan.FromSeconds(10),
-    OnInitFailure = OnInitFailure.ReturnDefaults,
+    OnInitFailure = OnInitFailure.Fail, // the default
 });
-await client.InitAsync();
+try
+{
+    await client.InitAsync();
+}
+catch (QuonfigInitException e)
+{
+    logger.LogError(e, "Quonfig init failed: {Reason}", e.Reason);
+    throw; // under ASP.NET Core, host start fails and the orchestrator restarts it
+}
 ```
+
+The client keeps retrying in the background in every mode, including after you
+catch a `QuonfigInitException`, and heals once delivery is reachable. Until
+then getters return your `defaultValue`. `client.IsReady` reports whether
+config has loaded, and `await client.WaitForReadyAsync(cancellationToken)`
+waits until it has. Under `Wait` or `Continue`, wire your readiness probe
+(not liveness; see below) to `IsReady`. Existing `catch (QuonfigInitTimeoutException)`
+blocks still match.
+
+The older names `OnInitFailure.Throw` (= `Fail`) and
+`OnInitFailure.ReturnDefaults` (= `Continue`) are marked `[Obsolete]` and still
+work. For how to choose between the three, see
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
 
 ### Datadir mode (local development)
 
@@ -680,15 +715,15 @@ For finer-grained tests, mock `IQuonfig` (or `IBoundQuonfig`) with your favorite
 
 ## Troubleshooting
 
-### `QuonfigInitTimeoutException` on startup
+### `QuonfigInitException` on startup
 
-`InitAsync` waits up to `InitTimeout` (default 10s) for the first envelope. The most common causes:
+`InitAsync` retries for up to `InitTimeout` (default 10s) for the first envelope. The most common causes:
 
 - Network or DNS issue reaching `primary.quonfig.com` / `secondary.quonfig.com`. Verify `ApiUrls` and proxy settings.
-- A wrong or revoked SDK key. The SDK uses the SDK key as the HTTP Basic-auth password; a 401 surfaces as init failure.
+- A wrong or revoked SDK key. The SDK uses the SDK key as the HTTP Basic-auth password; a 401 or 403 on every leg fails init at once with `Reason` `Unauthorized`.
 - A custom `HttpMessageHandler` is dropping the request. Confirm the handler forwards to a real network sink.
 
-To soft-fail instead of throwing, set `OnInitFailure = OnInitFailure.ReturnDefaults`. Getters then serve caller-supplied defaults until the background fetch eventually succeeds.
+To start on code defaults instead of throwing, set `OnInitFailure = OnInitFailure.Continue`. Getters then serve caller-supplied defaults until the background retry succeeds. See [If Quonfig is unreachable at startup](#if-quonfig-is-unreachable-at-startup).
 
 ### `QuonfigKeyNotFoundException` on a typed getter
 
@@ -722,7 +757,7 @@ var options = new QuonfigOptions
     SdkKey = Environment.GetEnvironmentVariable("QUONFIG_BACKEND_SDK_KEY"),
     GlobalContext = global,
     InitTimeout = TimeSpan.FromSeconds(10),
-    OnInitFailure = OnInitFailure.Throw,
+    OnInitFailure = OnInitFailure.Fail,
     OnNoDefault = OnNoDefault.Throw,
     LoggerKey = "log-level.my-app",
     CollectEvaluationSummaries = true,
@@ -744,11 +779,11 @@ var options = new QuonfigOptions
 | `DatafileEnvelope`            | Pre-parsed envelope instance (mutually exclusive with `Datafile`).                                                                          | `null`                                                   |
 | `DatadirAutoReload`           | Opt-in: watch `Datadir` for file changes and reload atomically.                                                                            | `false`                                                  |
 | `DatadirAutoReloadDebounce`   | Debounce window when `DatadirAutoReload` is on.                                                                                            | `200ms`                                                  |
-| `InitTimeout`                 | How long the initial fetch / load may take before `OnInitFailure` applies.                                                                 | `10s`                                                    |
+| `InitTimeout`                 | How long `InitAsync` retries the initial fetch before `OnInitFailure` applies.                                                              | `10s`                                                    |
 | `ConfigFetchTimeout`          | Per-URL deadline for one config-fetch attempt (initial fetch, fallback poller, refresh). A hung primary aborts after this and the next URL is tried within the remaining `InitTimeout`. Never applies to the SSE stream. | `3s`                                                     |
 | `ConfigFetchHedgeDelay`       | How long the hedged fetch waits on the primary before also firing the secondary in parallel (the primary is not cancelled). Must be less than `ConfigFetchHedgeAbort`. | `2s`                                                     |
 | `ConfigFetchHedgeAbort`       | Per-leg hard-abort deadline on the hedged fetch path. Must be less than `InitTimeout` (a warning is logged at construction otherwise). | `6s`                                                     |
-| `OnInitFailure`               | `Throw` or `ReturnDefaults` when init exceeds `InitTimeout`.                                                                               | `Throw`                                                  |
+| `OnInitFailure`               | `Fail`, `Wait` or `Continue` when no config loads within `InitTimeout` (see [startup](#if-quonfig-is-unreachable-at-startup)). `Throw` / `ReturnDefaults` are obsolete aliases. | `Fail`                                                   |
 | `OnNoDefault`                 | `Throw`, `Warn`, or `Ignore` when a getter has no value and no `defaultValue`.                                                             | `Throw`                                                  |
 | `GlobalContext`               | A `ContextSet` merged into every evaluation as the base layer.                                                                             | `null`                                                   |
 | `FallbackPollEnabled`         | Master switch for the Layer 2 fallback poller.                                                                                             | `true`                                                   |

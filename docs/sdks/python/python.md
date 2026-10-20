@@ -42,6 +42,49 @@ client.init()
 Unless your options are configured to run using only local data, the client will attempt to connect to
 the remote CDN.
 
+### If Quonfig is unreachable at startup
+
+:::info sdk-python 2.0.0 (release date TBD)
+This section describes sdk-python 2.0.0. In 1.x, `init()` returns immediately,
+the default `"raise"` raises lazily from the first getter and only on a hang,
+and a fast failure of both delivery legs does not raise at all.
+:::
+
+`init()` blocks until the first config loads, retrying (jittered backoff from
+0.5s, capped at 30s) for up to `init_timeout_ms` (default 10s). A healthy boot
+returns as soon as the config lands. If no config loads by then,
+`on_init_failure` decides what happens:
+
+| `on_init_failure` | At the timeout | 401/403 from every leg |
+|---|---|---|
+| `"fail"` (default) | raises `QuonfigInitError` (`QuonfigInitTimeoutError`, a subclass, if no leg answered) | raises at once (`reason="unauthorized"`) |
+| `"wait"` | keeps blocking and retrying | logs an ERROR and keeps retrying |
+| `"continue"` | returns and logs an ERROR; getters serve code defaults | returns at once |
+
+```python
+from quonfig import Quonfig, QuonfigInitError
+
+client = Quonfig(sdk_key="sdk-...", on_init_failure="fail", init_timeout_ms=10_000)
+try:
+    client.init()
+except QuonfigInitError as e:
+    print(e.reason)  # "unavailable" | "unauthorized" | "timeout"
+    raise
+```
+
+Getters never block on init. Before the first config they return your default
+(or apply `on_no_default`). A client you keep after a caught
+`QuonfigInitError` keeps retrying in the background and heals on its own:
+check `client.is_ready()` or block on `client.wait_for_ready(timeout_ms=...)`,
+which returns `True` or `False`. Under `"wait"` or `"continue"`, wire your
+readiness probe to `is_ready()`.
+
+The 1.x spellings `"raise"` (= `"fail"`) and `"return"` /
+`"return_zero_value"` (= `"continue"`) still work and log a one-time
+deprecation WARN. Any other value raises `ValueError`. For how to choose
+between the three, see
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+
 <details className="alert--warning">
 <summary>
 
@@ -60,8 +103,11 @@ and the exact list of calls that trigger the rebuild are in the SDK README's
 
 Two things worth knowing:
 
-- The **first evaluation** in a forked worker pays one config fetch, under the
-  usual `init_timeout_ms` / `on_init_failure` rules. To pay it before the
+- The **first evaluation** in a forked worker pays one config fetch, bounded
+  by `init_timeout_ms`. If that lazy fetch can't load config, the worker logs
+  the failure and serves defaults while it keeps retrying; an explicit
+  `init()` in the worker instead follows `on_init_failure` exactly like a
+  fresh boot. To pay it before the
   first request instead, call `init()` on the master-built client in the
   worker's post-fork hook (only under `--preload`; a client that was built in
   the worker is already fresh and must not be `init()`ed twice):
@@ -481,11 +527,12 @@ All parameters are keyword arguments to `Quonfig(...)`.
   setting is ignored and the SDK logs a warning.
 - `on_no_default` - one of `"error"` (default), `"warn"`, or `"ignore"`. Controls behavior when a config has no value and
   no default is supplied: raise `QuonfigKeyNotFoundError`, log a warning and return `None`, or silently return `None`.
-- `on_init_failure` - one of `"raise"` (default), `"return"`, or `"return_zero_value"`. Controls what happens if the initial
-  fetch fails or times out.
-- `init_timeout_ms` - how long to wait for the first successful fetch (defaults to `10000`). With an SDK key, `init()`
-  returns immediately and fetches in the background; the first getter call waits up to this long for that fetch, then
-  applies `on_init_failure`. In `datadir` mode `init()` loads synchronously and this setting does not apply.
+- `on_init_failure` - one of `"fail"` (default), `"wait"`, or `"continue"`. Controls what `init()` does if no config
+  loads within `init_timeout_ms` (see [If Quonfig is unreachable at startup](#if-quonfig-is-unreachable-at-startup)).
+  `"raise"`, `"return"` and `"return_zero_value"` are deprecated aliases.
+- `init_timeout_ms` - how long `init()` retries the first fetch before applying `on_init_failure` (defaults to `10000`).
+  With an SDK key, `init()` blocks until config loads or this runs out; getters never wait. In `datadir` mode `init()`
+  loads synchronously and this setting does not apply.
 - `collect_evaluation_summaries` - send aggregate data about config and feature flag evaluations (defaults to `True`).
 - `context_upload_mode` - send context information to Quonfig. One of `"none"`, `"shapes_only"` (field names and types only),
   or `"periodic_example"` (types plus example contexts; the default).

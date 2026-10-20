@@ -35,6 +35,17 @@ func main() {
 }
 ```
 
+:::note If Quonfig is unreachable at startup
+Whether `SetProviderAndWait` returns an error during an outage depends on the
+sdk-go version the provider wraps. Current provider releases report READY
+immediately, so the `log.Fatal` above does not fire when delivery is down.
+Once openfeature-go picks up the sdk-go release with fail-by-default startup
+(version TBD), the provider applies sdk-go's `WithOnInitFailure` (default
+`InitFailureFail`): no config within the init timeout puts the provider in
+ERROR and `SetProviderAndWait` returns the error. See
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+:::
+
 ## Evaluate flags
 
 ```go

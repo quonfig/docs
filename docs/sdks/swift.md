@@ -53,8 +53,44 @@ let quonfig = try await Quonfig.initialize(
 ```
 
 `initialize` is `async throws` and **resolves once the first envelope is
-available** — from the network, or, after a bounded `initTimeout` (default 5s),
-from the cold-start cache or empty defaults. A hung network never hangs your UI.
+available**: from the network, or, after a bounded `initTimeout` (default 5s),
+from the cold-start cache. With no network and no cache it follows
+`onInitFailure` (see [below](#if-quonfig-is-unreachable-at-startup)). A hung
+network never hangs your UI past `initTimeout`.
+
+### If Quonfig is unreachable at startup
+
+:::info Next release (version TBD)
+This section describes the next sdk-swift minor release (version TBD).
+Earlier versions have no `onInitFailure` parameter and always start on empty
+defaults (with `isReady == true`) when there is no network and no cache.
+:::
+
+`initialize` retries with jittered backoff (0.5s, 1s, 2s, ... capped at 30s)
+for up to `initTimeout`. **A cached copy from an earlier launch counts as
+config** in every mode: if the network doesn't answer in time, the client
+starts on the cache (marked stale) and logs a WARN. Only when there is no cache
+does `onInitFailure` decide:
+
+| `onInitFailure` | No network and no cache at `initTimeout` |
+|---|---|
+| `.fail` (default) | `initialize` throws `QuonfigInitError.timeout` (the first fetch was still hanging) or `.unavailable` (every attempt failed). No client is returned. |
+| `.wait` | `initialize` keeps retrying with no upper bound. |
+| `` .`continue` `` (alias `.continueWithDefaults`) | `initialize` returns a client on code defaults: `isReady == false`, `source == .defaults`. The poller keeps retrying and the client heals. With a cache, `.continue` returns at once on the cache. |
+
+A rejected SDK key (no delivery leg accepting it) throws
+`QuonfigInitError.unauthorized` at once under `.fail`.
+
+```swift
+let quonfig = try await Quonfig.initialize(
+    context: ctx, options: config, onInitFailure: .continue, initTimeout: 5)
+if quonfig.source == .defaults { logger.warning("Quonfig: running on code defaults") }
+await quonfig.waitForReady() // returns once an envelope (network or cache) is applied
+```
+
+`source` is `.network`, `.cache` or `.defaults`. For many apps `.continue` is
+the better choice; see
+[Browsers and mobile apps](/docs/explanations/architecture/startup-failure#browsers-and-mobile-apps).
 
 :::tip
 While the store is warming (before the first envelope), `isEnabled` returns
@@ -185,10 +221,10 @@ Because Quonfig evaluates entirely server-side:
 - **Cold start / offline for a previously-seen context** works — the cached
   envelope is served instantly (no flicker), and also on a failed poll, so the
   last known-good values stay on screen.
-- **Offline with a _new_ context** can't be evaluated on-device; the SDK serves
-  the cached envelope for a previously-seen context, or your supplied defaults.
-
-This is the same trade-off LaunchDarkly and Statsig make.
+- **Offline with a _new_ context** can't be evaluated on-device. With no cached
+  envelope, `onInitFailure` decides: the default `.fail` throws from
+  `initialize`, and `.continue` serves your supplied defaults until the network
+  returns (see [startup](#if-quonfig-is-unreachable-at-startup)).
 
 ## Telemetry & privacy
 
@@ -249,7 +285,7 @@ await quonfig.shutdown()   // stops polling + telemetry, sending one last window
 
 | method | purpose |
 | --- | --- |
-| `Quonfig.initialize(context:options:initTimeout:)` | create a client; resolves once the first envelope (network or cache) is available |
+| `Quonfig.initialize(context:options:onInitFailure:initTimeout:)` | create a client; resolves once the first envelope (network or cache) is available, otherwise follows `onInitFailure` |
 | `isEnabled(_:logExposure:)` | `Bool` (default `false`) for a flag in the current context |
 | `string(_:default:)` / `int(_:default:)` / `double(_:default:)` | typed value or your default |
 | `json(_:)` | `[String: Any]?` for an object config |
@@ -259,7 +295,8 @@ await quonfig.shutdown()   // stops polling + telemetry, sending one last window
 | `shouldLog(_:loggerKey:)` | whether a record at a level should emit under a `log_level` config |
 | `logLevelThreshold(for:)` | the resolved `QuonfigLogLevel` for a `log_level` config, or `nil` |
 | `shutdown()` | stop polling + telemetry (sends one last window; queued batches are not drained) |
-| `context` / `isReady` | current context; whether an envelope has been applied |
+| `context` / `isReady` / `source` | current context; whether an envelope has been applied; where values come from (`.network`, `.cache`, `.defaults`) |
+| `waitForReady()` | wait until an envelope (network or cache) has been applied |
 
 ### `Configuration` options
 

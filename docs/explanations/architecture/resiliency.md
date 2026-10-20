@@ -26,9 +26,14 @@ they need to pull down configuration as they boot.
 A new client boots by fetching configuration from the delivery service. If the
 primary delivery service is down — or merely slow — the SDK also asks the
 secondary (details below), so a booting client still gets its configuration
-within a few seconds during a full primary outage. Each URL attempt has its own
-short timeout (3 seconds by default), so a hung primary can't consume the whole
-initialization budget and starve the secondary attempt.
+within a few seconds during a full primary outage. On the startup fetch the
+secondary is asked after a 2-second hedge delay, and each leg is abandoned
+after 6 seconds, so a hung primary can't consume the whole initialization
+budget and starve the secondary attempt. (Later sequential fetches, such as the
+fallback poller's, use a shorter per-URL timeout of 3 seconds.)
+
+If neither leg can be reached at startup, what happens next is your choice.
+See [If Quonfig Is Unreachable at Startup](./startup-failure.md).
 
 ## Automatic failover to the secondary
 
@@ -70,9 +75,11 @@ the difference.
 
 Returning visitors therefore keep evaluating flags even if both delivery legs
 are unreachable at once. First-time visitors have no cache; if they can reach
-neither leg, initialization fails and your application's defaults apply. Where
-`localStorage` is unavailable (server-side rendering, some private browsing
-modes), the cache is simply skipped.
+neither leg, the SDK's `onInitFailure` setting decides what happens (see
+[Startup failure](./startup-failure.md#browsers-and-mobile-apps)), and the
+client keeps retrying in the background either way. Where `localStorage` is
+unavailable (server-side rendering, some private browsing modes, and React
+Native, which has no `localStorage`), the cache is simply skipped.
 
 ## What still degrades during a full primary outage
 
@@ -95,8 +102,10 @@ primary platform is down:
   returns — and since no writes can happen during the outage, there are no
   updates to miss.
 - **A brand-new backend instance that can reach neither leg fails
-  initialization** according to your SDK's init-failure setting (for example
-  sdk-go's `OnInitFailure`, which defaults to returning an error).
+  initialization by default.** Its init call throws, rejects or returns an
+  error after `initTimeout`, and your orchestrator's restart is the retry. You
+  can choose to wait or to start on code defaults instead; see
+  [If Quonfig Is Unreachable at Startup](./startup-failure.md).
 
 ## Invalid or revoked SDK key
 
@@ -120,8 +129,8 @@ reconnect schedule until a fetch cycle confirms the rejection. In backend SDKs
 that cycle is the fallback poller's, so a key revoked mid-life is usually
 detected about two minutes after the stream drops. In polling mode (and in the
 browser and mobile SDKs) it is the first rejected poll. The initial fetch at
-startup never counts; a bad key at boot is handled by your SDK's init-failure
-setting.
+startup never counts; a bad key at boot is handled by your SDK's
+`onInitFailure` setting (see [Startup failure](./startup-failure.md)).
 
 **While the key is rejected:**
 

@@ -37,10 +37,20 @@ def lambda_handler(event, context):
     return {"statusCode": 200, "body": "ok"}
 ```
 
-`init()` kicks off the first fetch in the background and returns immediately;
-the first flag read then blocks until that fetch lands (bounded by
-`init_timeout_ms`, default 10s). Either way the cost is paid once per cold
-start, not on every request.
+`init()` blocks until the first fetch lands, retrying for up to
+`init_timeout_ms` (default 10s). Either way the cost is paid once per cold
+start, not on every request. If no config loads in that time, `init()` follows
+`on_init_failure`: under the default, `"fail"`, it raises `QuonfigInitError`,
+which fails the cold start so the platform retries the invocation. Keep
+`init_timeout_ms` well under your function timeout, and use
+`on_init_failure="continue"` only if every flag read has a safe default. See
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+
+:::info sdk-python 2.0.0 (release date TBD)
+The blocking `init()` and the `"fail"` default described here ship in
+sdk-python 2.0.0. In 1.x, `init()` returns immediately and the first flag read
+blocks instead.
+:::
 
 ## The cost-lean recipe
 
@@ -73,7 +83,10 @@ def lambda_handler(event, context):
 
 With `enable_sse=False` and `fallback_poll_enabled=False`, the client fetches
 once during `init()` and then never moves on its own. `update_if_staler_than()`
-is what advances it.
+is what advances it. (The one exception is a cold start that could not load
+config: a client kept after a caught `QuonfigInitError`, or one started with
+`on_init_failure="continue"`, keeps retrying in the background until its first
+config loads.)
 
 ### `update_if_staler_than()` is non-blocking
 

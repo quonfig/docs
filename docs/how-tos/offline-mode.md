@@ -3,7 +3,7 @@ title: Offline Mode
 sidebar_label: Offline Mode
 ---
 
-Quonfig is intended to be bomb-proof. This means that your servers should happily continue to evaluate feature flags and config, even if, despite our [intense efforts][be], our servers are down. As a developer, you should also be able to run your app and test your code even if you don't have a reliable internet connection. This is why Quonfig has an offline mode.
+Once a Quonfig SDK has loaded your configuration, your servers keep evaluating feature flags and config from memory, even if, despite our [intense efforts][be], our servers are down. (A process that is *starting up* while it can't reach us is a different case, with its own setting; see [If Quonfig Is Unreachable at Startup][startup].) As a developer, you should also be able to run your app and test your code even if you don't have a reliable internet connection. This is why Quonfig has an offline mode.
 
 ## Using Quonfig offline
 
@@ -15,12 +15,12 @@ You can check this datafile into your source control system, and use it to run y
 
 ### Backend SDKs
 
-Backend SDKs can use [Datafiles][df] to run in offline mode. By specifying `QUONFIG_DATAFILE=./path-to-your-datafile.json` in your environment, you can run your app without needing to connect to the Quonfig servers. Since the datafile is a complete representation of the payload you'd normally get from quonfig.com, your servers will continue to evaluate flags and configs using your complete ruleset (at the time the datafile was generated).
+Backend SDKs can run offline from a local copy of your workspace. Pull the workspace with the Quonfig CLI, then point the SDK at that directory with its `datadir` option (`WithDataDir` in Go; see your SDK's page for the exact spelling) and pick the environment to evaluate. The local copy is a complete representation of the configuration you'd normally get from quonfig.com, so your app evaluates flags and configs using your complete ruleset (as of when you pulled it), without connecting to the Quonfig servers. Datadir mode loads synchronously from disk, so the startup-failure setting does not apply to it.
 
-If you're using Ruby on Rails, for example, you can run your server using a datafile like this:
+If you're using Ruby on Rails, for example, the Ruby SDK reads the directory and environment from environment variables:
 
 ```bash
-QUONFIG_DATAFILE=./path-to-your-datafile.json rails server
+QUONFIG_DIR=./path-to-your-workspace QUONFIG_ENVIRONMENT=development rails server
 ```
 
 ### Frontend SDKs
@@ -90,6 +90,7 @@ const WrappedApp = () => {
 </Tabs>
 
 [be]: ../explanations/architecture/resiliency
+[startup]: ../explanations/architecture/startup-failure
 [download]: ../tools/cli#pull
 [serve]: ../tools/cli#serve
 [df]: ../explanations/concepts/datafiles

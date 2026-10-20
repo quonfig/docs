@@ -654,6 +654,42 @@ const WelcomeMessage = () => {
 - **Variables are always strings**: every `{{variable}}` is typed as `string` in the generated parameters, regardless of any Zod schema on the surrounding object. Pass `"150"`, not `150`.
 - **Arrays and unions are not templated**: Mustache resolution applies only to string fields on plain objects. A templated string nested inside a JSON array or union is left as a plain string — no template function is generated for it.
 
+## If Quonfig is unreachable at startup
+
+:::info Next release (version TBD)
+This section describes the next `@quonfig/react` minor release together with
+the next `@quonfig/javascript` minor (versions TBD). With earlier versions
+there are no `onInitFailure` / `initTimeout` props and no `isReady`, `error`
+or `source` fields, and a failed init recovers only through `pollInterval`.
+:::
+
+If every delivery leg is down at page load, the client retries until
+`initTimeout` (5s by default) and then applies `onInitFailure`:
+
+- `"fail"` (default): `onError` fires and `error` is set. A cached
+  last-known-good copy from an earlier visit counts as config, so a returning
+  visitor starts on it (`source: "cache"`) and no error is raised. Only a first
+  visit with no cache lands on code defaults (`source: "defaults"`).
+- `"wait"`: `loading` stays `true` until config arrives.
+- `"continue"`: start on the cache or code defaults without an error.
+
+In every mode the client keeps retrying in the background and heals: once
+delivery answers, `isReady` turns `true`, `error` clears and the hooks
+re-render with live values. You don't need `pollInterval` for this.
+
+```jsx
+<QuonfigProvider sdkKey={sdkKey} onInitFailure="continue" initTimeout={5000}>
+  <MyApp />
+</QuonfigProvider>;
+
+const { isReady, error, source } = useQuonfig(); // source: "network" | "cache" | "defaults"
+if (!isReady && source === "defaults") console.warn("Quonfig: serving code defaults");
+```
+
+Server-rendered `initialFlags` count as ready, with `source: "network"`. For
+many apps `"continue"` is the better choice; see
+[Browsers and mobile apps](/docs/explanations/architecture/startup-failure#browsers-and-mobile-apps).
+
 ## Dealing with Loading States
 
 The Quonfig client needs to load your feature flags from the [Quonfig CDN](/docs/explanations/concepts/frontend-sdks) before they are available. This means there will be a brief period when the client is in a loading state. If you call the `useQuonfig` hook during loading, you will see the following behavior.
@@ -1633,6 +1669,9 @@ Here's an explanation of each property
 | `isEnabled`         | `isEnabled("new-logo")`   | returns a boolean (default `false`) if a feature is enabled based on the current context |
 | `keys`              | N/A                       | an array of all the flag and config names in the current configuration                   |
 | `loading`           | `if (loading) { ... }`    | a boolean indicating whether quonfig content is being loaded                             |
+| `isReady`           | `if (!isReady) { ... }`   | whether the client holds live config (see [startup](#if-quonfig-is-unreachable-at-startup)) |
+| `error`             | `error?.reason`           | the init error, if `init` failed; cleared when the client heals                          |
+| `source`            | `source === "cache"`      | where current values come from: `"network"`, `"cache"` or `"defaults"`                   |
 | `quonfig`           | N/A                       | the underlying [JavaScript](./javascript.md) quonfig instance                            |
 
 :::tip
@@ -1669,6 +1708,8 @@ If you have a typed config (via `@quonfig/cli generate`), `useFlag` returns the 
 | `apiUrl`                     | no       | `string`          | convenience alias for a single API base URL — normalized to `apiUrls=[apiUrl]`. `apiUrls` wins if both are set. |
 | `timeout`                    | no       | `number`          | per-request fetch timeout in milliseconds (default 3000). Must stay above `hedgeDelay`. |
 | `hedgeDelay`                 | no       | `number`          | _(since sdk-react 1.2.0)_ ms the hedged loader waits for the primary before also firing the secondary in parallel (default 2000) |
+| `initTimeout`                | no       | `number`          | ms the client retries at startup before `onInitFailure` applies (default 5000) |
+| `onInitFailure`              | no       | `"fail" \| "wait" \| "continue"` | what happens if no config (fresh or cached) loads within `initTimeout` (default `"fail"`; see [startup](#if-quonfig-is-unreachable-at-startup)) |
 | `onError`                    | no       | `(error) => void` | callback invoked on initialization failure                                    |
 | `logger`                     | no       | `Logger`          | custom logger for SDK warnings/errors; defaults to `console`                  |
 | `collectEvaluationSummaries` | no       | `boolean`         | opt out of evaluation summary telemetry (default `true`)                      |

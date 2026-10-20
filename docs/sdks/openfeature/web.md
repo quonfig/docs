@@ -167,7 +167,7 @@ const provider = new QuonfigWebProvider({
   sdkKey: "qf_sk_...",            // required
   targetingKeyMapping: "user.id", // default — which Quonfig context property OpenFeature `targetingKey` maps to
   apiUrl: "https://custom.api",   // optional — override the Quonfig API base URL. Defaults derive from `primary.quonfig.com` / `secondary.quonfig.com`.
-  timeout: 5000,                  // optional — initialization request timeout in ms
+  timeout: 5000,                  // optional — per-leg fetch timeout in ms, passed to @quonfig/javascript (default 3000); not an overall init deadline
 });
 ```
 
