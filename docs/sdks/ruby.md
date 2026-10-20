@@ -558,6 +558,26 @@ case that you are trying to debug issues that occur within the library, set env 
 QUONFIG_LOG_CLIENT_BOOTSTRAP_LOG_LEVEL=debug
 ```
 
+## Invalid or revoked SDK key
+
+If Quonfig rejects the SDK key while the client is running, the `quonfig` gem
+1.8.0+ stops streaming, probes every 150-300 seconds until the key works
+again, and logs one ERROR naming the HTTP status and host (never the key). The
+full rule is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
+While the key is rejected, `connection_state` returns `:disconnected` (never
+`:falling_back`) and `terminal_failure?` returns `true`. Evaluation keeps
+serving the last installed configuration, and the client recovers by itself on
+the first accepted probe.
+
+:::note `terminal_failure?` changed meaning in 1.8.0
+It now means "the key is rejected right now", and it goes back to `false` when
+a probe is accepted. Before 1.8.0 it turned `true` on the first SSE `401`,
+`403` or `404` and stayed `true`, because the client stopped streaming and
+polling for the life of the process. If your code rebuilt the client when it
+saw `true`, you can remove that: the client recovers by itself.
+:::
+
 ## Asset Precompilation in Rails
 
 Developers trying to run `rake assets:precompile` or `rails assets:precompile` in CI/CD know the pain of missing environment variables. Quonfig can help with this, but you don't want to hardcode your Quonfig SDK key in your Dockerfile. What should you do instead?

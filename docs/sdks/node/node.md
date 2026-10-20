@@ -955,6 +955,17 @@ await quonfig.close(); // Sends the last telemetry window (5s max), stops SSE, c
 **Important**: Always call `quonfig.close()` when shutting down your application to ensure proper
 cleanup of connections and prevent memory leaks.
 
+### Invalid or revoked SDK key
+
+If Quonfig rejects the SDK key while the client is running, `@quonfig/node` 1.7.0+
+stops streaming, probes every 150-300 seconds until the key works again, and
+logs one ERROR naming the HTTP status and host (never the key). The full rule
+is on the [Reliability](../../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
+While the key is rejected, `quonfig.connectionState()` returns `"disconnected"`,
+never `"falling_back"`. Evaluation keeps serving the last installed
+configuration, and the client recovers by itself on the first accepted probe.
+
 ## Telemetry
 
 Quonfig automatically collects telemetry data to help you understand how your configurations are

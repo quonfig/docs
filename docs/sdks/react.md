@@ -882,6 +882,15 @@ With `initialFlags` ([SSR hydration](#server-side-rendering-ssr-to-client-side-r
 the provider hydrates the client and doesn't call `init()` in the browser. No telemetry reporter
 starts, so the browser sends no evaluation summaries and no `pagehide` flush happens.
 
+## Invalid or revoked SDK key
+
+`@quonfig/react` polls through `@quonfig/javascript`, so it follows the
+browser SDK's rule: with `@quonfig/react` 1.5.0+ (which needs
+`@quonfig/javascript` 1.5.0+), a rejected SDK key logs one `console.error`
+and slows polling to once every 150-300 seconds until a poll is accepted. See
+[JavaScript: invalid or revoked SDK key](./javascript.md#invalid-or-revoked-sdk-key)
+and the full rule on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
 ## Testing
 
 Wrap the component under test in a `QuonfigTestProvider` and provide a config object to set up your test state.

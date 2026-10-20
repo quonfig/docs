@@ -399,6 +399,18 @@ sdk, err := quonfig.NewClient(
 - `WithEnvironment` (or the `QUONFIG_ENVIRONMENT` env var, which it overrides) selects which environment's values are evaluated from the local data.
 - To pick up edits to the directory while running, opt into `WithDataDirAutoReload(true)`.
 
+## Invalid or revoked SDK key
+
+If Quonfig rejects the SDK key while the client is running, sdk-go 1.7.0+
+stops streaming, probes every 150-300 seconds until the key works again, and
+logs one ERROR naming the HTTP status and host (never the key). The full rule
+is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
+While the key is rejected, `ConnectionState()` returns `quonfig.ConnStateDisconnected`
+(`"disconnected"`), never `ConnStateFallingBack`. Evaluation keeps serving the
+last installed configuration, and the client recovers by itself on the first
+accepted probe.
+
 ## Reference
 
 ### Options

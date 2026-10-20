@@ -6,13 +6,13 @@ title: .NET
 
 [GitHub](https://github.com/quonfig/sdk-net) | [NuGet](https://www.nuget.org/profiles/quonfig)
 
-Replace `1.4.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
+Replace `1.7.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
 
 <Tabs groupId="dotnet-build">
 <TabItem value="dotnet-cli" label=".NET CLI">
 
 ```bash
-dotnet add package Quonfig.Sdk --version 1.4.0
+dotnet add package Quonfig.Sdk --version 1.7.0
 ```
 
 </TabItem>
@@ -21,7 +21,7 @@ dotnet add package Quonfig.Sdk --version 1.4.0
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Quonfig.Sdk" Version="1.4.0" />
+  <PackageReference Include="Quonfig.Sdk" Version="1.7.0" />
 </ItemGroup>
 ```
 
@@ -30,7 +30,7 @@ dotnet add package Quonfig.Sdk --version 1.4.0
 <TabItem value="paket" label="Paket">
 
 ```paket
-nuget Quonfig.Sdk ~> 1.4.0
+nuget Quonfig.Sdk ~> 1.7.0
 ```
 
 </TabItem>
@@ -40,7 +40,7 @@ nuget Quonfig.Sdk ~> 1.4.0
 ```xml
 <Project>
   <ItemGroup>
-    <PackageVersion Include="Quonfig.Sdk" Version="1.4.0" />
+    <PackageVersion Include="Quonfig.Sdk" Version="1.7.0" />
   </ItemGroup>
 </Project>
 ```
@@ -391,10 +391,10 @@ Weighted-value configs resolve to the correct value and report `Reason.Split` wi
 The `Quonfig.Sdk.AspNetCore` companion package wires `Quonfig` into the ASP.NET Core host: it registers the singleton, runs `InitAsync` via `IHostedService`, and (optionally) binds per-request `ContextSet` from `HttpContext` so controllers can inject `IBoundQuonfig` directly.
 
 ```bash
-dotnet add package Quonfig.Sdk.AspNetCore --version 1.4.0
+dotnet add package Quonfig.Sdk.AspNetCore --version 1.7.0
 ```
 
-Replace `1.4.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.AspNetCore). The companion packages ship lock-step with `Quonfig.Sdk` from the same tag, so keep the versions aligned.
+Replace `1.7.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.AspNetCore). The companion packages ship lock-step with `Quonfig.Sdk` from the same tag, so keep the versions aligned.
 
 ```csharp
 // Program.cs
@@ -451,10 +451,10 @@ If no log-level config is found at any level, `ShouldLog` returns `true` — the
 The `Quonfig.Sdk.Extensions.Logging` package wires `ShouldLog` into the BCL logging pipeline by wrapping the providers already registered on the `ILoggingBuilder`:
 
 ```bash
-dotnet add package Quonfig.Sdk.Extensions.Logging --version 1.4.0
+dotnet add package Quonfig.Sdk.Extensions.Logging --version 1.7.0
 ```
 
-Replace `1.4.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Extensions.Logging). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
+Replace `1.7.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Extensions.Logging). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
 
 `AddQuonfigFilter(quonfig)` takes the client instance and must be called **last** in the logging setup — it snapshots and wraps every `ILoggerProvider` registered up to that point. Because it needs the instance at logging-config time, construct the client up front and register the same instance with DI:
 
@@ -484,10 +484,10 @@ Every `ILogger<T>` call site is then automatically gated by Quonfig: the logger 
 For Serilog, use `Quonfig.Sdk.Serilog`. The `QuonfigLoggingLevelSwitchProvider` manages a set of Serilog `LoggingLevelSwitch` instances keyed by source context and re-evaluates them whenever the config envelope changes (it subscribes to the SDK's `OnConfigChange`, which fires after every successful install).
 
 ```bash
-dotnet add package Quonfig.Sdk.Serilog --version 1.4.0
+dotnet add package Quonfig.Sdk.Serilog --version 1.7.0
 ```
 
-Replace `1.4.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Serilog). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
+Replace `1.7.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Serilog). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
 
 The provider resolves levels via `IQuonfig.GetLogLevel(...)`, so the config key is configured by `LoggerKey` on the **client** options — you don't pass a key to the provider. `GetSwitch(category)` returns (and caches) the switch for a source context; pass an empty string for the root switch used by `MinimumLevel.ControlledBy`:
 
@@ -571,6 +571,18 @@ The SDK is designed so that a transient delivery outage never affects your appli
 Use these primitives for telemetry, dashboards, and alerting on extended outages instead.
 
 :::
+
+### Invalid or revoked SDK key
+
+If Quonfig rejects the SDK key while the client is running, `Quonfig.Sdk`
+1.7.0+ stops streaming, probes every 150-300 seconds until the key works again,
+and logs one `Error` naming the HTTP status and host (never the key). The full
+rule is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
+
+While the key is rejected, `client.ConnectionState` is
+`ConnectionState.Disconnected`, never `FallingBack`. Evaluation keeps serving
+the last installed configuration, and the client recovers by itself on the
+first accepted probe.
 
 ## Telemetry
 
