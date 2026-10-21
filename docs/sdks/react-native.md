@@ -139,6 +139,28 @@ Config values are accessed the same way as feature flag values. You can use `isE
 
 By default configs are not sent to frontend SDKs. You must enable access for each individual config. You can do this by checking the "Send to frontend SDKs" checkbox when creating or editing a config.
 
+## If Quonfig is unreachable at startup
+
+:::info Since @quonfig/react-native 1.3.0
+Requires `@quonfig/react-native` 1.3.0 or later, which depends on
+`@quonfig/react` 1.6.0 and `@quonfig/javascript` 1.6.0.
+:::
+
+React Native uses the React provider's startup behavior: the
+`onInitFailure` (`"fail"` by default, `"wait"` or `"continue"`) and
+`initTimeout` (5000 ms by default) props, and the `isReady`, `error` and
+`source` fields on `useQuonfig()`. See the
+[React page](./react.md#if-quonfig-is-unreachable-at-startup) for the details.
+
+One difference matters: **React Native has no last-known-good cache.**
+Hermes has no `localStorage`, so there is no cached copy from an earlier
+launch. A cold launch with every delivery leg unreachable goes straight to
+`onInitFailure`: under `"fail"`, `onError` fires, `isReady` is `false`,
+`error` is set, and the app renders code defaults (`source: "defaults"`) until
+the background retry reaches Quonfig. If your defaults are safe to show,
+consider `"continue"`; see
+[Browsers and mobile apps](/docs/explanations/architecture/startup-failure#browsers-and-mobile-apps).
+
 ## Dealing with Loading States
 
 The Quonfig client needs to load your feature flags from the [Quonfig CDN](/docs/explanations/concepts/frontend-sdks) before they are available. This means there will be a brief period when the client is in a loading state. If you call the `useQuonfig` hook during loading, you will see the following behavior.

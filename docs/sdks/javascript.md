@@ -100,6 +100,56 @@ While `quonfig` is loading, `isEnabled` will return `false`, `get` will return `
 
 :::
 
+### If Quonfig is unreachable at startup
+
+:::info Since @quonfig/javascript 1.6.0
+This section describes `@quonfig/javascript` 1.6.0 and later. Earlier versions have no `onInitFailure` or `initTimeout`: `init()`
+makes one attempt and rejects (unless a cached copy exists), and the client
+recovers only through `poll()`.
+:::
+
+`init()` retries (jittered backoff 0.5s, 1s, 2s, ..., capped at 30s) until it
+has config or `initTimeout` (default 5000ms) passes. A last-known-good copy
+cached in this browser for the context, or an SSR [bootstrap](#bootstrapping),
+counts as config: `init()` resolves on it as soon as an attempt fails (or at
+`initTimeout` if the network hangs) and serves those values
+marked stale (`quonfig.stale` is `true`, `getDetails()` reports reason
+`STALE`) until a fetch succeeds. With neither, `onInitFailure` decides:
+
+| `onInitFailure`    | At `initTimeout` |
+| ------------------ | ---------------- |
+| `"fail"` (default) | `init()` rejects with `QuonfigInitError` (`.reason`: `"timeout"`, `"unavailable"` or `"unauthorized"`) |
+| `"wait"`           | `init()` stays pending and keeps retrying until config lands |
+| `"continue"`       | `init()` resolves; `get()` returns `undefined` (code defaults) |
+
+If every configured leg rejects the key (401/403/404/410), `"fail"` rejects and
+`"continue"` resolves at once; `"wait"` keeps retrying (logged at WARN).
+`initTimeout` of zero or less runs exactly one attempt, then applies
+`onInitFailure`; it does not mean "no deadline". In every mode the client keeps retrying in the
+background until it has live config, then installs it, notifies subscribers
+and logs one `[quonfig] init recovered` line. `isReady()` tells you whether
+the client holds live config, and `quonfig.error` holds the
+`QuonfigInitError` (cleared on heal). `poll()` takes over the background retry
+when you start it; `close()` and `stopPolling()` stop it.
+
+```js
+import { quonfig, QuonfigInitError } from "@quonfig/javascript";
+
+try {
+  await quonfig.init({ sdkKey: "your-frontend-sdk-key", context, initTimeout: 5000 });
+} catch (error) {
+  // error instanceof QuonfigInitError; error.reason is "timeout", "unavailable" or "unauthorized".
+  // The client keeps retrying and heals on its own when the network returns.
+}
+
+// Or start on code defaults and let the client heal in the background:
+await quonfig.init({ sdkKey: "your-frontend-sdk-key", context, onInitFailure: "continue" });
+if (!quonfig.isReady()) console.warn("serving cached/default flags");
+```
+
+For many browser apps `"continue"` is the better choice; see
+[Browsers and mobile apps](/docs/explanations/architecture/startup-failure#browsers-and-mobile-apps).
+
 ## Feature Flags
 
 Now you can use `quonfig`'s feature flag evaluation, e.g.
@@ -443,6 +493,8 @@ it("shows the turbo button when the feature is enabled", () => {
 | `hydrate`       | `quonfig.hydrate(configurationObject)`          | sets the current config based on a plain object of key, config value pairs                                                                                                               |
 | `isEnabled`     | `quonfig.isEnabled("new-logo")`                 | returns a boolean (default `false`) if a feature is enabled based on the current context                                                                                                 |
 | `loaded`        | `if (quonfig.loaded) { ... }`                   | a boolean indicating whether quonfig content has loaded                                                                                                                                  |
+| `isReady`       | `quonfig.isReady()`                             | whether the client holds live config (false while serving only a cached copy or code defaults)                                                                                          |
+| `error`         | `quonfig.error`                                 | the `QuonfigInitError` from a failed `init()`, or `undefined`; cleared when the client heals                                                                                            |
 | `loggerKey`     | `quonfig.loggerKey`                             | the init-time `loggerKey` used by the `shouldLog({loggerPath, ...})` overload                                                                                                            |
 | `poll`          | `quonfig.poll({frequencyInMs})`                 | starts polling every `frequencyInMs` ms.                                                                                                                                                 |
 | `shouldLog`     | `quonfig.shouldLog({loggerPath, desiredLevel})` | returns whether a message at `desiredLevel` should emit; accepts either `{loggerPath}` (uses init-time `loggerKey`) or `{configKey}`                                                     |
@@ -462,6 +514,8 @@ it("shows the turbo button when the feature is enabled", () => {
 | `apiUrls`                    | string[] | derived from `domain` | Ordered list of API base URLs to try (failover order). Escape hatch for deploys that don't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`.                                                                                                                                |
 | `apiUrl`                     | string   | `undefined`           | Convenience alias for callers with a single API base URL. Normalized to `apiUrls = [apiUrl]`. `apiUrls` wins if both are set.                                                                                                                                                                                              |
 | `telemetryUrl`               | string   | derived from `domain` | Base URL for the telemetry service. Escape hatch for deploys that split telemetry off the primary domain. When set, wins over `domain`.                                                                                                                                                                                    |
+| `initTimeout`                | number   | `5000`                | Overall deadline in ms for `init()` to load config (it retries until then) before `onInitFailure` applies. A cached copy or bootstrap resolves `init()` at once. See [startup](#if-quonfig-is-unreachable-at-startup).                                                                                                    |
+| `onInitFailure`              | string   | `"fail"`              | `"fail"`, `"wait"` or `"continue"`: what `init()` does if no config (fresh or cached) loads within `initTimeout`.                                                                                                                                                                                                          |
 | `timeout`                    | number   | `3000`                | Per-leg hard fetch deadline in ms. Keep it **above** `hedgeDelay` — a `timeout <= hedgeDelay` aborts the primary before the parallel hedge can fire (`init()` warns when this happens).                                                                                                                                       |
 | `hedgeDelay`                 | number   | `2000`                | How long the hedged loader waits for the primary API URL before **also** firing the secondary in parallel (ms). Raise toward the primary's measured p99 to contact the secondary less often.                                                                                                                                 |
 | `loggerKey`                  | string   | `undefined`           | The `log_level` config key consulted by `shouldLog({loggerPath})`. Required for the `loggerPath` form.                                                                                                                                                                                                                     |

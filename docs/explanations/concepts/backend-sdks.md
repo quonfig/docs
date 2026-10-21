@@ -15,7 +15,7 @@ credentials — and why it must stay server-side — see
 The Quonfig server-side SDKs are all built with the following 3 goals in mind:
 
 1. Very fast lookups that do not require any remote calls.
-2. Being highly resilient in the case of outages
+2. Being highly resilient in the case of outages (once a process has loaded its configuration; for what happens if it can't load it at startup, see [Startup failure](/docs/explanations/architecture/startup-failure))
 3. Near instant updates when changes are made
 
 The architecture to do this looks like this:

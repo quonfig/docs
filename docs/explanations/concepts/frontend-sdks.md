@@ -96,12 +96,13 @@ First, the good news. All **active** users will be unaffected because they will 
 If you make a change to your feature flags, it won't be reflected, but logged-in users will be served the most
 recent evaluation of the flags.
 
-The less good news is that if a [context](/docs/explanations/concepts/context) that has not been seen before asks for evaluation, it will not have been cached. After a configurable timeout, the client will fall back to default values.
+The browser SDK also keeps the last configuration it received for a context in `localStorage`, so a returning visitor starts on that cached copy (marked stale) even if both delivery legs are unreachable.
+
+The less good news is that if a [context](/docs/explanations/concepts/context) that has not been seen before asks for evaluation, it will not have been cached. The client retries until `initTimeout` (5 seconds by default; each request leg also has its own 3-second `timeout`), and then applies your `onInitFailure` setting. The default, `fail`, rejects `init()`; `continue` starts on your code defaults instead. Either way the client keeps retrying in the background and switches to live values once it can reach us. See [Startup failure](/docs/explanations/architecture/startup-failure#browsers-and-mobile-apps) for how to choose.
+
 Without values, your `isEnabled` checks will return `false`.
 
 Frontend config will return `undefined`, and you can use the pattern `Quonfig.get("thing") ?? "this-is-my-default"` to set a default.
-
-The default timeout is `10` seconds, but you can set this in client initialization.
 
 Our [JavaScript SDK can also bootstrap][bootstrap] server-evaluated values into the page for an instant first render. If you have questions about our reliability roadmap, contact us, and we'll share what we're working on.
 

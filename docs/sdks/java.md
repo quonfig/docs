@@ -69,18 +69,74 @@ Quonfig quonfig = new Quonfig(
 
 `Quonfig` implements `AutoCloseable`. We recommend using it as a singleton in your application and calling `quonfig.close()` on shutdown to stop the SSE stream and send the last telemetry window.
 
-### Initialization is asynchronous
+### If Quonfig is unreachable at startup
 
-The constructor returns immediately and runs the initial config fetch on a background thread. The first call to any typed getter (`getString`, `getBoolean`, etc.) blocks on initialization, with a timeout controlled by `initTimeout` (default `10s`).
+:::info sdk-java 2.0.0 (October 21, 2026)
+This section describes sdk-java 2.0.0. In 1.x the constructor returns
+immediately, the first getter blocks for up to `initTimeout`, and if
+initialization fails, getters return the caller's default value with
+`Reason.ERROR` (and `get*OrThrow` throws) with no retry afterwards.
+:::
 
-If initialization fails or times out, getters return the caller's default value with `Reason.ERROR` — they do not throw. Use `quonfig.initFuture().get()` if you need to block explicitly during startup.
+The constructor blocks until the first config loads, retrying through blips
+(jittered backoff from 0.5s, capped at 30s) until `initTimeout` (default
+`10s`). A healthy boot returns as soon as the first config lands, typically in
+100-300ms. If no config has loaded by then, `onInitFailure` decides:
+
+| `onInitFailure` | At `initTimeout` | Every configured leg rejects the SDK key (401/403/404/410) |
+|---|---|---|
+| `OnInitFailure.FAIL` (default) | The constructor throws `QuonfigInitException` (`reason()` `UNAVAILABLE`), or its subclass `QuonfigInitTimeoutException` (`TIMEOUT`) when no attempt finished in time. | Throws at once (`UNAUTHORIZED`). |
+| `OnInitFailure.WAIT` | The constructor keeps blocking and retrying, with no upper bound. | Logs an ERROR and keeps retrying. |
+| `OnInitFailure.CONTINUE` | The constructor returns a client with no config and logs an ERROR. | Returns at once. |
 
 ```java
-Quonfig quonfig = new Quonfig(Options.builder().sdkKey("sdk-...").build());
-
-// Optional: block until the initial fetch completes
-quonfig.initFuture().get();
+Quonfig quonfig;
+try {
+    quonfig = new Quonfig(Options.builder()
+        .sdkKey("sdk-...")
+        .onInitFailure(OnInitFailure.FAIL) // the default
+        .initTimeout(Duration.ofSeconds(10))
+        .build());
+} catch (QuonfigInitException e) {
+    log.error("Quonfig init failed: {}", e.reason(), e);
+    throw e; // let the process exit; the orchestrator restarts it
+    // or: quonfig = e.client(); // keep the client; it retries and heals
+}
 ```
+
+The client a failed constructor built keeps retrying in the background, and
+`e.client()` returns it: keep it and it becomes ready when delivery comes
+back, or call `close()` on it if you don't. A process that lets the exception
+escape is unaffected.
+
+Getters never block on init. Before the first config loads they return the
+caller's default with `Reason.ERROR` and `ErrorCode.PROVIDER_NOT_READY`, and
+`get*OrThrow` throws `QuonfigKeyNotFoundException`. `quonfig.isReady()`
+reports whether config has loaded, and `quonfig.awaitReady(Duration)` waits
+for it; `initFuture()` is still available. Under `WAIT` or `CONTINUE`, wire
+your readiness probe to `isReady()`. To keep the 1.x fail-open behavior, set
+`.onInitFailure(OnInitFailure.CONTINUE)`. For how to choose between the three,
+see [If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+
+#### Upgrading from 1.x to 2.0.0
+
+- **The constructor can now throw `QuonfigInitException`** (a
+  `RuntimeException`) when delivery is unreachable. Wrap construction if you
+  want to handle that, or set `.onInitFailure(OnInitFailure.CONTINUE)` to keep
+  the 1.x fail-open behavior.
+- **The constructor now blocks** until the first config loads, typically
+  100-300 ms, and up to `initTimeout` when delivery is down.
+- **`catch (QuonfigInitTimeoutException e)` still compiles and matches**, but
+  only for the hang case. It is no longer `final` and now extends
+  `QuonfigInitException`; catch that to cover `UNAVAILABLE` and
+  `UNAUTHORIZED` too.
+- **Getters no longer wait for init.** Before the first config they return
+  your default with `ErrorCode.PROVIDER_NOT_READY` (was `GENERAL` after waiting
+  up to `initTimeout`), and `get*OrThrow` throws `QuonfigKeyNotFoundException`
+  (was `QuonfigInitTimeoutException`).
+- **`initTimeout` of zero or less** runs exactly one attempt, then applies
+  `onInitFailure`.
+- Datadir and datafile modes are unchanged; they load synchronously.
 
 ### Datadir mode (local development)
 
@@ -518,6 +574,7 @@ Options options = Options.builder()
     .domain("quonfig.com")
     .globalContext(global)
     .initTimeout(Duration.ofSeconds(10))
+    .onInitFailure(OnInitFailure.FAIL)
     .loggerKey("log-level.my-app")
     .collectEvaluationSummaries(true)
     .contextUploadMode(ContextUploadMode.PERIODIC_EXAMPLE)
@@ -537,7 +594,8 @@ Options options = Options.builder()
 | `datadir`                     | Path to a Quonfig workspace directory. Switches the client to datadir mode (no HTTP fetch, no SSE).                                        | `null`                                 |
 | `dataDirAutoReload`           | In datadir mode, watch the directory and re-read the envelope on file changes (fires `onConfigUpdate`).                                     | `false`                                |
 | `dataDirAutoReloadDebounceMs` | Debounce window (ms) coalescing filesystem bursts when `dataDirAutoReload` is on.                                                          | `200`                                  |
-| `initTimeout`                 | How long the initial config fetch and any later getter call will wait for init to complete.                                                | `10s`                                  |
+| `initTimeout`                 | How long the constructor retries the initial config fetch before `onInitFailure` applies. Getters never wait.                              | `10s`                                  |
+| `onInitFailure`               | `FAIL`, `WAIT` or `CONTINUE` when no config loads within `initTimeout` (see [startup](#if-quonfig-is-unreachable-at-startup)).            | `FAIL`                                 |
 | `globalContext`               | A `ContextSet` merged into every evaluation as the base layer.                                                                             | empty                                  |
 | `onConfigUpdate`              | `Runnable` invoked after every successful config-store swap (initial load + each SSE envelope).                                            | `null`                                 |
 | `onSseConnectionStateChange`  | `Consumer<Boolean>` invoked when the SSE connection's connected state changes.                                                             | `null`                                 |

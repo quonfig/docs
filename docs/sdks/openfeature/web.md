@@ -167,11 +167,20 @@ const provider = new QuonfigWebProvider({
   sdkKey: "qf_sk_...",            // required
   targetingKeyMapping: "user.id", // default — which Quonfig context property OpenFeature `targetingKey` maps to
   apiUrl: "https://custom.api",   // optional — override the Quonfig API base URL. Defaults derive from `primary.quonfig.com` / `secondary.quonfig.com`.
-  timeout: 5000,                  // optional — initialization request timeout in ms
+  timeout: 5000,                  // optional — per-leg fetch timeout in ms, passed to @quonfig/javascript (default 3000); not an overall init deadline
 });
 ```
 
 To point a browser app at staging, set `apiUrl` to your staging API host (e.g. `https://primary.quonfig-staging.com`). The native `@quonfig/javascript` SDK exposes a `domain` option that flips api + telemetry URLs in lockstep — that knob is not currently surfaced through this provider, so override `apiUrl` here, and if you need to redirect telemetry too reach for the underlying client via `provider.getClient()`.
+
+:::note If Quonfig is unreachable at startup
+The provider accepts `@quonfig/javascript` 1.4.0 or later. With 1.6.0 or later
+installed, startup fails by default when no config (fresh or cached) loads
+within 5 seconds, and the provider reports ERROR. The provider does not yet
+pass `onInitFailure` or `initTimeout` through, so you can't choose `continue`
+from the provider options. See
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+:::
 
 ## What you lose vs. the native SDK
 

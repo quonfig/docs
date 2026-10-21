@@ -243,3 +243,23 @@ Two things to know about that background fetch in a frozen lambda:
 
 - **Always attach `.catch()`.** The call returns the in-flight `Promise` when it starts a fetch (and `undefined` when it doesn't need one — hence the `?.`). That promise rejects if the HTTP fetch fails, and an unawaited rejection is an `unhandledRejection`, which crashes modern Node by default. The `?.catch(() => {})` in the snippets above is what keeps a flaky network from taking the function down; log inside it if you want visibility.
 - **It may not complete until the next thaw.** If the platform freezes the process right after the response is sent, the fetch pauses with it and finishes when the function next wakes. That is fine: the SDK's reject-older guard means a late-arriving envelope can never roll your config backwards, and the next request simply sees whatever landed. If you'd rather guarantee the refresh finishes before the freeze, `await` it (or, on Vercel, run it inside `after()`) at the cost of that request's latency.
+
+## If Quonfig is unreachable on a cold start
+
+:::info Since @quonfig/node 1.9.0
+Describes `@quonfig/node` 1.9.0 and later.
+:::
+
+A module-level `await quonfig.init()` retries for up to `initTimeout` (10s by
+default) and then applies `onInitFailure`. Under the default, `"fail"`, the
+rejected `await` fails the cold start, and the platform retries the
+invocation. If the SDK key is rejected on every delivery leg, it fails at once.
+
+- Keep `initTimeout` well under your function timeout, so a cold start during
+  an outage fails cleanly instead of being killed by the platform.
+- Use `onInitFailure: "continue"` only if every flag read in the function has a
+  safe default. The client then starts on those defaults and keeps retrying in
+  the background (while the function is thawed) until config loads.
+
+See [If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure)
+and the [Node page](./node.md#if-quonfig-is-unreachable-at-startup).

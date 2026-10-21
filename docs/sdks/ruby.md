@@ -86,7 +86,7 @@ Ruby threads do not survive `fork(2)`, so a forked child needs its own Quonfig c
 
 That first fetch **blocks**, and it blocks every other thread that reaches the client while it is in flight — they wait for it and then see the fetched config. One fetch, one stream dial, and one telemetry reporter per child, however many threads race the first request.
 
-**The default is `on_init_failure: :raise`**, so if the child's fetch fails against every `api_urls` leg (primary and secondary both unreachable) the failure **raises out of that first lookup**, exactly as `Quonfig::Client.new` would at boot, and later lookups keep raising — without re-fetching — until the update channel lands an envelope. On 1.3.0 and earlier a child in that situation silently served the parent's snapshot. If you would rather a forked child serve defaults through an outage, set `on_init_failure: :return`: a failed first fetch then logs one line and the child serves defaults until its stream or poller lands an envelope.
+**The default is `on_init_failure: :fail`** (`:raise` before 1.10.0), so if the child's fetch fails against every `api_urls` leg (primary and secondary both unreachable) the failure **raises out of that first lookup**, exactly as `Quonfig::Client.new` would at boot, and later lookups keep raising — without re-fetching — until the update channel lands an envelope. On 1.3.0 and earlier a child in that situation silently served the parent's snapshot. If you would rather a forked child serve defaults through an outage, set `on_init_failure: :continue` (`:return` before 1.10.0): a failed first fetch then logs one line and the child serves defaults until its stream or poller lands an envelope.
 
 `connection_state` never triggers the re-initialization: a diagnostic must not open a socket. A child that has not used the client yet reports `:initializing`, and flips to `:connected` on first use.
 
@@ -637,6 +637,51 @@ end
 
 ## Reference
 
+### If Quonfig is unreachable at startup
+
+:::info Since quonfig gem 1.10.0
+This section describes the `quonfig` gem 1.10.0 and later.
+Earlier versions make a single attempt within `init_timeout_ms`, and spell the
+values `:raise` and `:return`.
+:::
+
+`Client.new` fetches config from both delivery legs (primary, then the
+secondary in parallel) and retries through blips with a jittered backoff
+(0.5s, 1s, 2s ... capped at 30s) for up to `init_timeout_ms` (default 10s).
+A healthy boot logs nothing above DEBUG. If no config has loaded by then,
+`on_init_failure` decides:
+
+| Value | At `init_timeout_ms` | Every configured leg rejects the SDK key (401/403/404/410) |
+|---|---|---|
+| `:fail` (default) | Raises `Quonfig::Errors::InitializationError` (`reason` `:unavailable`), or its subclass `InitializationTimeoutError` (`reason` `:timeout`) when the last attempt hung (none of its legs answered). No client is returned, so your orchestrator's restart is the retry. | Raises at once (`reason` `:unauthorized`). |
+| `:wait` | Keeps blocking and retrying, with no upper bound, logging a WARN every 30s. | Logs an ERROR and keeps retrying. |
+| `:continue` | Returns a client with no config: getters return your default (and `get_or_raise` raises `MissingDefaultError`). It keeps retrying in the background and serves live config as soon as it lands. | Returns at once. |
+
+`init_timeout_ms` of zero or less runs exactly one attempt, then applies
+`on_init_failure`; it does not mean "no deadline".
+
+```ruby
+begin
+  client = Quonfig::Client.new(sdk_key: key, on_init_failure: :fail, init_timeout_ms: 10_000)
+rescue Quonfig::Errors::InitializationError => e
+  e.reason # => :unavailable, :unauthorized or :timeout
+  e.errors # => "primary=primary.quonfig.com:443: ...; secondary=secondary.quonfig.com:443: ..."
+  raise
+end
+```
+
+`InitializationError` is no longer a bare `RuntimeError`, so a
+`rescue RuntimeError` around `Client.new` no longer catches it; rescue
+`Quonfig::Errors::InitializationError` instead.
+
+Readiness: `client.ready?` is true once config has loaded, and
+`client.wait_for_ready(timeout_ms: nil)` blocks until it has (true) or the
+timeout runs out (false). Under `:continue` or `:wait`, point your readiness
+probe at `ready?`. `:raise` and `:return` are the deprecated spellings of
+`:fail` and `:continue`; they still work and log a one-time WARN. For how to
+choose between the three, see
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+
 ### Client Initialization Options
 
 For more control, you can initialize your client with options. Here are the defaults with explanations.
@@ -647,7 +692,7 @@ options = Quonfig::Options.new(
   api_urls: ['https://primary.quonfig.com', 'https://secondary.quonfig.com'], # primary + secondary (failover on by default). Derived from ENV['QUONFIG_DOMAIN'] when omitted; SSE URL is derived by prepending 'stream.'
   on_no_default: Quonfig::Options::ON_NO_DEFAULT::RAISE, # ::RAISE (:raise) or ::RETURN_NIL (:return_nil)
   init_timeout_ms: 10_000, # how long to wait before on_init_failure (the old initialization_timeout_sec, in seconds, is a deprecated alias)
-  on_init_failure: Quonfig::Options::ON_INITIALIZATION_FAILURE::RAISE, # choose to crash or continue with local data only if unable to fetch config data from Quonfig at startup
+  on_init_failure: Quonfig::Options::ON_INITIALIZATION_FAILURE::FAIL, # :fail (raise), :wait (keep blocking) or :continue (start on code defaults) if no config loads within init_timeout_ms; :raise / :return are deprecated aliases. See "If Quonfig is unreachable at startup".
   datadir: ENV['QUONFIG_DIR'], # local workspace dir for offline/datadir mode
   logger_key: nil, # the `log_level` config key consulted by `should_log?(logger_path:, ...)`, e.g. "log-level.my-app"
   enable_quonfig_user_context: nil, # inject quonfig-user.email from ~/.quonfig/tokens.json (qfg login). Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set false or QUONFIG_DEV_CONTEXT=false to opt out.

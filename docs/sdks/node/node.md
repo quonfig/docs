@@ -110,6 +110,59 @@ await quonfig.init();
 </TabItem>
 </Tabs>
 
+## If Quonfig is unreachable at startup
+
+:::info Since @quonfig/node 1.9.0
+This section describes `@quonfig/node` 1.9.0 and later.
+In earlier versions there is no `onInitFailure` option: `init()` rejects after
+`initTimeout` and the client does not recover afterwards.
+:::
+
+`init()` fetches config from the primary and secondary delivery hosts and
+retries through blips (jittered backoff from 0.5s, capped at 30s) for
+`initTimeout` (10 s by default). It resolves as soon as the first config
+loads. If no config has loaded by then, `onInitFailure` decides what happens:
+
+| `onInitFailure`    | At the timeout |
+| ------------------ | -------------- |
+| `"fail"` (default) | `init()` rejects with `QuonfigInitError` (`.reason`: `"timeout"`, `"unavailable"` or `"unauthorized"`; `.cause`: the last delivery error). |
+| `"wait"`           | `init()` keeps blocking and retrying with no upper bound, and resolves once config loads. |
+| `"continue"`       | `init()` resolves, logs an ERROR, and the client starts on your code defaults. |
+
+If every delivery host rejects the SDK key (401/403/404/410), `"fail"` rejects at once
+instead of waiting out the timeout, and `"continue"` resolves at once; `"wait"`
+logs an ERROR and keeps retrying. `initTimeout` of zero or less runs exactly one attempt, then applies `onInitFailure`; it does not mean "no deadline". An unknown `onInitFailure` value throws
+when you construct the client.
+
+The client object keeps retrying in the background in every mode, including
+after you catch a `QuonfigInitError`, and heals on the first successful fetch.
+Until then getters return the default you pass (or follow `onNoDefault`), and
+`get*Details` calls return `reason: "ERROR"` with `errorCode:
+"PROVIDER_NOT_READY"`. If you catch the error and don't keep the client, call
+`close()` on it so the retry stops.
+
+```typescript
+import { Quonfig, QuonfigInitError } from "@quonfig/node";
+
+const quonfig = new Quonfig({ sdkKey, onInitFailure: "fail", initTimeout: 10_000 });
+try {
+  await quonfig.init();
+} catch (err) {
+  if (err instanceof QuonfigInitError) console.error(err.reason, err.message);
+  throw err; // let the orchestrator restart the process
+}
+
+quonfig.isReady(); // true once config is loaded
+await quonfig.waitForReady({ timeoutMs: 30_000 }); // rejects with QuonfigInitError on timeout
+```
+
+Under `"wait"` or `"continue"`, wire your readiness probe to `isReady()` so
+the orchestrator holds traffic until config loads. For how to choose between
+the three, see
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+In AWS Lambda, keep `initTimeout` well under your function timeout; see
+[Lambdas](./lambdas.md).
+
 ## Local datadir mode (no account required)
 
 The SDK can run entirely against a local directory of JSON config files —
@@ -169,9 +222,15 @@ async function getQuonfigClient(): Promise<QuonfigTypesafeNode> {
       fallbackPollEnabled: true,
     });
 
-    await client.init();
-    // Only cache after successful init — if init() throws,
-    // the next request will retry instead of returning a broken client.
+    try {
+      await client.init();
+    } catch (err) {
+      // init() failed (see "If Quonfig is unreachable at startup"). Close this
+      // client so its background retry stops; the next request builds a new one.
+      await client.close();
+      throw err;
+    }
+    // Only cache after successful init.
     baseQuonfig = client;
     quonfig = new QuonfigTypesafeNode(client);
   }
@@ -217,9 +276,15 @@ async function getQuonfigClient(): Promise<Quonfig> {
       fallbackPollEnabled: true,
     });
 
-    await client.init();
-    // Only cache after successful init — if init() throws,
-    // the next request will retry instead of returning a broken client.
+    try {
+      await client.init();
+    } catch (err) {
+      // init() failed (see "If Quonfig is unreachable at startup"). Close this
+      // client so its background retry stops; the next request builds a new one.
+      await client.close();
+      throw err;
+    }
+    // Only cache after successful init.
     quonfig = client;
   }
 
@@ -264,9 +329,15 @@ async function getQuonfigClient() {
       fallbackPollEnabled: true,
     });
 
-    await client.init();
-    // Only cache after successful init — if init() throws,
-    // the next request will retry instead of returning a broken client.
+    try {
+      await client.init();
+    } catch (err) {
+      // init() failed (see "If Quonfig is unreachable at startup"). Close this
+      // client so its background retry stops; the next request builds a new one.
+      await client.close();
+      throw err;
+    }
+    // Only cache after successful init.
     quonfig = client;
   }
 
@@ -1029,5 +1100,7 @@ with a 5s deadline instead of waiting on retries.
 | enableSSE                  | Whether or not we should listen for live changes from Quonfig                                                                   | true              |
 | fallbackPollEnabled        | Poll for changes only when the SSE stream is unavailable (replaces the deprecated `enablePolling`, which polled in parallel with SSE) | true              |
 | fallbackPollIntervalMs     | How often to poll, in ms, when the fallback poller is active                                                                    | 60000             |
+| initTimeout                | How long `init()` retries the initial config fetch, in ms, before `onInitFailure` applies                                       | 10000             |
+| onInitFailure              | What `init()` does if no config loads within `initTimeout`: `"fail"`, `"wait"` or `"continue"` (see [startup](#if-quonfig-is-unreachable-at-startup)) | "fail"            |
 | loggerKey                  | The `log_level` config key consulted by `shouldLog({loggerPath})`. No default — set it to enable the `loggerPath` convenience.          | `undefined`       |
 | enableQuonfigUserContext   | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into `globalContext`. Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set `false` or `QUONFIG_DEV_CONTEXT=false` to opt out. | `null` (on)       |
