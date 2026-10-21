@@ -246,8 +246,8 @@ Two things to know about that background fetch in a frozen lambda:
 
 ## If Quonfig is unreachable on a cold start
 
-:::info Next release (version TBD)
-Describes the next `@quonfig/node` minor release (version TBD).
+:::info Since @quonfig/node 1.9.0
+Describes `@quonfig/node` 1.9.0 and later.
 :::
 
 A module-level `await quonfig.init()` retries for up to `initTimeout` (10s by

@@ -65,8 +65,8 @@ sdk, err := quonfig.NewClient(
 
 ## If Quonfig is unreachable at startup
 
-:::info Next release (version TBD)
-This section describes the next sdk-go minor release (version TBD). In
+:::info Since sdk-go 1.9.0
+This section describes sdk-go 1.9.0 and later. In
 earlier versions `NewClient` does not block, the default `ReturnError`
 surfaces the failure from getters rather than from `NewClient`, and the app
 boots either way.
@@ -82,6 +82,9 @@ boots either way.
 | `quonfig.InitFailureFail` (default) | `NewClient` returns `(nil, *quonfig.InitError)`. No client exists, so your process exits and your orchestrator's restart is the retry. If every delivery leg rejects the SDK key (401, 403, 404 or 410), it returns at once. |
 | `quonfig.InitFailureWait` | `NewClient` keeps blocking and retrying until a config arrives, logging a WARN every 30s. |
 | `quonfig.InitFailureContinue` | `NewClient` returns a client with no config and logs an ERROR. It keeps retrying in the background; until it heals, getters answer `ok=false` with an error matching `quonfig.ErrNotFound`, and evaluation details report `PROVIDER_NOT_READY`. |
+
+`WithInitTimeout` of zero or less runs exactly one attempt, then applies
+`OnInitFailure`; it does not mean "no deadline".
 
 ```go
 client, err := quonfig.NewClient(

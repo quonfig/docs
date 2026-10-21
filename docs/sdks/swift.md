@@ -60,8 +60,8 @@ network never hangs your UI past `initTimeout`.
 
 ### If Quonfig is unreachable at startup
 
-:::info Next release (version TBD)
-This section describes the next sdk-swift minor release (version TBD).
+:::info Since sdk-swift 0.5.0
+This section describes sdk-swift 0.5.0 and later.
 Earlier versions have no `onInitFailure` parameter and always start on empty
 defaults (with `isReady == true`) when there is no network and no cache.
 :::
@@ -74,12 +74,15 @@ does `onInitFailure` decide:
 
 | `onInitFailure` | No network and no cache at `initTimeout` |
 |---|---|
-| `.fail` (default) | `initialize` throws `QuonfigInitError.timeout` (the first fetch was still hanging) or `.unavailable` (every attempt failed). No client is returned. |
+| `.fail` (default) | `initialize` throws `QuonfigInitError.timeout` (the last attempt hung) or `.unavailable` (the last attempt failed fast on at least one API URL). No client is returned. |
 | `.wait` | `initialize` keeps retrying with no upper bound. |
 | `` .`continue` `` (alias `.continueWithDefaults`) | `initialize` returns a client on code defaults: `isReady == false`, `source == .defaults`. The poller keeps retrying and the client heals. With a cache, `.continue` returns at once on the cache. |
 
-A rejected SDK key (no delivery leg accepting it) throws
-`QuonfigInitError.unauthorized` at once under `.fail`.
+If every configured API URL rejects the SDK key (401/403/404/410), `.fail`
+throws `QuonfigInitError.unauthorized` at once and `.continue` returns at once;
+`.wait` keeps retrying. A rejection from the primary alone is an ordinary
+failed attempt. `initTimeout` of zero or less runs exactly one attempt, then
+applies `onInitFailure`.
 
 ```swift
 let quonfig = try await Quonfig.initialize(

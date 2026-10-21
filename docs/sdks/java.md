@@ -71,7 +71,7 @@ Quonfig quonfig = new Quonfig(
 
 ### If Quonfig is unreachable at startup
 
-:::info sdk-java 2.0.0 (release date TBD)
+:::info sdk-java 2.0.0 (October 21, 2026)
 This section describes sdk-java 2.0.0. In 1.x the constructor returns
 immediately, the first getter blocks for up to `initTimeout`, and if
 initialization fails, getters return the caller's default value with
@@ -83,7 +83,7 @@ The constructor blocks until the first config loads, retrying through blips
 `10s`). A healthy boot returns as soon as the first config lands, typically in
 100-300ms. If no config has loaded by then, `onInitFailure` decides:
 
-| `onInitFailure` | At `initTimeout` | Every leg rejects the SDK key (401/403) |
+| `onInitFailure` | At `initTimeout` | Every configured leg rejects the SDK key (401/403/404/410) |
 |---|---|---|
 | `OnInitFailure.FAIL` (default) | The constructor throws `QuonfigInitException` (`reason()` `UNAVAILABLE`), or its subclass `QuonfigInitTimeoutException` (`TIMEOUT`) when no attempt finished in time. | Throws at once (`UNAUTHORIZED`). |
 | `OnInitFailure.WAIT` | The constructor keeps blocking and retrying, with no upper bound. | Logs an ERROR and keeps retrying. |
@@ -117,6 +117,26 @@ for it; `initFuture()` is still available. Under `WAIT` or `CONTINUE`, wire
 your readiness probe to `isReady()`. To keep the 1.x fail-open behavior, set
 `.onInitFailure(OnInitFailure.CONTINUE)`. For how to choose between the three,
 see [If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+
+#### Upgrading from 1.x to 2.0.0
+
+- **The constructor can now throw `QuonfigInitException`** (a
+  `RuntimeException`) when delivery is unreachable. Wrap construction if you
+  want to handle that, or set `.onInitFailure(OnInitFailure.CONTINUE)` to keep
+  the 1.x fail-open behavior.
+- **The constructor now blocks** until the first config loads, typically
+  100-300 ms, and up to `initTimeout` when delivery is down.
+- **`catch (QuonfigInitTimeoutException e)` still compiles and matches**, but
+  only for the hang case. It is no longer `final` and now extends
+  `QuonfigInitException`; catch that to cover `UNAVAILABLE` and
+  `UNAUTHORIZED` too.
+- **Getters no longer wait for init.** Before the first config they return
+  your default with `ErrorCode.PROVIDER_NOT_READY` (was `GENERAL` after waiting
+  up to `initTimeout`), and `get*OrThrow` throws `QuonfigKeyNotFoundException`
+  (was `QuonfigInitTimeoutException`).
+- **`initTimeout` of zero or less** runs exactly one attempt, then applies
+  `onInitFailure`.
+- Datadir and datafile modes are unchanged; they load synchronously.
 
 ### Datadir mode (local development)
 

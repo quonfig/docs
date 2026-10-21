@@ -44,7 +44,7 @@ the remote CDN.
 
 ### If Quonfig is unreachable at startup
 
-:::info sdk-python 2.0.0 (release date TBD)
+:::info sdk-python 2.0.0 (October 21, 2026)
 This section describes sdk-python 2.0.0. In 1.x, `init()` returns immediately,
 the default `"raise"` raises lazily from the first getter and only on a hang,
 and a fast failure of both delivery legs does not raise at all.
@@ -55,7 +55,7 @@ and a fast failure of both delivery legs does not raise at all.
 returns as soon as the config lands. If no config loads by then,
 `on_init_failure` decides what happens:
 
-| `on_init_failure` | At the timeout | 401/403 from every leg |
+| `on_init_failure` | At the timeout | 401/403/404/410 from every configured leg |
 |---|---|---|
 | `"fail"` (default) | raises `QuonfigInitError` (`QuonfigInitTimeoutError`, a subclass, if no leg answered) | raises at once (`reason="unauthorized"`) |
 | `"wait"` | keeps blocking and retrying | logs an ERROR and keeps retrying |
@@ -84,6 +84,24 @@ The 1.x spellings `"raise"` (= `"fail"`) and `"return"` /
 deprecation WARN. Any other value raises `ValueError`. For how to choose
 between the three, see
 [If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+
+#### Upgrading from 1.x to 2.0.0
+
+- **`init()` can now raise.** In 1.x it returned at once and never raised. If
+  your code relied on that, either catch `QuonfigInitError` around `init()` or
+  pass `on_init_failure="continue"` to keep booting on code defaults.
+- **`init()` now blocks** until the first config loads, typically 100-300 ms
+  on a healthy boot, and up to `init_timeout_ms` when delivery is down.
+- **Getters no longer raise `QuonfigInitTimeoutError`.** Before the first
+  config they return your default; `*_details` getters report
+  `reason="ERROR"`, `error_code="PROVIDER_NOT_READY"`.
+- **`except QuonfigInitTimeoutError` still works**: it is now a subclass of
+  `QuonfigInitError`, but it only catches the hang case. Catch
+  `QuonfigInitError` to cover `unavailable` and `unauthorized` too.
+- **Readiness:** use `is_ready()` and `wait_for_ready()`. `ready()` remains as
+  an alias of `is_ready()`.
+- `init_timeout_ms` of zero or less runs exactly one attempt, then applies
+  `on_init_failure`.
 
 <details className="alert--warning">
 <summary>

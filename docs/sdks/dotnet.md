@@ -106,8 +106,8 @@ await client.InitAsync();
 
 ### If Quonfig is unreachable at startup
 
-:::info Next release (version TBD)
-This section describes the next `Quonfig.Sdk` minor release (version TBD).
+:::info Since Quonfig.Sdk 1.9.0
+This section describes `Quonfig.Sdk` 1.9.0 and later.
 Earlier versions make a single attempt, offer only `Throw` (default) and
 `ReturnDefaults`, and a client whose `InitAsync()` threw does not recover.
 :::
@@ -117,11 +117,14 @@ until it has config or `InitTimeout` (default 10s, measured from construction)
 runs out. It completes as soon as the first config lands. If no config has
 loaded by then, `OnInitFailure` decides:
 
-| `OnInitFailure` | At `InitTimeout` | Every leg rejects the SDK key (401/403) |
+| `OnInitFailure` | At `InitTimeout` | Every configured leg rejects the SDK key (401/403/404/410) |
 |---|---|---|
 | `OnInitFailure.Fail` (default) | `InitAsync()` throws `QuonfigInitException` (`Reason` `Unavailable`), or its subclass `QuonfigInitTimeoutException` (`Reason` `Timeout`) when the legs hung. | Throws at once (`Reason` `Unauthorized`). |
 | `OnInitFailure.Wait` | `InitAsync()` keeps waiting and retrying, with no upper bound. | Logs an Error and keeps retrying. |
 | `OnInitFailure.Continue` | `InitAsync()` returns and logs an Error; getters return the caller's `defaultValue`. | Returns at once. |
+
+`InitTimeout` of zero or less runs exactly one attempt, then applies
+`OnInitFailure`; it does not mean "no deadline".
 
 ```csharp
 await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
@@ -720,7 +723,7 @@ For finer-grained tests, mock `IQuonfig` (or `IBoundQuonfig`) with your favorite
 `InitAsync` retries for up to `InitTimeout` (default 10s) for the first envelope. The most common causes:
 
 - Network or DNS issue reaching `primary.quonfig.com` / `secondary.quonfig.com`. Verify `ApiUrls` and proxy settings.
-- A wrong or revoked SDK key. The SDK uses the SDK key as the HTTP Basic-auth password; a 401 or 403 on every leg fails init at once with `Reason` `Unauthorized`.
+- A wrong or revoked SDK key. The SDK uses the SDK key as the HTTP Basic-auth password; a 401, 403, 404 or 410 on every configured leg fails init at once with `Reason` `Unauthorized`.
 - A custom `HttpMessageHandler` is dropping the request. Confirm the handler forwards to a real network sink.
 
 To start on code defaults instead of throwing, set `OnInitFailure = OnInitFailure.Continue`. Getters then serve caller-supplied defaults until the background retry succeeds. See [If Quonfig is unreachable at startup](#if-quonfig-is-unreachable-at-startup).

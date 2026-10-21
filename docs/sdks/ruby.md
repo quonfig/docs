@@ -86,7 +86,7 @@ Ruby threads do not survive `fork(2)`, so a forked child needs its own Quonfig c
 
 That first fetch **blocks**, and it blocks every other thread that reaches the client while it is in flight — they wait for it and then see the fetched config. One fetch, one stream dial, and one telemetry reporter per child, however many threads race the first request.
 
-**The default is `on_init_failure: :fail`** (`:raise` in releases before the next minor), so if the child's fetch fails against every `api_urls` leg (primary and secondary both unreachable) the failure **raises out of that first lookup**, exactly as `Quonfig::Client.new` would at boot, and later lookups keep raising — without re-fetching — until the update channel lands an envelope. On 1.3.0 and earlier a child in that situation silently served the parent's snapshot. If you would rather a forked child serve defaults through an outage, set `on_init_failure: :continue` (`:return` before the next minor): a failed first fetch then logs one line and the child serves defaults until its stream or poller lands an envelope.
+**The default is `on_init_failure: :fail`** (`:raise` before 1.10.0), so if the child's fetch fails against every `api_urls` leg (primary and secondary both unreachable) the failure **raises out of that first lookup**, exactly as `Quonfig::Client.new` would at boot, and later lookups keep raising — without re-fetching — until the update channel lands an envelope. On 1.3.0 and earlier a child in that situation silently served the parent's snapshot. If you would rather a forked child serve defaults through an outage, set `on_init_failure: :continue` (`:return` before 1.10.0): a failed first fetch then logs one line and the child serves defaults until its stream or poller lands an envelope.
 
 `connection_state` never triggers the re-initialization: a diagnostic must not open a socket. A child that has not used the client yet reports `:initializing`, and flips to `:connected` on first use.
 
@@ -639,8 +639,8 @@ end
 
 ### If Quonfig is unreachable at startup
 
-:::info Next release (version TBD)
-This section describes the next `quonfig` gem minor release (version TBD).
+:::info Since quonfig gem 1.10.0
+This section describes the `quonfig` gem 1.10.0 and later.
 Earlier versions make a single attempt within `init_timeout_ms`, and spell the
 values `:raise` and `:return`.
 :::
@@ -651,11 +651,14 @@ secondary in parallel) and retries through blips with a jittered backoff
 A healthy boot logs nothing above DEBUG. If no config has loaded by then,
 `on_init_failure` decides:
 
-| Value | At `init_timeout_ms` | Every leg rejects the SDK key (401/403/404/410) |
+| Value | At `init_timeout_ms` | Every configured leg rejects the SDK key (401/403/404/410) |
 |---|---|---|
-| `:fail` (default) | Raises `Quonfig::Errors::InitializationError` (`reason` `:unavailable`), or its subclass `InitializationTimeoutError` (`reason` `:timeout`) when an attempt was still in flight. No client is returned, so your orchestrator's restart is the retry. | Raises at once (`reason` `:unauthorized`). |
+| `:fail` (default) | Raises `Quonfig::Errors::InitializationError` (`reason` `:unavailable`), or its subclass `InitializationTimeoutError` (`reason` `:timeout`) when the last attempt hung (none of its legs answered). No client is returned, so your orchestrator's restart is the retry. | Raises at once (`reason` `:unauthorized`). |
 | `:wait` | Keeps blocking and retrying, with no upper bound, logging a WARN every 30s. | Logs an ERROR and keeps retrying. |
 | `:continue` | Returns a client with no config: getters return your default (and `get_or_raise` raises `MissingDefaultError`). It keeps retrying in the background and serves live config as soon as it lands. | Returns at once. |
+
+`init_timeout_ms` of zero or less runs exactly one attempt, then applies
+`on_init_failure`; it does not mean "no deadline".
 
 ```ruby
 begin

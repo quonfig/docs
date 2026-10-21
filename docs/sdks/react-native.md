@@ -141,9 +141,9 @@ By default configs are not sent to frontend SDKs. You must enable access for eac
 
 ## If Quonfig is unreachable at startup
 
-:::info Next release (version TBD)
-Arrives with the next `@quonfig/react` minor (version TBD), which
-`@quonfig/react-native` picks up through its `@quonfig/react` dependency.
+:::info Since @quonfig/react-native 1.3.0
+Requires `@quonfig/react-native` 1.3.0 or later, which depends on
+`@quonfig/react` 1.6.0 and `@quonfig/javascript` 1.6.0.
 :::
 
 React Native uses the React provider's startup behavior: the

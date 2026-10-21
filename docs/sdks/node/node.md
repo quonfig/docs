@@ -112,8 +112,8 @@ await quonfig.init();
 
 ## If Quonfig is unreachable at startup
 
-:::info Next release (version TBD)
-This section describes the next `@quonfig/node` minor release (version TBD).
+:::info Since @quonfig/node 1.9.0
+This section describes `@quonfig/node` 1.9.0 and later.
 In earlier versions there is no `onInitFailure` option: `init()` rejects after
 `initTimeout` and the client does not recover afterwards.
 :::
@@ -129,8 +129,9 @@ loads. If no config has loaded by then, `onInitFailure` decides what happens:
 | `"wait"`           | `init()` keeps blocking and retrying with no upper bound, and resolves once config loads. |
 | `"continue"`       | `init()` resolves, logs an ERROR, and the client starts on your code defaults. |
 
-If every delivery host rejects the SDK key (401/403), `"fail"` rejects at once
-instead of waiting out the timeout. An unknown `onInitFailure` value throws
+If every delivery host rejects the SDK key (401/403/404/410), `"fail"` rejects at once
+instead of waiting out the timeout, and `"continue"` resolves at once; `"wait"`
+logs an ERROR and keeps retrying. `initTimeout` of zero or less runs exactly one attempt, then applies `onInitFailure`; it does not mean "no deadline". An unknown `onInitFailure` value throws
 when you construct the client.
 
 The client object keeps retrying in the background in every mode, including

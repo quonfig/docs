@@ -46,7 +46,7 @@ which fails the cold start so the platform retries the invocation. Keep
 `on_init_failure="continue"` only if every flag read has a safe default. See
 [If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
 
-:::info sdk-python 2.0.0 (release date TBD)
+:::info sdk-python 2.0.0 (October 21, 2026)
 The blocking `init()` and the `"fail"` default described here ship in
 sdk-python 2.0.0. In 1.x, `init()` returns immediately and the first flag read
 blocks instead.

@@ -656,9 +656,9 @@ const WelcomeMessage = () => {
 
 ## If Quonfig is unreachable at startup
 
-:::info Next release (version TBD)
-This section describes the next `@quonfig/react` minor release together with
-the next `@quonfig/javascript` minor (versions TBD). With earlier versions
+:::info Since @quonfig/react 1.6.0
+This section describes `@quonfig/react` 1.6.0 and later, which requires
+`@quonfig/javascript` 1.6.0. With earlier versions
 there are no `onInitFailure` / `initTimeout` props and no `isReady`, `error`
 or `source` fields, and a failed init recovers only through `pollInterval`.
 :::
@@ -672,6 +672,9 @@ If every delivery leg is down at page load, the client retries until
   visit with no cache lands on code defaults (`source: "defaults"`).
 - `"wait"`: `loading` stays `true` until config arrives.
 - `"continue"`: start on the cache or code defaults without an error.
+
+`initTimeout` of zero or less runs exactly one attempt, then applies
+`onInitFailure`.
 
 In every mode the client keeps retrying in the background and heals: once
 delivery answers, `isReady` turns `true`, `error` clears and the hooks

@@ -27,8 +27,8 @@ A new client boots by fetching configuration from the delivery service. If the
 primary delivery service is down — or merely slow — the SDK also asks the
 secondary (details below), so a booting client still gets its configuration
 within a few seconds during a full primary outage. On the startup fetch the
-secondary is asked after a 2-second hedge delay, and each leg is abandoned
-after 6 seconds, so a hung primary can't consume the whole initialization
+secondary is asked after a 2-second hedge delay, and in server SDKs each leg is
+abandoned after 6 seconds (3 seconds in the browser SDK), so a hung primary can't consume the whole initialization
 budget and starve the secondary attempt. (Later sequential fetches, such as the
 fallback poller's, use a shorter per-URL timeout of 3 seconds.)
 

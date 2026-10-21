@@ -4,12 +4,12 @@ sidebar_label: Startup Failure
 sidebar_position: 1.5
 ---
 
-:::info Applies to the next release of each SDK
-This page describes how the **next release** of every Quonfig SDK behaves at
-startup. The version for each SDK is listed under
-[Option names by SDK](#option-names-by-sdk) (versions TBD until each one
-ships). Older SDK versions behave differently; see your SDK's page for its
-current behavior.
+:::info Applies to the October 21, 2026 SDK releases
+This page describes startup behavior in the SDK releases of October 21, 2026,
+and later: Go 1.9.0, Node 1.9.0, Python 2.0.0, Ruby 1.10.0, .NET 1.9.0,
+Java 2.0.0, JavaScript 1.6.0, React 1.6.0, React Native 1.3.0 and Swift 0.5.0.
+Older versions behave differently; see your SDK's page. Python and Java took a
+major version for this change; see their pages for upgrade notes.
 :::
 
 Once a Quonfig SDK has loaded your configuration, it keeps working from memory
@@ -86,7 +86,8 @@ correctly. Here's what it does:
    within 2 seconds (the hedge delay) it also asks the **secondary**, a
    separate copy of the delivery service on completely separate
    infrastructure, and takes whichever answers first. Each leg of that
-   attempt is abandoned after 6 seconds. If the primary is down, the
+   attempt is abandoned after 6 seconds in server SDKs (3 seconds in the browser
+SDK). If the primary is down, the
    secondary serves you. See
    [Automatic failover](./resiliency.md#automatic-failover-to-the-secondary).
 2. **It retries through blips.** If both legs fail, it backs off (0.5s, 1s,
@@ -103,11 +104,16 @@ correctly. Here's what it does:
 Almost every boot finishes at step 1, in well under a second. Your init call
 returns as soon as the first configuration lands.
 
-**A rejected SDK key fails fast.** If every delivery leg answers `401` or
-`403`, the key is wrong for this environment, and waiting won't fix it.
-Under `fail` the SDK fails at once instead of waiting out `initTimeout`;
-under `continue` it continues at once. Under `wait` it logs an ERROR and keeps
-retrying, in case the key is provisioned late.
+**A rejected SDK key fails fast.** If every configured delivery leg answers
+`401`, `403`, `404` or `410`, the key is wrong for this environment, and
+waiting won't fix it. Under `fail` the SDK fails at once instead of waiting
+out `initTimeout`; under `continue` it continues at once. Under `wait` it logs
+the rejection and keeps retrying, in case the key is provisioned late. A
+rejection from only one leg is treated as an ordinary failed attempt.
+
+**`initTimeout` of zero or less** means exactly one attempt: the SDK lets that
+attempt finish, then applies `onInitFailure`. It does not mean "no deadline";
+use `wait` for that.
 
 ### The three choices
 
@@ -115,7 +121,7 @@ retrying, in case the key is provisioned late.
 |---|---|---|
 | `fail` (default) | Initialization fails: the init call throws, rejects, or returns an error. Your process exits, and your orchestrator restarts it. | A wrong answer is worse than no answer. |
 | `wait` | Initialization keeps blocking and retrying with no deadline. The SDK logs a WARN at `initTimeout` and every 30 seconds after that. | The process must eventually start, and nothing is waiting on it right now. |
-| `continue` | Initialization returns. Getters return the defaults in your code. An ERROR is logged saying this instance may disagree with the rest of your fleet. Once configuration arrives, the SDK switches over. | The in-code defaults are genuinely safe, and staying up matters more than being consistent. |
+| `continue` | Initialization returns. Getters return the defaults in your code. The SDK logs that this instance may disagree with the rest of your fleet (at ERROR in server SDKs, at WARN in browser and mobile SDKs). Once configuration arrives, the SDK switches over. | The in-code defaults are genuinely safe, and staying up matters more than being consistent. |
 
 **A failed start is never silently permanent.** Under `wait` and `continue`,
 the SDK keeps retrying and switches to your configuration as soon as either
@@ -132,9 +138,9 @@ Under `fail`:
   If you catch the error and don't keep the client, close it so its
   background retry stops.
 
-Before a kept client is ready, getters return the default you passed, and
-evaluation-details calls report the reason `ERROR` with the error code
-`PROVIDER_NOT_READY`. Getters never block waiting for initialization; the init
+Before a kept client is ready, getters return the default you passed. In Go,
+Node, Python, Ruby and Java, evaluation-details calls report the reason
+`ERROR` with the error code `PROVIDER_NOT_READY`. Getters never block waiting for initialization; the init
 call is the only gate.
 
 ### Configuring it
@@ -158,6 +164,7 @@ await quonfig.init(); // rejects with QuonfigInitError after 10s if neither leg 
 ```go
 // Go
 client, err := quonfig.NewClient(
+    quonfig.WithSdkKey(os.Getenv("QUONFIG_BACKEND_SDK_KEY")),
     quonfig.WithInitTimeout(10*time.Second),
     quonfig.WithOnInitFailure(quonfig.InitFailureFail),
 )
@@ -168,18 +175,18 @@ if err != nil {
 
 ## Option names by SDK
 
-| SDK | Option | Values (default first) | Deprecated spellings (still accepted) | `initTimeout` (default) | Release |
+| SDK | Option | Values (default first) | Deprecated spellings (still accepted) | `initTimeout` (default) | Since |
 |---|---|---|---|---|---|
-| Go | `WithOnInitFailure(...)` | `quonfig.InitFailureFail`, `InitFailureWait`, `InitFailureContinue` | `ReturnError` (= fail), `ReturnZeroValue` (= continue); one-time WARN | `WithInitTimeout`, 10s | next minor (version TBD) |
-| Node | `onInitFailure` | `"fail"`, `"wait"`, `"continue"` | none | `initTimeout`, 10000 ms | next minor (version TBD) |
-| Python | `on_init_failure=` | `"fail"`, `"wait"`, `"continue"` | `"raise"` (= fail), `"return"` and `"return_zero_value"` (= continue); one-time WARN | `init_timeout_ms=`, 10000 | 2.0.0 (date TBD) |
-| Ruby | `on_init_failure:` | `:fail`, `:wait`, `:continue` | `:raise` (= fail), `:return` (= continue); one-time WARN | `init_timeout_ms:`, 10_000 | next minor (version TBD) |
-| .NET | `OnInitFailure` | `OnInitFailure.Fail`, `Wait`, `Continue` | `Throw` (= Fail), `ReturnDefaults` (= Continue); marked `[Obsolete]` | `InitTimeout`, 10s | next minor (version TBD) |
-| Java | `Options.builder().onInitFailure(...)` | `OnInitFailure.FAIL`, `WAIT`, `CONTINUE` | none | `initTimeout(Duration)`, 10s | 2.0.0 (date TBD) |
-| JavaScript (browser) | `onInitFailure` | `"fail"`, `"wait"`, `"continue"` | none | `initTimeout`, 5000 ms | next minor (version TBD) |
-| React | `QuonfigProvider` props `onInitFailure` | `"fail"`, `"wait"`, `"continue"` | none | `initTimeout`, 5000 ms | next minor (version TBD) |
-| React Native | same as React | same as React | none | same as React | through `@quonfig/react` (version TBD) |
-| Swift | `initialize(..., onInitFailure:)` | `.fail`, `.wait`, `` .`continue` `` | none (`.continueWithDefaults` is a synonym for `` .`continue` ``) | `initTimeout:`, 5s | next minor (version TBD) |
+| Go | `WithOnInitFailure(...)` | `quonfig.InitFailureFail`, `InitFailureWait`, `InitFailureContinue` | `ReturnError` (= fail), `ReturnZeroValue` (= continue); one-time WARN | `WithInitTimeout`, 10s | 1.9.0 |
+| Node | `onInitFailure` | `"fail"`, `"wait"`, `"continue"` | none | `initTimeout`, 10000 ms | 1.9.0 |
+| Python | `on_init_failure=` | `"fail"`, `"wait"`, `"continue"` | `"raise"` (= fail), `"return"` and `"return_zero_value"` (= continue); one-time WARN | `init_timeout_ms=`, 10000 | 2.0.0 |
+| Ruby | `on_init_failure:` | `:fail`, `:wait`, `:continue` | `:raise` (= fail), `:return` (= continue); one-time WARN | `init_timeout_ms:`, 10_000 | 1.10.0 |
+| .NET | `OnInitFailure` | `OnInitFailure.Fail`, `Wait`, `Continue` | `Throw` (= Fail), `ReturnDefaults` (= Continue); marked `[Obsolete]` | `InitTimeout`, 10s | 1.9.0 |
+| Java | `Options.builder().onInitFailure(...)` | `OnInitFailure.FAIL`, `WAIT`, `CONTINUE` | none | `initTimeout(Duration)`, 10s | 2.0.0 |
+| JavaScript (browser) | `onInitFailure` | `"fail"`, `"wait"`, `"continue"` | none | `initTimeout`, 5000 ms | 1.6.0 |
+| React | `QuonfigProvider` props `onInitFailure` | `"fail"`, `"wait"`, `"continue"` | none | `initTimeout`, 5000 ms | 1.6.0 |
+| React Native | same as React | same as React | none | same as React | 1.3.0 |
+| Swift | `initialize(..., onInitFailure:)` | `.fail`, `.wait`, `` .`continue` `` | none (`.continueWithDefaults` is a synonym for `` .`continue` ``) | `initTimeout:`, 5s | 0.5.0 |
 
 What the error looks like under `fail`, and how to check readiness:
 
@@ -195,9 +202,14 @@ What the error looks like under `fail`, and how to check readiness:
 | React / React Native | `onError` fires; `useQuonfig()` returns `error` | `useQuonfig().isReady` | n/a (the hooks re-render on heal) |
 | Swift | `try await Quonfig.initialize(...)` throws `QuonfigInitError`, unless a disk cache exists | `quonfig.isReady` | `await quonfig.waitForReady()` |
 
-Every error carries a reason: `timeout` (the delivery legs hung until
-`initTimeout`), `unavailable` (they answered with errors, for example
-connection refused), or `unauthorized` (every leg rejected the SDK key).
+Every error carries a reason:
+
+- `timeout`: the last attempt hung. None of its legs answered before
+  `initTimeout`, for example a firewall silently dropping traffic.
+- `unavailable`: at least one leg in the last attempt answered with an error,
+  for example connection refused, a DNS failure or an HTTP 5xx.
+- `unauthorized`: every configured leg rejected the SDK key (401, 403, 404 or
+  410).
 
 ## `fail` and rolling deploys
 
