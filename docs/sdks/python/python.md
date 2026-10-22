@@ -137,6 +137,16 @@ def post_fork(server, worker):
     client.init()              # re-initializes this worker now instead of on first use
 ```
 
+- **Worker recycling during an outage.** A worker started while Quonfig is
+  unreachable (Gunicorn `max_requests`, a Celery child replaced after
+  `max_tasks_per_child`) never uses the master's config: its first evaluation
+  blocks for up to `init_timeout_ms` (10s by default). Under the default
+  `on_init_failure="fail"`, 2.0.0 then serves defaults until Quonfig is
+  reachable (an upcoming release raises `QuonfigInitError` instead, matching
+  Ruby). Under `"wait"` that first request blocks until Quonfig is back. If
+  you recycle workers often, consider `on_init_failure="continue"` and make
+  sure your in-code defaults are safe. See
+  [Forked workers and worker recycling](../../explanations/architecture/startup-failure.md#forked-workers-and-worker-recycling).
 - Health accessors such as `connection_state()` and `ready()` are
   diagnostic-only: in a worker that has not evaluated anything yet they report
   the pre-start state (`initializing`, `False`) without starting threads or

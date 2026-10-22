@@ -228,6 +228,56 @@ Every error carries a reason:
   once) is the case where `fail` costs you availability. If that's a real risk
   for a service, read the next section.
 
+## Forked workers and worker recycling
+
+Preforking servers start a new process without going through your app's
+startup code: Gunicorn (`--preload`, `max_requests`), Celery prefork, uWSGI,
+Puma clustered mode and phased restarts, Unicorn, Resque, and a plain
+`fork` inside a job. The Python and Ruby SDKs handle the fork for you, and
+the rule they follow matters during an outage:
+
+**A forked worker never serves the parent's configuration.** It starts with
+an empty store and, on its first use of the client, fetches its own
+configuration from Quonfig, exactly like a fresh boot. It honors the same
+`initTimeout` and `onInitFailure`. The parent process and workers that are
+already running are never touched; they keep serving from memory.
+
+That's fine on a normal day. It matters when **a worker is recycled while
+Quonfig is unreachable** (for example, Gunicorn's `max_requests` retires a
+worker, or a phased restart rolls the pool). The new worker's first flag read
+blocks for up to `initTimeout` (10 seconds by default), then:
+
+| `onInitFailure` | Python | Ruby |
+|---|---|---|
+| `fail` (default) | Python 2.0.0 logs the failure and serves the defaults in your code until Quonfig is reachable. An upcoming release changes this to match Ruby: the read raises `QuonfigInitError`. | That read raises `Quonfig::Errors::InitializationError`, and every later read raises the same error, without fetching again, until Quonfig is reachable. |
+| `wait` | The first read blocks until Quonfig is reachable. The request that triggered it hangs. | Same as Python. |
+| `continue` | The first read returns your in-code default after the timeout. Later reads return defaults until Quonfig is reachable. | Same as Python. |
+
+In every mode the worker keeps retrying in the background and switches to
+live configuration as soon as either delivery leg answers.
+
+So during a long outage, a fleet that recycles workers drifts apart: the
+workers that started before the outage serve your last configuration, and
+each recycled worker either raises, hangs, or serves defaults. The more often
+you recycle, the more of the fleet that becomes.
+
+What to do about it:
+
+- **If you recycle workers often** (a low `max_requests`, frequent phased
+  restarts, a fork per job), consider `onInitFailure` set to `continue`
+  (Python `on_init_failure="continue"`, Ruby `on_init_failure: :continue`),
+  and make sure your in-code defaults are safe to serve. Under `fail`,
+  recycled workers raise on every flag read for the length of the outage.
+- **Avoid `wait` in request-serving workers.** A recycled worker's first
+  request blocks until Quonfig is back. `wait` suits a worker that has
+  nothing waiting on it.
+- **Pay the fetch at fork time, not on the first request**, if you want
+  recycled workers to fail before they take traffic. In Python, call
+  `client.init()` on the master-built client in Gunicorn's `post_fork` hook
+  (with `--preload`). See your SDK page:
+  [Python](../../sdks/python/python.md#forking-servers-gunicorn---preload-celery-prefork-uwsgi-multiprocessing),
+  [Ruby](../../sdks/ruby.md#forking-servers-and-forking-jobs).
+
 ## You have to think about failure
 
 There is no default that's right for every service. These questions help:
@@ -301,4 +351,6 @@ if you want to show a loading state.
   `wait`, or `continue`. A cached copy on a device counts as configuration.
 - Under `wait` and `continue` it keeps retrying and recovers on its own;
   under `fail` your orchestrator's restart (or a kept client) does.
+- A forked or recycled worker fetches its own configuration and applies the
+  same `onInitFailure`. If you recycle workers often, consider `continue`.
 - Pick per service. If running on defaults would be wrong, let it fail.
