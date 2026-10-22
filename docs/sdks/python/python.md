@@ -128,13 +128,26 @@ Two things worth knowing:
   fresh boot. To pay it before the
   first request instead, call `init()` on the master-built client in the
   worker's post-fork hook (only under `--preload`; a client that was built in
-  the worker is already fresh and must not be `init()`ed twice):
+  the worker is already fresh and must not be `init()`ed twice). **Catch
+  `QuonfigInitError` in the hook.** Under the default `on_init_failure="fail"`
+  that `init()` raises when Quonfig is unreachable, and Gunicorn treats an
+  exception from `post_fork` as a worker that failed to boot: it halts the
+  master and every running worker. Caught, the worker boots, keeps retrying,
+  and behaves as described under worker recycling below. Don't use this hook
+  with `on_init_failure="wait"`, which blocks the worker from booting until
+  Quonfig is back.
 
 ```python
 # gunicorn.conf.py, with --preload
+from quonfig import QuonfigInitError
+
 def post_fork(server, worker):
     from myapp import client   # the client built and init()ed in the master
-    client.init()              # re-initializes this worker now instead of on first use
+    try:
+        client.init()          # re-initializes this worker now instead of on first use
+    except QuonfigInitError:
+        # Never let this escape: Gunicorn would halt the whole server.
+        server.log.warning("Quonfig unreachable at fork; worker keeps retrying")
 ```
 
 - **Worker recycling during an outage.** A worker started while Quonfig is

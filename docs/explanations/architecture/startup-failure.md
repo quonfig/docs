@@ -271,10 +271,16 @@ What to do about it:
 - **Avoid `wait` in request-serving workers.** A recycled worker's first
   request blocks until Quonfig is back. `wait` suits a worker that has
   nothing waiting on it.
-- **Pay the fetch at fork time, not on the first request**, if you want
-  recycled workers to fail before they take traffic. In Python, call
-  `client.init()` on the master-built client in Gunicorn's `post_fork` hook
-  (with `--preload`). See your SDK page:
+- **Paying the fetch at fork time (Python, Gunicorn `--preload`).** You can
+  call `client.init()` on the master-built client in Gunicorn's `post_fork`
+  hook, so a recycled worker fetches before it takes traffic instead of on its
+  first request. If you do, catch `QuonfigInitError` there. Gunicorn treats
+  any exception from `post_fork` as a worker that failed to boot, and it halts
+  the master and every running worker. Under the default `fail`, an uncaught
+  error during an outage turns one recycled worker into a full outage. With
+  the error caught, the worker starts, behaves as the table above describes,
+  and keeps retrying. Don't combine this with `wait`: the hook blocks until
+  Quonfig is back, so the worker never boots. See your SDK page:
   [Python](../../sdks/python/python.md#forking-servers-gunicorn---preload-celery-prefork-uwsgi-multiprocessing),
   [Ruby](../../sdks/ruby.md#forking-servers-and-forking-jobs).
 
