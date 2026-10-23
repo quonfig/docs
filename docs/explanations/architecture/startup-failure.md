@@ -6,7 +6,7 @@ sidebar_position: 1.5
 
 :::info Applies to the October 21, 2026 SDK releases
 This page describes startup behavior in the SDK releases of October 21, 2026,
-and later: Go 1.9.0, Node 1.9.0, Python 2.0.0, Ruby 1.10.0, .NET 1.9.0,
+and later: Go 1.9.0, Node 1.9.0, Python 2.0.0 (2.1.0 for the forked-child `fail` behavior), Ruby 1.10.0, .NET 1.9.0,
 Java 2.0.0, JavaScript 1.6.0, React 1.6.0, React Native 1.3.0 and Swift 0.5.0.
 Older versions behave differently; see your SDK's page. Python and Java took a
 major version for this change; see their pages for upgrade notes.
@@ -249,7 +249,7 @@ blocks for up to `initTimeout` (10 seconds by default), then:
 
 | `onInitFailure` | Python | Ruby |
 |---|---|---|
-| `fail` (default) | Python 2.0.0 logs the failure and serves the defaults in your code until Quonfig is reachable. An upcoming release changes this to match Ruby: the read raises `QuonfigInitError`. | That read raises `Quonfig::Errors::InitializationError`, and every later read raises the same error, without fetching again, until Quonfig is reachable. |
+| `fail` (default) | From Python 2.1.0, that read raises `QuonfigInitError`, and every later read raises the same error, without fetching again, until Quonfig is reachable (Python 2.0.0 logged the failure and served your code's defaults instead). | That read raises `Quonfig::Errors::InitializationError`, and every later read raises the same error, without fetching again, until Quonfig is reachable. |
 | `wait` | The first read blocks until Quonfig is reachable. The request that triggered it hangs. | Same as Python. |
 | `continue` | The first read returns your in-code default after the timeout. Later reads return defaults until Quonfig is reachable. | Same as Python. |
 
