@@ -84,6 +84,8 @@ The client will be returned a list that is basically:
 }
 ```
 
+Because the client only holds values evaluated for one context, frontend SDKs have no per-evaluation context: `get()` and `isEnabled()` take a key, not a context. To evaluate against a different context, see [React](/docs/sdks/react#evaluating-with-a-different-context) or [JavaScript](/docs/sdks/javascript#evaluating-with-a-different-context).
+
 See [backend SDKs](/docs/explanations/concepts/backend-sdks.md) to compare this approach to in-memory rule evaluation.
 
 ## Client Side Reliability

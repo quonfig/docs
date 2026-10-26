@@ -475,6 +475,26 @@ const WrappedApp = () => {
 </TabItem>
 </Tabs>
 
+### Evaluating with a different context
+
+`get()`, `isEnabled()` and `useFlag()` don't take a context argument. The browser never receives your rules: the server [evaluates every flag for the provider's context](/docs/explanations/concepts/frontend-sdks#frontend-architecture) and returns only the values, so there is nothing to re-evaluate locally.
+
+- **The context changed** (a user logs in, switches organization): pass the new `contextAttributes` to `QuonfigProvider`. The SDK refetches values for the new context and your components re-render.
+- **Part of the page needs a different context:** wrap that subtree in a nested `QuonfigProvider`. A nested provider gets its own client, so `useQuonfig()` and `useFlag()` inside it evaluate against its context, and the rest of the app keeps the outer one.
+
+  ```jsx
+  <QuonfigProvider
+    sdkKey={process.env.NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY}
+    contextAttributes={{ organization: { key: org.id } }}
+  >
+    <OrgSettingsPanel />
+  </QuonfigProvider>
+  ```
+
+  Each nested provider fetches (and polls, if `pollInterval` is set) on its own, so this suits a few extra contexts, not one per row of a long list.
+
+- **Many contexts at once** (one per row of a list): evaluate on your server with a backend SDK such as [Node](/docs/sdks/node#context), which takes a context on every call, and pass the results to your components.
+
 ## Dynamic Config
 
 Config values are accessed the same way as feature flag values using the same camelCase method definitions when using TypeScript. In addition:

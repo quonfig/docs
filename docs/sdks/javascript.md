@@ -237,6 +237,27 @@ await quonfig.init(options);
 </TabItem>
 </Tabs>
 
+### Evaluating with a different context
+
+`get()` and `isEnabled()` don't take a context argument. The browser SDK never receives your rules: the server [evaluates every flag for the context you passed](/docs/explanations/concepts/frontend-sdks#frontend-architecture) and returns only the values, so there is nothing to re-evaluate locally.
+
+- **The context changed** (a visitor logs in, switches organization): call `quonfig.updateContext(newContext)`. It refetches values for the new context; see [`poll()`](#poll).
+- **You need a second context alongside the first:** create a separate client. Each client fetches (and polls, if you start it) on its own.
+
+  ```javascript
+  import { Quonfig } from "@quonfig/javascript";
+
+  const orgClient = new Quonfig();
+  await orgClient.init({
+    sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
+    context: { organization: { key: org.id } },
+  });
+
+  orgClient.isEnabled("org-feature");
+  ```
+
+- **Many contexts at once** (one per row of a list): evaluate on your server with a backend SDK such as [Node](/docs/sdks/node#context), which takes a context on every call, and send the results to the browser.
+
 ## `poll()`
 
 After `quonfig.init()`, you can start polling. Polling uses the context you defined in `init` by default. You can update the context for future polling by setting it on the `quonfig` object.

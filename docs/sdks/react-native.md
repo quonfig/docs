@@ -133,6 +133,8 @@ const WrappedApp = () => {
 };
 ```
 
+`get()` and `isEnabled()` don't take a per-call context. To evaluate against a different context, see [Evaluating with a different context](/docs/sdks/react#evaluating-with-a-different-context) in the React docs; it applies to React Native unchanged.
+
 ## Dynamic Config
 
 Config values are accessed the same way as feature flag values. You can use `isEnabled` as a convenience for boolean values, and `get` works for all data types.
