@@ -53,13 +53,17 @@ const config = {
     // Options beyond apiKey/appUrl/enableInDevelopment are passed straight into
     // posthog.init() by the plugin (JSON-serialized, so no functions).
     //
-    // `cross_subdomain_cookie: true` writes the anonymous distinct_id cookie to
-    // `.quonfig.com`, so a docs reader is the same PostHog person on www and
-    // app.quonfig.com. When they sign up, app-quonfig's identify(userId)
-    // promotes that shared anon id and stitches their docs activity to the real
-    // user — which is why we no longer identify() docs visitors ourselves (that
-    // hack, keyed on a random `tid` cookie, used to live in the Footer swizzle
-    // and actively broke this stitch).
+    // `persistence: "memory"` runs docs COOKIELESS, matching www-quonfig: no
+    // `ph_*` cookie and no localStorage, so each page load is a fresh anonymous
+    // visitor. That meets the Privacy & Data-Subject Rights policy (no
+    // non-essential cookies without consent) without a consent banner, and it
+    // stops docs from reading app.quonfig.com's `.quonfig.com` cookie — before
+    // this, a signed-in customer reading docs sent *identified* pageviews with
+    // no organization group, inflating the "None" series of the WAU-by-org
+    // insight. Docs activity is therefore NOT stitched to the user that
+    // app-quonfig later identifies. We still don't identify() docs visitors
+    // ourselves. Do not switch back to cookie persistence without a consent
+    // banner.
     //
     // The apiKey is a public `phc_` client key that ships in the browser
     // regardless, so it's a literal here (matching the public project id already
@@ -78,7 +82,7 @@ const config = {
         enableInDevelopment: false,
         ui_host: "https://us.posthog.com",
         defaults: "2026-01-30",
-        cross_subdomain_cookie: true,
+        persistence: "memory",
         capture_exceptions: true,
         capture_pageview: false,
         session_recording: { maskAllInputs: false },
