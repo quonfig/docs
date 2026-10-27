@@ -565,6 +565,116 @@ quonfig.withContext(context, (rf) => {
 </TabItem>
 </Tabs>
 
+### Per-request context in Express (AsyncLocalStorage)
+
+In a web server you usually know who the user is in middleware, but the flag check happens
+several function calls deeper. Rather than passing `req` or a context object through every
+function in between, set the context once per request with Node's built-in
+[`AsyncLocalStorage`](https://nodejs.org/api/async_context.html#class-asynclocalstorage) and read
+it from anywhere in that request.
+
+`withContext(context)` without a callback returns a client bound to that context. Store it for
+the life of the request:
+
+<Tabs groupId="lang">
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// flags.ts
+import { AsyncLocalStorage } from "node:async_hooks";
+import type { RequestHandler } from "express";
+import { Quonfig, type BoundQuonfig } from "@quonfig/node";
+
+export const quonfig = new Quonfig({ sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY! });
+
+const requestFlags = new AsyncLocalStorage<BoundQuonfig>();
+
+// Register after your auth and body-parsing middleware.
+export const quonfigContext: RequestHandler = (req, _res, next) => {
+  const bound = quonfig.withContext({
+    user: { key: req.user?.id, email: req.user?.email },
+    organization: { key: req.user?.orgId },
+  });
+  requestFlags.run(bound, next);
+};
+
+// Anywhere, at any depth: the client bound to the current request's user.
+// Outside a request (startup, cron jobs) it falls back to the unbound client.
+export const flags = () => requestFlags.getStore() ?? quonfig;
+```
+
+```typescript
+// app.ts
+await quonfig.init();
+app.use(authMiddleware);
+app.use(quonfigContext);
+
+// services/pricing.ts: no user argument needed
+import { flags } from "../flags";
+
+export async function calculateDiscount(cart: Cart) {
+  if (flags().isEnabled("new-discount")) {
+    // ...
+  }
+}
+```
+
+</TabItem>
+<TabItem value="javascript" label="JavaScript">
+
+```js
+// flags.js
+import { AsyncLocalStorage } from "node:async_hooks";
+import { Quonfig } from "@quonfig/node";
+
+export const quonfig = new Quonfig({ sdkKey: process.env.QUONFIG_BACKEND_SDK_KEY });
+
+const requestFlags = new AsyncLocalStorage();
+
+// Register after your auth and body-parsing middleware.
+export const quonfigContext = (req, _res, next) => {
+  const bound = quonfig.withContext({
+    user: { key: req.user?.id, email: req.user?.email },
+    organization: { key: req.user?.orgId },
+  });
+  requestFlags.run(bound, next);
+};
+
+// Anywhere, at any depth: the client bound to the current request's user.
+// Outside a request (startup, cron jobs) it falls back to the unbound client.
+export const flags = () => requestFlags.getStore() ?? quonfig;
+```
+
+```js
+// app.js
+await quonfig.init();
+app.use(authMiddleware);
+app.use(quonfigContext);
+
+// services/pricing.js: no user argument needed
+import { flags } from "../flags.js";
+
+export async function calculateDiscount(cart) {
+  if (flags().isEnabled("new-discount")) {
+    // ...
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+The bound client follows the request across `await`s, timers and promise chains, so concurrent
+requests never see each other's context. Evaluation is local and in memory, so calling
+`flags()` as often as you like costs nothing. You can still pass just-in-time context to a single
+call, such as `flags().isEnabled("new-discount", { cart: { total: 120 } })`; it merges with the
+request's context.
+
+The same pattern works in Fastify, Koa, or any Node framework: call `requestFlags.run(bound, ...)`
+around the rest of the request. Register it after auth and body parsing. A few older
+callback-based libraries (some session stores and database pools) can lose the async context if
+they run inside it.
+
 ## Developer overrides (`qfg override`)
 
 The [`qfg override`](/docs/tools/cli#override) CLI flips a flag for *your* developer machine without affecting anyone else. It does this by writing a top-priority rule on the flag keyed on the property `quonfig-user.email`. The SDK injects that property automatically whenever the `qfg login` token file is present, so the rule is dead code in production by construction (a server that never ran `qfg login` has no `quonfig-user.email` on its eval context, and the rule cannot fire).
