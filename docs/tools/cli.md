@@ -272,9 +272,11 @@ a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
 
 Use this key when creating or updating configs with encryption:
 ```bash
-# Create an encrypted config using the generated key
-qfg create my.secret --type string --value "sensitive data" --secret --secret-key-name "my-encryption-key"
+# Create an encrypted config using the generated key (prompts for the value, masked)
+qfg create my.secret --secret --secret-key-name "my-encryption-key"
 ```
+
+See [Secret Management](/docs/explanations/features/secret-management) for the full setup.
 
 **Use cases:**
 - Encrypting sensitive configuration values
@@ -710,6 +712,8 @@ qfg set-default my.flag.name --value=false --environment=production --replace-ta
 # ✔ Set production to `false` for everyone. Replaced 2 targeting rule(s); previous version 9f2c1ab.
 ```
 
+To set or rotate a secret, add `--secret` and pass the value with `--value-from-env <VAR>` or `--value-stdin` so it stays out of your shell history: `qfg set-default my.api.key --environment=production --secret --value-from-env STRIPE_LIVE_KEY`. The output shows a redacted fingerprint, never the value, and `--json` returns `{redacted: true, fingerprint, length, last4?}` in place of `value`. Secrets are string-only, so `--secret` on a `json` or other non-string config is refused. See [Secret Management](/docs/explanations/features/secret-management).
+
 The deleted rules stay in git history — `previous version` names the commit to restore from. Under `--json` the same numbers come back as `previousCommitSha` + `replacedTargetingRuleCount`; a normal (surgical) write returns `keptTargetingRuleCount`. Both counts are **omitted when they are 0**, so a script should treat a missing field as "no targeting rules were involved", not as an error.
 
 ### set-rollout
@@ -745,8 +749,10 @@ qfg create my.tags --type string-list --value="tag1,tag2,tag3"
 qfg create my.config --type json --value='{"key": "value"}'
 qfg create my.duration --type duration --value="PT30S"
 
-# Encrypted values (requires string type)
-qfg create my.secret --type string --value="sensitive data" --secret
+# Encrypted values (secrets are always strings; prompts for the value, masked)
+qfg create my.secret --secret
+qfg create my.secret --secret --value-from-env MY_SECRET   # read from a local env var
+qfg create my.secret --secret --value-stdin < ./secret.txt # read from stdin
 
 # Environment variable sourced
 qfg create my.db.url --type string --env-var=DATABASE_URL
@@ -758,10 +764,18 @@ qfg create my.api.key --type string --value="key123" --confidential
 qfg create log-level.my-app --type log_level --value=INFO
 ```
 
+**Ways to pass the value** (`create` and `set-default`; pick one):
+- `--value=<v>` — on the command line. Fine for ordinary values; for secrets it leaves the plaintext in shell history.
+- `--value-stdin` — read from stdin, with one trailing newline stripped.
+- `--value-from-env <VAR>` — copy the current value of `VAR` from your local shell, once. Fails if `VAR` is unset or empty.
+- `--env-var=<VAR>` — store no value; your application reads `VAR` from its own environment at runtime.
+- none of these — `qfg` prompts for the value (masked for secrets).
+
 **Encryption vs Confidential:**
-- `--secret`: Encrypts the value, requires decryption key
+- `--secret`: Encrypts the value on your machine, requires the encryption key in your environment. Secrets are string-only, and `create --secret` does not ask for a type.
 - `--confidential`: Marks value as sensitive but doesn't encrypt (useful for display purposes)
 - `--secret` implies `--confidential`, so you don't need both
+- Neither `create` nor `set-default` prints a secret's value; they confirm with a redacted fingerprint. Details in [Secret Management](/docs/explanations/features/secret-management#checking-a-secret-without-revealing-it).
 
 **Log levels:** `--type log_level` requires the key to start with `log-level.` and the value to be a recognized level name (case-insensitive). `--secret`, `--env-var`, and `--confidential` are rejected on this type. To target individual loggers without creating one config per logger, write rules on the `quonfig-sdk-logging.key` context property — see the SDK docs for details.
 
@@ -788,6 +802,15 @@ Example:
 qfg get aws.bucket --environment=production
 ```
 
+For a secret, `qfg get` prints a redacted form (fingerprint, length, and the last 4 characters for values of 12 or more characters) and a hint, instead of the plaintext. Add `--reveal` to print the decrypted value:
+
+```bash
+qfg get my.api.key --environment=production            # [encrypted *****3fa9c, 51 chars, ends …a1b2]
+qfg get my.api.key --environment=production --reveal   # the plaintext
+```
+
+Don't use `--reveal` in a shared terminal, a CI log, or an AI agent session. See [Checking a secret without revealing it](/docs/explanations/features/secret-management#checking-a-secret-without-revealing-it).
+
 #### Interpolating a value from Quonfig
 
 Since the CLI is a well-behaved citizen of the command line, you can use it to compose other commands.
@@ -804,6 +827,8 @@ aws s3api get-object \
 ```
 
 As you'd expect, you can similarly use `qfg` in a pipeline with `xargs` and similar.
+
+Secrets are redacted here too, so `$(qfg get my.api.key ...)` expands to the redacted fingerprint, not the value. To hand a secret to another command, prefer [`qfg run`](#run), which puts it in the child's environment without printing it.
 
 ### run
 

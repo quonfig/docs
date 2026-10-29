@@ -18,7 +18,9 @@ a flag"* and it will:
 
 The skill is one `SKILL.md` plus short reference files per SDK (Node, browser
 JavaScript, React, React Native, Go, Python, Ruby, Java, .NET, Swift), the
-`qfg` CLI, the [MCP server](/docs/api/mcp-server) tools, and retiring flags.
+`qfg` CLI (including how to handle [secrets](/docs/explanations/features/secret-management#using-secrets-with-ai-agents)
+without the value entering the agent's transcript), the
+[MCP server](/docs/api/mcp-server) tools, and retiring flags.
 The source is public at
 [github.com/quonfig/skills](https://github.com/quonfig/skills).
 

@@ -610,7 +610,8 @@ Two config-specific points:
   configs: a secret is a config whose stored value is ciphertext, and the
   access tier governs who can write it. This endpoint writes exactly the
   value you send, so it is the wrong tool for rotating a secret — use
-  `qfg secret`, which encrypts locally before it writes.
+  `qfg set-default --secret`, which encrypts locally before it writes. See
+  [Secret Management](/docs/explanations/features/secret-management).
 
 ## Creating a flag or config
 
@@ -654,7 +655,9 @@ type requires `value`, which the default rule serves. `description` and
 string or a duration, and whatever a create guessed would be what every
 later write is validated against. The value is stored **plain**: this
 endpoint never encrypts, the config is created at the standard access tier,
-and `sendToClientSdk` is `false`. Secrets belong in `qfg secret`.
+and `sendToClientSdk` is `false`. To create a secret, use
+`qfg create --secret`, which encrypts locally — see
+[Secret Management](/docs/explanations/features/secret-management).
 
 **Keys are pooled** case-insensitively across flags, configs, segments, and
 log levels, because they become filenames. A key any of them holds fails

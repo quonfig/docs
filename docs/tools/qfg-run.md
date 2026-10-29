@@ -166,4 +166,5 @@ Practical rules:
 
 - Don't pipe `qfg run` output into chat, logs, or CI artifacts in ways that would reveal resolved values.
 - The child process can leak its env in stack traces, crash dumps, and debug endpoints. Treat it as such.
+- To check which secret a run will inject without printing it, use `qfg get <key> --environment=<env>`: for secrets it shows a redacted fingerprint, not the value. See [Checking a secret without revealing it](/docs/explanations/features/secret-management#checking-a-secret-without-revealing-it).
 - For the most sensitive secrets, prefer the encrypted-secret pattern documented in [Secret Management](/docs/explanations/features/secret-management) — Quonfig stores ciphertext, the SDK decrypts in-process, and the plaintext never lands in `printenv`-visible env vars.

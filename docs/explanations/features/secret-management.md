@@ -69,15 +69,43 @@ If we run our application now and call `Quonfig.get("quonfig.secrets.encryption.
 
 #### Encrypt a value
 
+`qfg create --secret` creates a string config whose value is encrypted on your machine before anything is sent. Run it with no value and it asks for one; what you type is masked:
+
 ```bash
-qfg create my.api.key --type string --value="sample api key" --secret
+qfg create my.api.key --secret
 ```
 
 This will:
 1. Assume that we are using the value of `quonfig.secrets.encryption.key` to encrypt.
 2. Pull the key from our environment.
-3. Use that key to encrypt `sample api key`
-4. Push and encrypted blob to Quonfig under the key `my.api.key`
+3. Use that key to encrypt the value you entered.
+4. Push an encrypted blob to Quonfig under the key `my.api.key`.
+
+The command never prints the value back. It confirms with a redacted fingerprint instead, something like `[encrypted *****3fa9c, 51 chars, ends …a1b2]` (see [Checking a secret without revealing it](#checking-a-secret-without-revealing-it)).
+
+:::info Secrets are always strings
+A secret is a `string` config, and the SDKs return the decrypted value as a string. `--secret` works with `--type string` only, and you don't need to pass the type: `create --secret` uses `string`. To keep structured data secret, [store JSON as a string secret](#storing-json-in-a-secret).
+:::
+
+#### Keep the value out of your shell history
+
+`--value="..."` works, but it puts the plaintext in your shell history, in the process list while the command runs, and in any terminal log or recording. For scripts, CI and anything you paste, pass the value one of these ways instead:
+
+```bash
+# From an environment variable already set in this shell
+qfg create my.api.key --secret --value-from-env STRIPE_SECRET_KEY
+
+# From stdin: a file, a pipe, or a password manager's CLI
+qfg create my.api.key --secret --value-stdin < ./stripe-key.txt
+op read "op://Engineering/Stripe/secret key" | qfg create my.api.key --secret --value-stdin
+```
+
+- `--value-from-env <VAR>` reads the value from a variable in **your local environment, once, at the moment you run the command**. It fails if the variable is unset or empty.
+- `--value-stdin` reads the value from stdin and strips one trailing newline, so `echo`-style input and files that end in a newline store what you expect.
+
+Both work on `qfg create` and `qfg set-default`, with or without `--secret`, and you pass only one of `--value`, `--value-stdin`, `--value-from-env` and `--env-var`.
+
+Don't confuse `--value-from-env` with `--env-var`. `--env-var=DATABASE_URL` stores no value at all: it saves a pointer, and your application reads `DATABASE_URL` from **its own** environment every time it runs (that's how the encryption key in Step 1 works). `--value-from-env` copies the variable's current value into Quonfig, encrypted when you add `--secret`.
 
 
 Here's a pictorial representation of what we've done so far
@@ -174,17 +202,69 @@ No evaluations in the past 24 hours
 Finally, let's set a production secret.
 
 ```bash
-$ qfg set-default
-? Which item would you like to change the default for? my.api.key
-? Which environment would you like to change the default for? Production
-Default value: sk_live_123
-Confirm: change the default for my.api.key in Production to `sk_live_123`? yes/no: yes
-✔ Successfully changed default to `sk_live_123`
+qfg set-default my.api.key --environment=production --secret --value-from-env STRIPE_LIVE_KEY
 ```
+
+The value is encrypted with the key `quonfig.secrets.encryption.key` resolves to in production (`QUONFIG_SECRET_KEY_PRODUCTION`), so that variable has to be set in your shell. The confirmation prompt and the success line show the redacted fingerprint, never the plaintext:
+
+```
+✔ Set production fallback to [encrypted *****3fa9c, 51 chars, ends …a1b2].
+```
+
+Rotating a secret is the same command with the new value. If you run `set-default` interactively on a secret, the value prompt is masked. Add `--confirm` to skip the confirmation prompt in scripts.
 
 :::tip
 Note: You can use as many encryption keys as you want. It is a common practice to have 2, one for production and one for all other environments. But you can have as many secrets as you need in order to align with the trust groups you require.
 :::
+
+## Checking a secret without revealing it
+
+`qfg get` on a secret prints a redacted form, not the plaintext:
+
+```bash
+$ qfg get my.api.key --environment=production
+[encrypted *****3fa9c, 51 chars, ends …a1b2]
+pass --reveal to print the plaintext
+```
+
+That line gives you enough to confirm you set the right thing without showing the value:
+
+- **Fingerprint** (`*****3fa9c`): `*****` followed by the first 5 hex characters of the MD5 of the stored **encrypted** value. The SDKs use the same fingerprint when they report evaluations of confidential values in telemetry, so you can match what the CLI shows against what your applications saw. Encryption is randomized, so every write gets a new fingerprint even when the plaintext hasn't changed: a new fingerprint means a new write landed. It can't tell you whether two environments hold the same plaintext.
+- **Length**: the number of characters in the plaintext.
+- **Last 4** (`ends …a1b2`): the last four characters of the plaintext, so you can check it against the source (most dashboards show the last four of an API key). It's shown only when the value is at least 12 characters long; for shorter values, four characters would give away too much.
+
+To print the decrypted value, add `--reveal`:
+
+```bash
+qfg get my.api.key --environment=production --reveal
+```
+
+With `--json`, a secret comes back as `{"redacted": true, "fingerprint": "...", "length": 51, "last4": "..."}` instead of the value (no `last4` for short values), unless you pass `--reveal`. Configs that aren't secrets print exactly as before, and [`qfg run`](/docs/tools/qfg-run) still injects decrypted values into the child process's environment without printing them.
+
+## Storing JSON in a secret
+
+Secrets are strings, so there's no `json` secret type. Store the JSON document as a string secret and parse it in your application:
+
+```bash
+qfg create payments.provider.credentials --secret --value-stdin < ./credentials.json
+```
+
+```typescript
+const credentials = JSON.parse(quonfig.get("payments.provider.credentials"));
+```
+
+`set-default --secret` on a config that was created as `json` (or any other non-string type) is refused with an error that says so. Create a new string secret for the value instead.
+
+## Using secrets with AI agents
+
+An agent's shell commands and their output usually end up in a transcript, a log, or a model's context. Treat everything an agent runs or prints as visible to others.
+
+- **Never put a secret in a command line.** `--value=sk_live_...` lands in the transcript the moment the agent writes it. Have the agent use `--value-from-env <VAR>` with a variable you set yourself, or `--value-stdin` fed from a file or password manager.
+- **Verify with the fingerprint.** `qfg get <key> --environment=<env>` shows the fingerprint, length and last 4, which is enough to confirm the write. An agent should never pass `--reveal`.
+- **Don't read secret files.** An agent shouldn't `cat` a `.env` file or print the encryption key variables. `qfg create` and `qfg set-default` read the key from the environment themselves.
+- **Run, don't print.** To give a build step or migration a secret, use [`qfg run`](/docs/tools/qfg-run), which puts the value in the child process's environment without printing it.
+
+For a coding agent, the [Quonfig agent skill](/docs/tools/agent-skill) includes these rules.
 
 
 ## Full Example Diagram
