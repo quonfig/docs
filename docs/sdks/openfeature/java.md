@@ -186,7 +186,7 @@ features require the native `com.quonfig:sdk-java` SDK directly:
 
 1. **Log levels** -- `shouldLog()` and `getLogLevel()` are native-only; use `provider.getClient()`.
 2. **`string_list` configs** -- returned as a list `Value` via `getObjectValue()`.
-3. **`duration` configs** -- returned as the ISO 8601 string (e.g. `"PT90S"`) via `getStringValue()`; use `getClient().getDuration()` for a `java.time.Duration`.
+3. **`duration` configs** -- returned as the ISO 8601 string (e.g. `"PT90S"`) exactly as stored, via `getStringValue()` (3.2.0+); use `getClient().getDuration()` for a `java.time.Duration`.
 4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
 5. **`keys()`** and raw config access -- use `provider.getClient()`.
 6. **Context keys use dot-notation** -- pass `"user.email"`, not nested objects.

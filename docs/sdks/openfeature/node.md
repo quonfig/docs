@@ -137,7 +137,7 @@ features require the native `@quonfig/node` SDK directly:
 
 1. **Log levels** -- `shouldLog()` and the Winston/Pino adapters are native-only.
 2. **`string_list` configs** -- must be accessed via `getObjectValue()` and cast to `string[]`.
-3. **`duration` configs** -- returned as a raw number (milliseconds) via `getNumberValue()`.
+3. **`duration` configs** -- returned as the ISO 8601 text exactly as stored (e.g. `"PT90S"`) via `getStringValue()`; use `getClient().getDuration()` for milliseconds. Requires `@quonfig/openfeature-node` 3.2.0.
 4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
 5. **`keys()` and `rawConfig()`** -- use `provider.getClient()` to access.
 6. **Context keys use dot-notation** -- pass `"user.email"`, not `{ user: { email: "..." } }`.

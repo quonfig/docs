@@ -126,7 +126,7 @@ features require the native `quonfig` SDK directly:
 
 1. **Log levels** -- `should_log()` is native-only; access via `provider.get_client()`.
 2. **`string_list` configs** -- must be accessed via `get_object_value()` and used as a `list[str]`.
-3. **`duration` configs** -- returned as raw float seconds via `get_float_value()` (or use `get_duration()` natively).
+3. **`duration` configs** -- exposed only via the native `get_duration()` for now; `get_float_value()` and `get_string_value()` on a duration return your default.
 4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
 5. **`keys()` and raw config access** -- native-only via `provider.get_client()`.
 6. **Context keys use dot-notation** -- pass `"user.email"`, not nested dicts.

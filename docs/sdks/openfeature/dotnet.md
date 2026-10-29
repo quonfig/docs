@@ -175,7 +175,7 @@ features require the native `Quonfig.Sdk` directly:
 
 1. **Log levels** -- `ShouldLog()` and `GetLogLevel()` are native-only; use `provider.GetClient()`.
 2. **`string_list` configs** -- returned as a list `Value` via `GetObjectValueAsync()`.
-3. **`duration` configs** -- returned as an ISO 8601 string (e.g. `"PT1M30S"`) via `GetStringValueAsync()`; use `GetClient().GetDuration()` for a `TimeSpan`.
+3. **`duration` configs** -- returned as an ISO 8601 string exactly as stored (e.g. `"PT90S"`) via `GetStringValueAsync()` (2.2.0+); use `GetClient().GetDuration()` for a `TimeSpan`.
 4. **64-bit integers** -- `GetIntegerValueAsync()` returns `int`; use `GetClient().GetLong()` for `long`.
 5. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
 6. **`Keys()`** and raw config access -- use `provider.GetClient()`.
