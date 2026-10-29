@@ -461,6 +461,15 @@ Likewise, `inContext(...)` is a deprecated alias of `withContext(...)` — both 
 
 :::
 
+### Secrets
+
+A [secret](/docs/explanations/features/secret-management) is read like any string config: `quonfig.get("payments.stripe.key")` (or `getString`) returns the **decrypted** string. The SDK decrypts it in your process using the encryption key, so the env var that `quonfig.secrets.encryption.key` is provided by (for example `QUONFIG_SECRET_KEY_DEFAULT`) must be set in the app's environment; if it isn't, reading the secret throws. Secrets are always strings, so a JSON secret needs a parse:
+
+```typescript
+const stripeKey = quonfig.getString("payments.stripe.key");
+const serviceAccount = JSON.parse(quonfig.getString("gcp.service-account"));
+```
+
 ## Context
 
 Quonfig supports [context](/docs/explanations/concepts/context) for intelligent rule-based

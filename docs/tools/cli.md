@@ -712,7 +712,7 @@ qfg set-default my.flag.name --value=false --environment=production --replace-ta
 # ✔ Set production to `false` for everyone. Replaced 2 targeting rule(s); previous version 9f2c1ab.
 ```
 
-To set or rotate a secret, add `--secret` and pass the value with `--value-from-env <VAR>` or `--value-stdin` so it stays out of your shell history: `qfg set-default my.api.key --environment=production --secret --value-from-env STRIPE_LIVE_KEY`. The output shows a redacted fingerprint, never the value, and `--json` returns `{redacted: true, fingerprint, length, last4?}` in place of `value`. Secrets are string-only, so `--secret` on a `json` or other non-string config is refused. See [Secret Management](/docs/explanations/features/secret-management).
+To set or rotate a secret, add `--secret` and pass the value with `--value-from-env <VAR>` or `--value-stdin` so it stays out of your shell history: `qfg set-default my.api.key --environment=production --secret --value-from-env STRIPE_LIVE_KEY --confirm`. Use `--environment="[Default]"` to write the default rules every environment without its own inherits. The output shows a redacted fingerprint, never the value, and `--json` returns `{redacted: true, fingerprint, length, last4?}` in place of `value`. Secrets are string-only, so `--secret` on a `json` or other non-string config is refused. See [Secret Management](/docs/explanations/features/secret-management).
 
 The deleted rules stay in git history — `previous version` names the commit to restore from. Under `--json` the same numbers come back as `previousCommitSha` + `replacedTargetingRuleCount`; a normal (surgical) write returns `keptTargetingRuleCount`. Both counts are **omitted when they are 0**, so a script should treat a missing field as "no targeting rules were involved", not as an error.
 
@@ -805,7 +805,7 @@ qfg get aws.bucket --environment=production
 For a secret, `qfg get` prints a redacted form (fingerprint, length, and the last 4 characters for values of 12 or more characters) and a hint, instead of the plaintext. Add `--reveal` to print the decrypted value:
 
 ```bash
-qfg get my.api.key --environment=production            # [encrypted *****3fa9c, 51 chars, ends …a1b2]
+qfg get my.api.key --environment=production            # [encrypted *****3fa9c, 51 chars, ends …a1b2] (stdout; the note is on stderr)
 qfg get my.api.key --environment=production --reveal   # the plaintext
 ```
 
