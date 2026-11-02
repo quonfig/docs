@@ -31,7 +31,7 @@ of the two [authentication methods](#authentication) below.
 
 ## Tools
 
-Twenty-one tools: fifteen reads and six writes.
+Twenty-two tools: sixteen reads and six writes.
 
 | Tool | What it does |
 |---|---|
@@ -47,6 +47,7 @@ Twenty-one tools: fifteen reads and six writes.
 | `get_segment_history` | The git commits that changed a segment. |
 | `search_contexts` | Find a customer's or user's context key from a name (or a name from a key), so a targeting rule can match `organization.key` / `user.key`. Returns `key`, `name`, and `email` when the context has one. |
 | `list_environments` | The workspace's environments: name, type, and whether each is protected. |
+| `get_eval_activity` | How much each flag and config has been evaluated — last-evaluated day and 24h / 2d / 7d / 30d counts, per environment. For finding cleanup candidates. |
 | `get_recent_changes` | The workspace change feed, translated into readable messages — or one item's full history. |
 | `list_workspaces` | The workspaces this credential can act on. |
 | `get_document` | The raw stored JSON for one flag, config, or log level — verbatim, and at any commit with `at`. |
@@ -57,7 +58,7 @@ Twenty-one tools: fifteen reads and six writes.
 | `set_log_level` | Set one service's level — for a whole scope, or for one logger prefix. Creates the document on first write. |
 | `set_document` | Replace the raw stored JSON for one flag, config, or log level. The escape hatch, and the undo. |
 
-The fifteen read tools are annotated `readOnlyHint`, so a client can tell at
+The sixteen read tools are annotated `readOnlyHint`, so a client can tell at
 a glance that they can't change anything. `set_flag`, `set_config`,
 `set_log_level` and `set_document` are annotated `destructiveHint` — clients
 that confirm destructive tool calls will ask before any of them runs.
@@ -101,6 +102,11 @@ Things the tools are good at, in practice:
 - **"Which of these flags are stale?"** — every `list_flags` /
   `list_configs` row carries `lastModified`, with the date and author of the
   last change, so age questions are one call rather than one call per flag.
+- **"Which flags and configs nobody uses any more?"** — `get_eval_activity`
+  with `quietDays: 30` returns, in one call, every flag and config with no
+  evaluations in the last 30 days, with when each last changed. Treat the
+  answer as a list to check, not a list to delete — see
+  [Finding cleanup candidates](#finding-cleanup-candidates).
 - **"Kill the new pricing page in prod."** — `set_flag`, subject to the same
   permission check the UI applies. `list_environments` first, so the agent
   uses the environment names your workspace actually has instead of
@@ -161,6 +167,46 @@ Status is derived from the stored rules plus `readyForCleanup`, a marker
 the flag's owner sets by hand — never from usage or telemetry. The exact
 rule is on the REST page:
 [Flag lifecycle status](/docs/api/rest-api#flag-lifecycle-status).
+
+### Finding cleanup candidates
+
+`get_eval_activity` answers "what has gone quiet?" for every flag **and**
+config in the workspace. Each row carries:
+
+- `lastEval` — the most recent UTC day with any evaluations, or `null`;
+- `evals` — counts for `last24h`, `last2d`, `last7d` and `last30d`, summed
+  across environments;
+- `environments` — the same numbers per environment;
+- `lastModified` and `readyForCleanup`, so "quiet *and* untouched for a
+  year" is one call.
+
+Keys with no evaluations at all are still listed, with `lastEval: null`.
+Narrow the answer with `kind` (`flag` or `config`), `key`, `environment`,
+and `quietDays` (only keys with no evaluations in the last N days, 1–90).
+It pages like `list_flags`. One call covers the whole workspace, so an agent
+never needs to make one per key. The REST shape is
+[Evaluation activity](/docs/api/rest-api#evaluation-activity).
+
+There are two things to keep straight:
+
+- **`null` means "none in 90 days", not "never".** Evaluation counts are
+  kept for 90 days (`windowDays` in the response), so anything older is
+  gone.
+- **Quiet is not proof of unused.** These can all look quiet while still
+  in use:
+  - a config read once at process start;
+  - an SDK with evaluation telemetry turned off, or one too old to report
+    it;
+  - a code path that runs once a year.
+
+  Check the code before you delete anything.
+
+Finding a candidate and retiring it are separate steps. This tool only
+reads. To retire a flag, its owner marks it **ready for cleanup**, and
+`qfg cleanup remove` hands the code removal to your coding agent. Configs
+have no marker: once the code no longer reads one, delete it. The CLI
+version of the same data is
+[`qfg cleanup list --all`](/docs/tools/cli#cleanup-list).
 
 ### Reading a large workspace
 
@@ -355,7 +401,7 @@ and `set_log_level`, per access tier for `set_document` and the creates. See
 config tiers compose.
 
 A service-account key with no config-tier role goes one step further: the
-six write tools aren't listed for it at all, so an agent sees fifteen read
+six write tools aren't listed for it at all, so an agent sees sixteen read
 tools and nothing that could change anything. That's a courtesy, not the
 control — the permission check on every call is what actually refuses a
 write, and it refuses one just the same if a client calls a tool it wasn't

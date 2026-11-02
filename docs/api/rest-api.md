@@ -107,6 +107,7 @@ requests and responses are JSON.
 | GET | `/v1/segments/{key}` | A segment's membership rules: who it actually matches |
 | GET | `/v1/segments/{key}/history` | Git commits that changed this segment |
 | GET | `/v1/activity` | Workspace-wide change feed, or one item's translated history |
+| GET | `/v1/eval-activity` | Evaluation counts and last-evaluated day for every flag and config ([see below](#evaluation-activity)) |
 | GET | `/v1/contexts` | Find a context's key from a name, to target it in a rule ([see below](#finding-a-contexts-key)) |
 
 List responses return the whole workspace by default (hundreds of items,
@@ -396,6 +397,72 @@ Two properties make it the right way to answer "how many":
 
 `total` is a non-negative integer and is **always present**: an empty result
 is `"total": 0`, never an omitted field.
+
+### Evaluation activity
+
+`GET /v1/eval-activity` returns how much each flag and config has been
+evaluated, for finding cleanup candidates. It lists every flag and config
+in the workspace, including keys with no evaluations at all.
+
+| Parameter | What it does |
+|---|---|
+| `kind` | `flag` or `config`. Default: both |
+| `key` | One key only |
+| `environment` | Count evaluations in this environment only. An unknown name is a `400` that lists the real ones |
+| `quietDays` | Only keys with no evaluations in the last N days (1-90) |
+| `limit`, `cursor` | [Pagination](#pagination), same as `/v1/flags` |
+
+```bash
+curl -H "Authorization: Bearer $QUONFIG_API_KEY" \
+  "https://api.quonfig.com/v1/eval-activity?quietDays=30&kind=config"
+```
+
+```json
+{
+  "keys": [
+    {
+      "key": "legacy.export.batch-size",
+      "kind": "config",
+      "valueType": "int",
+      "readyForCleanup": false,
+      "lastModified": { "date": "2026-03-14T10:02:11-04:00", "author": "Jeff Dwyer" },
+      "lastEval": "2026-08-20",
+      "evals": { "last24h": 0, "last2d": 0, "last7d": 0, "last30d": 0 },
+      "environments": [
+        {
+          "environment": "production",
+          "lastEval": "2026-08-20",
+          "evals": { "last24h": 0, "last2d": 0, "last7d": 0, "last30d": 0 }
+        }
+      ]
+    }
+  ],
+  "total": 1,
+  "windowDays": 90
+}
+```
+
+- `lastEval` is the most recent UTC day (`YYYY-MM-DD`) with any
+  evaluations, taken across every environment.
+- The `evals` windows are calendar days in UTC, so `last24h` is today's
+  count so far.
+- `environments` lists only the environments that had evaluations.
+- Rows are always ordered by `key`, and `total` counts the filtered rows
+  before paging.
+- `readyForCleanup` is always `false` for configs, which have no cleanup
+  marker.
+
+Two caveats, both important before deleting anything:
+
+- **`null` means none in the last `windowDays` (90) days, not "never".**
+  Older evaluation counts are not kept.
+- **Quiet is not proof of unused.** A config read once at process start, an
+  SDK with evaluation telemetry turned off, and a code path that runs once
+  a year all look quiet. Check the code first.
+
+If evaluation data is temporarily unavailable, the call fails with `503`.
+It never returns zero counts in that case, because zero counts would make
+every key look quiet. Retrying is safe.
 
 ### History and activity
 
@@ -1034,7 +1101,7 @@ causes. Match on `error` (and `details.code`), never on `message` text.
 
 | HTTP | `error` | `details.code` | When |
 |---|---|---|---|
-| 400 | `BAD_REQUEST` | — | Malformed parameter or body; value doesn't match the item's `valueType`; bad rollout; a `value` sent to a bool flag create, or missing from any other create; `limit` out of range or a `cursor` this server didn't mint; a malformed `?at` sha; a `document` whose `key` or `type` disagrees with the URL |
+| 400 | `BAD_REQUEST` | — | Malformed parameter or body; an unknown `environment` on `/v1/eval-activity`; value doesn't match the item's `valueType`; bad rollout; a `value` sent to a bool flag create, or missing from any other create; `limit` out of range or a `cursor` this server didn't mint; a malformed `?at` sha; a `document` whose `key` or `type` disagrees with the URL |
 | 400 | `BAD_REQUEST` | `VALIDATION_FAILED` | The document a create or write would store fails the stored-config schema — `details` lists the failing field paths |
 | 400 | `BAD_REQUEST` | `SCHEMA_VIOLATION` | A schema-bound JSON config's new value breaks its schema — `details.schemaKey` names the schema and `details.violations` the failures |
 | 401 | `UNAUTHORIZED` | — | Missing, invalid, or revoked key; disabled service account |
@@ -1046,7 +1113,7 @@ causes. Match on `error` (and `details.code`), never on `message` text.
 | 422 | `UNPROCESSABLE_CONTENT` | `VERIFY_REJECTION` | The change was rejected by config validation |
 | 422 | `UNPROCESSABLE_CONTENT` | — | The content stored at the requested `?at` commit isn't a JSON object |
 | 429 | — | — | [Rate limit exceeded](#rate-limits) — honor `Retry-After` |
-| 503 | `SERVICE_UNAVAILABLE` | — | Workspace provisioning in progress, or a transient storage failure — safe to retry |
+| 503 | `SERVICE_UNAVAILABLE` | — | Workspace provisioning in progress, a transient storage failure, or evaluation data temporarily unavailable on `/v1/eval-activity` — safe to retry |
 
 These responses are also declared per-operation in the
 [OpenAPI spec](https://api.quonfig.com/v1/openapi.json), so generated

@@ -473,6 +473,43 @@ qfg contexts search organization acme
 
 `NAME` and `EMAIL` are blank when the context never reported them. Pass a key as the query to see its name. The search covers only contexts your SDKs have reported, so no match means the key is unknown — get it from whoever owns that customer rather than targeting a slug or email. Full semantics: [Finding a context's key](/docs/api/rest-api#finding-a-contexts-key).
 
+### cleanup list
+
+`qfg cleanup list` shows the feature flags marked **ready for cleanup**, with how often each was evaluated recently. Pass `--all` to prospect instead: it shows every flag **and** config in the workspace, marked or not, so you can see what has gone quiet.
+
+Options:
+- `--all` - Every flag and config, not only flags marked ready for cleanup
+- `--environment <env>` - Count evaluations in this environment only (default: all environments)
+- `--json` - Structured rows, including a per-environment breakdown
+
+Examples:
+```bash
+qfg cleanup list
+qfg cleanup list --all
+qfg cleanup list --all --environment production --json
+```
+
+Columns:
+- `EVALS_24H`, `EVALS_2D`, `EVALS_7D`, `EVALS_30D` - evaluation counts over UTC calendar days
+- `LAST_EVAL` - the most recent day with any evaluations
+- `CLASS` - `quiet` (no evaluations in the last 2 days) or `active`
+- `KIND` and `MARKED` - shown with `--all` only
+
+Quiet rows sort first, oldest at the top. A `-` in `LAST_EVAL` means no evaluations in the last 90 days, not "never". Evaluation counts are only kept for 90 days.
+
+Quiet is not proof of unused. These can all look quiet while still in use:
+- a config read once at process start;
+- an SDK with evaluation telemetry turned off;
+- a code path that runs once a year.
+
+Check the code before you delete anything.
+
+Finding a candidate and retiring it are separate steps:
+- **A flag:** mark it ready for cleanup in the Quonfig app. Then run `qfg cleanup remove <key>` to hand the code removal to your coding agent.
+- **A config:** there is no marker. Once the code no longer reads it, delete it.
+
+AI agents can get the same data from the MCP tool `get_eval_activity` (see [Finding cleanup candidates](/docs/api/mcp-server#finding-cleanup-candidates)).
+
 ### interactive
 
 `qfg interactive` (or just `qfg`) launches an interactive CLI mode where you can browse and manage your resources through a menu-driven interface.
