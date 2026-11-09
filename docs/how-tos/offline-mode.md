@@ -48,11 +48,10 @@ Then point the SDK's `apiUrls` at it. `qfg serve` doesn't accept telemetry, so t
 import { quonfig } from "@quonfig/javascript";
 
 await quonfig.init({
-  apiKey: "PUBLIC_FRONTEND_KEY", // any string works unless qfg serve has --frontend-sdk-key
+  sdkKey: "PUBLIC_FRONTEND_KEY", // any string works unless qfg serve has --frontend-sdk-key
   context: { user: { key: "alice@example.com" } },
   apiUrls: ["http://localhost:6580"],
   collectEvaluationSummaries: false,
-  contextUploadMode: "none",
 });
 ```
 
@@ -63,11 +62,10 @@ await quonfig.init({
 import { QuonfigProvider } from "@quonfig/react";
 
 <QuonfigProvider
-  apiKey="PUBLIC_FRONTEND_KEY"
+  sdkKey="PUBLIC_FRONTEND_KEY"
   contextAttributes={{ user: { key: "alice@example.com" } }}
   apiUrls={["http://localhost:6580"]}
   collectEvaluationSummaries={false}
-  contextUploadMode="none"
 >
   <App />
 </QuonfigProvider>;

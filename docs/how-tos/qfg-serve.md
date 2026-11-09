@@ -52,13 +52,12 @@ change needed. Telemetry is **not** served by `qfg serve` (see
 import { quonfig } from "@quonfig/javascript";
 
 await quonfig.init({
-  apiKey: "PUBLIC_FRONTEND_KEY", // any string is fine if qfg serve has no --frontend-sdk-key
+  sdkKey: "PUBLIC_FRONTEND_KEY", // any string is fine if qfg serve has no --frontend-sdk-key
   context: { user: { key: "alice@example.com" } },
   apiUrls: ["http://localhost:6580"],
 
-  // qfg serve does not accept telemetry — disable to avoid 404s in the console
+  // qfg serve does not accept telemetry; turn off evaluation summaries to avoid 404s in the console
   collectEvaluationSummaries: false,
-  contextUploadMode: "none",
 });
 ```
 
@@ -69,11 +68,10 @@ await quonfig.init({
 import { QuonfigProvider } from "@quonfig/react";
 
 <QuonfigProvider
-  apiKey="PUBLIC_FRONTEND_KEY"
+  sdkKey="PUBLIC_FRONTEND_KEY"
   contextAttributes={{ user: { key: "alice@example.com" } }}
   apiUrls={["http://localhost:6580"]}
   collectEvaluationSummaries={false}
-  contextUploadMode="none"
 >
   <App />
 </QuonfigProvider>;
@@ -86,11 +84,10 @@ import { QuonfigProvider } from "@quonfig/react";
 import { QuonfigProvider } from "@quonfig/react-native";
 
 <QuonfigProvider
-  apiKey="PUBLIC_FRONTEND_KEY"
+  sdkKey="PUBLIC_FRONTEND_KEY"
   contextAttributes={{ user: { key: "alice@example.com" } }}
   apiUrls={["http://localhost:6580"]}
   collectEvaluationSummaries={false}
-  contextUploadMode="none"
 >
   <App />
 </QuonfigProvider>;
