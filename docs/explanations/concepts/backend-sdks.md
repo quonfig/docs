@@ -24,7 +24,7 @@ The architecture to do this looks like this:
 flowchart RL
     subgraph "Your Server"
         subgraph "Your Code"
-            code[feature_flag.isEnabled?<br> my-flag, context]
+            code["quonfig.isEnabled('my-flag', context)"]
         end
 
         subgraph "Quonfig Backend SDK"
@@ -35,29 +35,21 @@ flowchart RL
         code --> Evaluation
     end
 
-
-    subgraph "Quonfig API"
-        subgraph "API"
-            BulkAPI["Bulk API"]
-            StreamingAPI["Streaming API"]
-        end
-
-        subgraph "Datastores"
-            GoogleSpanner[("Google Spanner")]
-        end
+    subgraph "Quonfig delivery"
+        Primary["Primary fetch<br>primary.quonfig.com"]
+        Stream["Primary SSE stream<br>stream.primary.quonfig.com"]
+        Secondary["Secondary fetch<br>secondary.quonfig.com"]
     end
 
-    BulkAPI --> CDN
-    BulkAPI --> ConfigCache
-    StreamingAPI --> ConfigCache
+    Primary --> ConfigCache
+    Stream --> ConfigCache
+    Secondary -. hedge / failover .-> ConfigCache
     Evaluation --> code
     ConfigCache --> Evaluation
-    Evaluation -->  ConfigCache
-    CDN --> ConfigCache
 ```
 
-Your code will instantiate a singleton of a Quonfig Client. This client starts will fetch the latest configuration, trying
-multiple sources in case of errors. Once it gets a connection it will unlock and be available for your code.
+Your code will instantiate a singleton of a Quonfig Client. This client fetches the latest configuration, falling back to the
+secondary delivery service if the primary is slow or down ([Reliability](/docs/explanations/architecture/resiliency)). Once it gets a connection it will unlock and be available for your code.
 
 The client will also start a streaming connection to the APIs to pull down new changes.
 
