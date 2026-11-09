@@ -40,12 +40,10 @@ A feature flag check will always return false until it is fully enabled or a rul
 <TabItem value="java" label="Java">
 
 ```java
-  if(featureFlagClient.featureIsOn(
-      "my-feature-name",
-      QuonfigContext.newBuilder("user")
-        .put("email", user.getEmailDomain())
-        .build()
-    )){
+  ContextSet ctx = new ContextSet()
+      .withNamedContext("user", Map.of("tracking_id", user.getTrackingId()));
+
+  if (quonfig.featureIsOn("my-feature-name", ctx)) {
     // serve the new feature
   } else {
     // serve the old version of the page

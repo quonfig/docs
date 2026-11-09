@@ -88,7 +88,7 @@ To use the flag, all we need to do is initialize a client with the backend key w
 <TabItem value="ruby" label="Ruby">
 
 ```ruby
-Quonfig.init(sdk_key: "<SDK-KEY>, or set ENV var QUONFIG_BACKEND_SDK_KEY")
+Quonfig.init(sdk_key: "SDK-KEY") # or set the QUONFIG_BACKEND_SDK_KEY env var and call Quonfig.init
 # Users in the beta group will always return true
 
 context = { user: { key: rand(1000)}}
@@ -104,25 +104,23 @@ puts Quonfig.enabled?("features.example-flag", context)
 <TabItem value="java" label="Java">
 
 ```java
-QuonfigClient client = new QuonfigClient(new QuonfigClient.Options()
-  .setSdkKey("SDK-KEY, or set ENV var QUONFIG_BACKEND_SDK_KEY"));
-FeatureFlagClient featureFlagClient = client.featureFlagClient();
+import com.quonfig.sdk.Options;
+import com.quonfig.sdk.Quonfig;
+import com.quonfig.sdk.eval.ContextSet;
+import java.util.Map;
 
-// true for 5 % of the users
-featureFlagClient.featureIsOn(
-      "features.example-flag",
-      QuonfigContext.newBuilder("user")
-        .put("key", Math.random())
-        .build()
-    )
+// sdkKey falls back to the QUONFIG_BACKEND_SDK_KEY env var
+Quonfig quonfig = new Quonfig(Options.builder().sdkKey("SDK-KEY").build());
+
+// true for 5% of the users
+quonfig.featureIsOn(
+    "features.example-flag",
+    new ContextSet().withNamedContext("user", Map.of("key", String.valueOf(Math.random()))));
 
 // true because of the beta group rule
-featureFlagClient.featureIsOn(
-      "features.example-flag",
-      QuonfigContext.newBuilder("user")
-        .put("group", "beta")
-        .build()
-    )
+quonfig.featureIsOn(
+    "features.example-flag",
+    new ContextSet().withNamedContext("user", Map.of("group", "beta")));
 ```
 
 </TabItem>
@@ -132,40 +130,36 @@ featureFlagClient.featureIsOn(
 import { Quonfig } from "@quonfig/node";
 
 const quonfig = new Quonfig({
-  sdkKey: "SDK-KEY",
+  sdkKey: "SDK-KEY", // or set the QUONFIG_BACKEND_SDK_KEY env var
 });
 await quonfig.init();
 
 // true for 5% of the users
-const context = new Map([["user", new Map([["key", Math.random()]])]]);
-quonfig.isEnabled("features.example-flag", context, false);
+quonfig.isEnabled("features.example-flag", { user: { key: String(Math.random()) } });
 
 // 100% of users in the beta group will return true
-const context = new Map([
-  [
-    "user",
-    new Map([
-      ["key", Math.random()],
-      ["group", "beta"],
-    ]),
-  ],
-]);
-quonfig.isEnabled("features.example-flag", context, false);
+quonfig.isEnabled("features.example-flag", {
+  user: { key: String(Math.random()), group: "beta" },
+});
 ```
 
 </TabItem>
 <TabItem value="python" label="Python">
 
 ```python
-quonfig = Client(Options(sdk_key="SDK-KEY, or set ENV var QUONFIG_BACKEND_SDK_KEY"))
+import random
+from quonfig import Quonfig
 
-context = { "user": { "key": random.randrange(1000)}}
+# sdk_key falls back to the QUONFIG_BACKEND_SDK_KEY env var
+quonfig = Quonfig(sdk_key="SDK-KEY").init()
+
+context = {"user": {"key": str(random.randrange(1000))}}
 # 5% of other users will return true
-print(quonfig.enabled('features.example-flag', context))
+print(quonfig.is_feature_enabled("features.example-flag", contexts=context))
 
 # 100% of users in the beta group will return true
 context["user"]["group"] = "beta"
-print(quonfig.enabled('features.example-flag', context))
+print(quonfig.is_feature_enabled("features.example-flag", contexts=context))
 ```
 
 </TabItem>
@@ -173,7 +167,7 @@ print(quonfig.enabled('features.example-flag', context))
 
 And that's it! A nice feature flag with a complex rule and a partial rollout in 5 minutes.
 
-For this example, we used "Just in Time" context, passing the context block into the `enabled?` methods. In general, you'll set the context once at the beginning of the request and then use the `enabled?` method without the context block. Read more about context [here](/docs/explanations/concepts/context).
+For this example, we used "Just in Time" context, passing the context straight into each flag check. In general, you'll bind the context once at the beginning of the request and then check flags without passing it again. Read more about context [here](/docs/explanations/concepts/context).
 
 ## TypeScript Type Generation (Optional)
 
