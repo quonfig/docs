@@ -244,6 +244,36 @@ share configs across multiple apps — leave its `.git` in place, commit
 inside it separately, and add `quonfig` as a git submodule of the outer
 repo.)
 
+Removing `quonfig/.git` also removes its pre-commit hook, so nothing runs
+`qfg verify` for you anymore. Add it to CI instead:
+
+```bash
+npx -y @quonfig/cli verify quonfig
+```
+
+### Ship the config files with the build
+
+The SDK reads `quonfig/` at runtime from a path it builds itself
+(`path.join(process.cwd(), "quonfig")`). Next.js output file tracing can't
+see that read, so on Vercel, or with `output: "standalone"`, the JSON files
+are **left out of the deployed bundle**. The SDK then starts with no
+configs. Tell Next.js to include them:
+
+```ts title="next.config.ts"
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/*": ["./quonfig/**/*.json"],
+  },
+};
+
+export default nextConfig;
+```
+
+You don't need this for `next start` on a machine that has the full repo
+checked out. There, the files are already on disk.
+
 Push the repo wherever you want. In production, set
 `QUONFIG_ENVIRONMENT=production` and the SDK applies the `production`
 environment overrides from your JSON files. That's the entire deployment
