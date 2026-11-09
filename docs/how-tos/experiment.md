@@ -31,7 +31,7 @@ First we'll create a new experiment: `experiment.ex-2.bigger-button`. We'll do i
 ![image](/img/docs/how-tos/exp-prefab-create.jpg)
 Next we'll add these `Control` and `Treatment` variants.
 ![image](/img/docs/how-tos/exp-prefab-variants.jpg)
-We'll select `Perent Rollout` for the value. 
+We'll select `Percent Rollout` for the value. 
 ![image](/img/docs/how-tos/exp-prefab-percent-rollout.jpg)
 We can choose to "split evenly". Note the sticky property. This tells us which piece of [Context](/docs/explanations/concepts/context.md) to use to seed the random bucket generator. Our application sets context like `{user: {key: '123-45f', name: 'Bob Beemer'}}` so `user.key` is a natural choice here. This will ensure that any user that is bucketed into the `Treatment` stays in the treatment everytime they use the application. The sticky property doesn't have to be a `key` — it can be **any** context property, so you can bucket on a high-cardinality value without it counting toward MTK. See [What gets saved](/docs/explanations/concepts/context.md).
 ![image](/img/docs/how-tos/exp-prefab-split-evenly.jpg)
@@ -41,24 +41,25 @@ We can choose to "split evenly". Note the sticky property. This tells us which p
 Mixpanel has specific event format for [tracking experiment exposures](https://docs.mixpanel.com/docs/reports/apps/experiments#add-experiments-to-an-implementation). When we expose a user to an experiment, we just need to call `mixpanel.track('$experiment_started', {'Experiment name': 'Test', 'Variant name': 'v1'})`. The easiest way to integrate this with Quonfig is to use the `afterEvaluationCallback`. 
 
 ```javascript
-const options = {
-    apiKey: window.quonfig_frontend_sdk_key,
-    context: new quonfigNamespace.Context({
-        user:
-            {
-                key: user.tracking_id,
-                name: user.user_name
-            }
-    }),
-    afterEvaluationCallback: (key, value) => {
-      if (key.startsWith("experiment")) {   // we'll name our experiments to start with 'experiment'
-        mixpanel.track('$experiment_started', {
-          'Experiment name': key,           // this will be 'experiment.ex-2.bigger-button'
-          'Variant name': value             // this will be 'Control' or 'Treatment'
-        });
-      }
+import { quonfig } from "@quonfig/javascript";
+
+await quonfig.init({
+  sdkKey: window.quonfig_frontend_sdk_key,
+  context: {
+    user: {
+      key: user.tracking_id,
+      name: user.user_name,
+    },
+  },
+  afterEvaluationCallback: (key, value) => {
+    if (key.startsWith("experiment")) { // we'll name our experiments to start with 'experiment'
+      mixpanel.track("$experiment_started", {
+        "Experiment name": key,         // this will be 'experiment.ex-2.bigger-button'
+        "Variant name": value,          // this will be 'Control' or 'Treatment'
+      });
     }
-};
+  },
+});
 ```
 
 We will of course need to actually call the experiment in our code. 
@@ -93,7 +94,7 @@ Success! We can see our AB Test in it's full glory. We can see that we have some
 ## Testing Experiments Locally
 As a developer building out the new feature. It's pretty common to want to be able to quickly toggle back and forth between the variants of your experiment. You could do this by just changing the development value, but that will affect everyone on your team. 
 
-Quonfig's [developer tools](/docs/tools/cli.md) have you covered. Because the CLI knows who you are, it can easily add and remove a targeted override just for you. Here's what that looks like: 
+Quonfig's [personal overrides](/docs/explanations/features/personal-overrides) have you covered. Because the CLI knows who you are, `qfg override experiment.ex-2.bigger-button Treatment` adds a targeted override just for you, and `--remove` takes it away. Here's what that looks like: 
 ![image](/img/docs/how-tos/prefab-cli-anim.gif)
 
 And here's the resulting rule that you'll see in the Quonfig UI.

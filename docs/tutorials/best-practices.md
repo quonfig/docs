@@ -119,20 +119,42 @@ In both cases we want to be able to have sophisticated targeting rules based on 
 ### Duration
 Ever written `http.connect(timeout: Quonfig.get("my.timeout'))` and been worried that someone might use millisecond or seconds or minutes? Naming all your time duration configs `kafka.retry.timeout-in-seconds` to try to be really explicit? We've got a better way!
 
-Durations is a type of config that acts like the `java.time.Duration` object or `ActiveSupport::Duration` in Ruby. You can specify it in whatever units you like and then retrieve it in whatever units you like. Under the covers it's stored as an ISO 8601 duration such as `PT30S`, `PT5M`, `PT1H30M` or `P1DT6H`: optional days, then `T` and hours, minutes and seconds; only seconds may have a fraction.
+Duration is a type of config that you can specify in whatever units you like. Each SDK hands it back in an explicit unit: a `java.time.Duration` in Java, milliseconds in Node and Ruby. Under the covers it's stored as an ISO 8601 duration such as `PT30S`, `PT5M`, `PT1H30M` or `P1DT6H`: optional days, then `T` and hours, minutes and seconds; only seconds may have a fraction.
 
 ![duration datatype](/img/docs/how-tos/best-practices/duration.jpg)
 
-Then you can use it in code and be explicit about the units you want
+Then you can use it in code without guessing at units
+
+<Tabs groupId="lang">
+<TabItem value="java" label="Java">
+
+```java
+Duration timeout = quonfig.getDuration("mysql.timeout", Duration.ofSeconds(10)); // a java.time.Duration
+
+timeout.toMillis();  // 80000
+timeout.toSeconds(); // 80
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
 
 ```javascript
-duration = Quonfig.get("mysql.timeout")
+const timeoutMs = quonfig.getDuration("mysql.timeout", undefined, 10_000); // milliseconds
 
-mysql.connect(timeout: duration.in_milliseconds) // 80000
-mysql.connect(timeout: duration.in_seconds)      // 80
-mysql.connect(timeout: duration.in_minutes)      // 1.5
-mysql.connect(timeout: duration.in_days)         // 0.00001
+mysql.connect({ timeout: timeoutMs }); // 80000
 ```
+
+</TabItem>
+<TabItem value="ruby" label="Ruby">
+
+```ruby
+timeout_ms = Quonfig.instance.get_duration("mysql.timeout", default: 10_000) # integer milliseconds
+
+mysql.connect(timeout: timeout_ms) # 80000
+```
+
+</TabItem>
+</Tabs>
 
 ### JSON
 

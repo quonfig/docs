@@ -15,7 +15,7 @@ want to rollout to and then evaluate that against a random number to determine w
 <TabItem value="ruby" label="Ruby">
 
 ```ruby
-if rand() < @config.get_float("percent-to-rollout")
+if rand() < Quonfig.instance.get_float("percent-to-rollout", default: 0.0)
   do_new_pipeline
 end
 ```

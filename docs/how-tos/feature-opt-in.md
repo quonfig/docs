@@ -90,13 +90,13 @@ const onError = (reason) => {
 
 return (
   <QuonfigProvider
-    apiKey={"QUONFIG_FRONTEND_SDK_KEY"}
+    sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
     contextAttributes={context}
     onError={onError}
   >
     <MyApp />
   </QuonfigProvider>
-};
+);
 
 // in your component that renders the feature
 
@@ -181,13 +181,13 @@ const onError = (reason) => {
 
 return (
   <QuonfigProvider
-    apiKey={"QUONFIG_FRONTEND_SDK_KEY"}
+    sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
     contextAttributes={context}
     onError={onError}
   >
     <MyApp />
   </QuonfigProvider>
-};
+);
 
 // in your component that renders the feature
 
