@@ -26,19 +26,25 @@ The primary way to test Quonfig is by mocking out calls to Quonfig. Here are som
 
 <TabItem value="java" label="Java">
 
-```java
-@Test
-void testQuonfig(){
-  ConfigClient mockConfigClient = mock(ConfigClient.class);
-  when(mockConfigClient.liveString("sample.string")).thenReturn(FixedValue.of("test value"));
-  when(mockConfigClient.liveLong("sample.long")).thenReturn(FixedValue.of(123L));
+`Quonfig` is a regular (final) class with no static state, so inject it and mock it. Mockito 5's default inline mock maker can mock final classes.
 
-  MyClass myClass = new MyClass(mock(ConfigClient.class));
+```java
+import com.quonfig.sdk.Quonfig;
+import static org.mockito.Mockito.*;
+
+@Test
+void testQuonfig() {
+  Quonfig quonfig = mock(Quonfig.class);
+  when(quonfig.getString("sample.string", "default")).thenReturn("test value");
+  when(quonfig.getLong("sample.long", 10L)).thenReturn(123L);
+
+  MyClass myClass = new MyClass(quonfig);
 
   // test business logic
-
 }
 ```
+
+[Read the full Java testing docs.](/docs/sdks/java#testing)
 
 </TabItem>
 <TabItem value="ruby" label="Ruby">
