@@ -584,7 +584,7 @@ saw `true`, you can remove that: the client recovers by itself.
 
 Developers trying to run `rake assets:precompile` or `rails assets:precompile` in CI/CD know the pain of missing environment variables. Quonfig can help with this, but you don't want to hardcode your Quonfig SDK key in your Dockerfile. What should you do instead?
 
-We recommend running in [datadir mode](/docs/explanations/concepts/testing#testing-with-datafiles) for `assets:precompile`. Pull your workspace config files locally with the Quonfig CLI:
+We recommend running in [datadir mode](/docs/explanations/concepts/local-workspace) for `assets:precompile`. Pull your workspace config files locally with the Quonfig CLI:
 
 ```bash
 qfg pull --dir ./config
@@ -605,7 +605,7 @@ Set `QUONFIG_ENVIRONMENT` to whichever environment you want to evaluate (`test`,
 
 ### Test Setup
 
-You can use a datafile for consistency, reproducibility, and offline testing. See [Testing with DataFiles](/docs/explanations/concepts/testing#testing-with-datafiles).
+You can run your tests against a datadir for consistency, reproducibility, and offline testing. See [Testing with a datadir](/docs/explanations/concepts/testing#testing-with-a-datadir).
 
 If you need to test multiple scenarios that depend on a single config or feature key, you can change the Quonfig value using a mock or stub.
 

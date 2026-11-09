@@ -126,7 +126,7 @@ files directly. **No login needed.** You can also be explicit with
 
 ### 5. Point your SDK at the directory
 
-Every SDK supports a `datadir` (or `datafile`) option. With `datadir` set and
+Every SDK supports a `datadir` option. With `datadir` set and
 no `sdkKey`, the SDK runs in fully local mode: no SSE, no telemetry, no API
 fetches. See the [Next.js + TypeScript tutorial](/docs/tutorials/nextjs-typescript-local)
 for a complete walkthrough.

@@ -432,9 +432,9 @@ older entries expire. Evaluations and targeting are not affected.
 
 ## Offline and Testing Modes
 
-### Local Data Directory (Datafiles)
+### Local Data Directory (datadir)
 
-For offline development, testing, or air-gapped environments, you can load configuration from a local Quonfig workspace directory on disk instead of connecting to the Quonfig API. See [Testing with DataFiles](/docs/explanations/concepts/testing#testing-with-datafiles) for more information on generating local data.
+For offline development, testing, or air-gapped environments, you can load configuration from a local Quonfig workspace directory on disk instead of connecting to the Quonfig API. See [Local Workspace (datadir)](/docs/explanations/concepts/local-workspace) for how to pull one.
 
 Point the SDK at the workspace directory with `WithDataDir`, and select which environment to evaluate with `WithEnvironment`:
 

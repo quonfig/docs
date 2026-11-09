@@ -12,7 +12,7 @@ Testing is a first-class citizen in Quonfig. We've designed it so that it is eas
 
 ### Best Practices For Testing
 
-The best practice for testing is to create a test environment and use a [datafile][df]. A datafile is a JSON snapshot of your configuration, which allows the Quonfig client to boot up in a consistent state without talking to the Quonfig server.
+The best practice for testing is to create a test environment and run your tests against a [local copy of your workspace][datadir] (a datadir). The Quonfig client then boots in a consistent state without talking to the Quonfig server.
 
 You can then use mocking to override specific values as-needed, when you are testing the behavior of a particular feature flag or config.
 
@@ -101,10 +101,10 @@ Don't use the `QuonfigProvider`. Instead, use the `QuonfigTestProvider` and pass
 </TabItem>
 </Tabs>
 
-## Testing with DataFiles
+## Testing with a datadir
 
-Mocking out all of the Quonfig calls can be tedious, so we've added a feature called [DataFiles][df] to Quonfig.
+Mocking every Quonfig call can be tedious. Instead, run your tests against a [datadir][datadir]: a local copy of your workspace pulled with `qfg pull`.
 
-Having your tests/CI reach out to Quonfig to get the latest configuration is a viable approach, but for consistency & reproducibility, many of us prefer to have full control over the configuration used to run tests. Datafiles are perfect for this use case.
+Your tests and CI could fetch the latest configuration from Quonfig, but many teams want full control over the configuration their tests run against, for consistency and reproducibility. A datadir committed to your repo gives you that.
 
-[df]: ./datafiles
+[datadir]: ./local-workspace

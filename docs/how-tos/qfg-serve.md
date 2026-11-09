@@ -177,7 +177,7 @@ If you need any of:
 …use a hosted Quonfig account or the delivery API. See
 [Open Source / Fully Local](/docs/how-tos/open-source-local) for the
 broader local story and [Offline Mode](/docs/how-tos/offline-mode) for
-the datafile path.
+running without a network connection.
 
 ## What's not in v1
 
