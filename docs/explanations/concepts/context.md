@@ -93,78 +93,69 @@ end
 
 </TabItem>
 
-<TabItem value="micronaut" label="Micronaut">
+<TabItem value="java" label="Java">
 
-In your Quonfig options, set your Quonfig Context store to be your ServerRequestContextStore.
-
-```java
-options.setContextStore(new ServerRequestContextStore());
-```
-
-Next, we add a filter to add a Quonfig context based on the currently "logged in" user.
+Java has no ambient context: you bind a `ContextSet` with `withContext(...)` and read from the returned `BoundQuonfig`. In a JAX-RS app (Dropwizard, Jersey), a `ContainerRequestFilter` can build the bound client once per request and stash it on the request.
 
 ```java
-configClient.getContextStore()
-      .addContext(QuonfigContext.newBuilder("user")
-          .put("key", user.key())
-          .put("country", user.country())
-          .put("email", user.email())
-          .build()
-      );
-```
+import com.quonfig.sdk.BoundQuonfig;
+import com.quonfig.sdk.Quonfig;
+import com.quonfig.sdk.eval.ContextSet;
+import java.util.Map;
 
-</TabItem>
-
-<TabItem value="dropwizard" label="Dropwizard">
-
-Use a `ContainerRequestFilter` to set the context for your request when the request begins
-
-```java
-public class QuonfigContextAddingRequestFilter implements ContainerRequestFilter {
-    private static final Logger LOGGER = LoggerFactory.getLogger(QuonfigContextAddingRequestFilter.class);
-    private final ConfigClient configClient;
+public class QuonfigContextFilter implements ContainerRequestFilter {
+    private final Quonfig quonfig;
 
     @Inject
-    public QuonfigContextAddingRequestFilter(ConfigClient configClient) {
-        this.configClient = configClient;
+    public QuonfigContextFilter(Quonfig quonfig) {
+        this.quonfig = quonfig;
     }
 
     @Override
-    public void filter(ContainerRequestContext containerRequestContext) throws IOException {
-        final SecurityContext securityContext =
-                containerRequestContext.getSecurityContext();
-        if (securityContext != null) {
-            Principal principal = securityContext.getUserPrincipal();
-            if (principal instanceof User) {
-                User user = (User) principal;
-                LOGGER.info("will add pf context for {}", user);
-                configClient.getContextStore().addContext(QuonfigContext.newBuilder("User")
-                        .put("key", user.getKey())
-                        .put("name", user.getName())
-                        .build());
-            }
+    public void filter(ContainerRequestContext request) {
+        ContextSet ctx = new ContextSet();
+        SecurityContext security = request.getSecurityContext();
+        if (security != null && security.getUserPrincipal() instanceof User user) {
+            ctx = ctx.withNamedContext("user", Map.of(
+                "key", user.getKey(),
+                "name", user.getName()
+            ));
         }
+        request.setProperty("quonfig", quonfig.withContext(ctx));
     }
 }
 ```
 
-Then we'll add another `ContainerResponseFilter` to clear the context when the request finishes.
+Your resources then read the `BoundQuonfig` from the request property. It goes away with the request, so there is nothing to clear.
+
+</TabItem>
+
+<TabItem value="micronaut" label="Micronaut">
+
+Micronaut can handle one request on several threads, so a `ThreadLocal` won't follow it. Add `com.quonfig:sdk-java-micronaut` and use `MicronautContextStore`, which keeps the `ContextSet` on the current `HttpRequest`.
+
+In a request filter, set the context for the logged-in user:
 
 ```java
-public class QuonfigContexClearingResponseFilter implements ContainerResponseFilter {
-    private static final Logger LOGGER = LoggerFactory.getLogger(QuonfigContexClearingResponseFilter.class);
-    private final ConfigClient configClient;
+import com.quonfig.sdk.eval.ContextSet;
+import com.quonfig.sdk.micronaut.MicronautContextStore;
+import java.util.Map;
 
-    @Inject
-    QuonfigContexClearingResponseFilter(ConfigClient configClient) {
-        this.configClient = configClient;
-    }
+MicronautContextStore.setContext(new ContextSet()
+    .withNamedContext("user", Map.of(
+        "key", user.key(),
+        "country", user.country(),
+        "email", user.email()
+    )));
+```
 
-    @Override
-    public void filter(ContainerRequestContext containerRequestContext, ContainerResponseContext containerResponseContext) throws IOException {
-        configClient.getContextStore().clearContexts();
-        LOGGER.info("Cleared context");
-    }
+Downstream code reads it back when it evaluates:
+
+```java
+ContextSet ctx = MicronautContextStore.getContext().orElse(new ContextSet());
+
+if (quonfig.withContext(ctx).featureIsOn("my.feature.name")) {
+    // ...
 }
 ```
 
@@ -175,15 +166,13 @@ public class QuonfigContexClearingResponseFilter implements ContainerResponseFil
 In JavaScript, there is only the global context. You can't specify a JIT context. Quonfig fetches evaluated feature flags based on the context you provided.
 
 ```javascript
-import { Quonfig, Context } from '@quonfig/javascript'
+import { quonfig } from "@quonfig/javascript";
 
-const context = new Context({user: { email: 'test@example.com' }, device: { mobile: true } });
+const context = { user: { email: "test@example.com" }, device: { mobile: true } };
 
-const options = { apiKey: '1234', context };
+await quonfig.init({ sdkKey: "QUONFIG_FRONTEND_SDK_KEY", context });
 
-await Quonfig.init(options);
-
-if (Quonfig.isEnabled('cool-feature') {
+if (quonfig.isEnabled("cool-feature")) {
   // ...
 }
 ```
@@ -195,19 +184,17 @@ if (Quonfig.isEnabled('cool-feature') {
 In React, there is only the global context. You can't specify a JIT context. Quonfig fetches evaluated feature flags based on the context you provided.
 
 ```jsx
-import { QuonfigProvider } from '@quonfig/react';
+import { QuonfigProvider } from "@quonfig/react";
 
 const WrappedApp = () => {
   const context = { user: { email: "jeffrey@example.com" }, subscription: { plan: "advanced" } };
 
   return (
-    <QuonfigProvider
-      apiKey={'QUONFIG_FRONTEND_SDK_KEY'}
-      contextAttributes={context}
+    <QuonfigProvider sdkKey={"QUONFIG_FRONTEND_SDK_KEY"} contextAttributes={context}>
       <App />
     </QuonfigProvider>
   );
-}
+};
 ```
 
 </TabItem>
