@@ -8,7 +8,7 @@ sidebar_position: 2
 
 ```ruby
 config_key = "my-first-int-config"
-puts "#{config_key} is: #{Quonfig.get(config_key)}"
+puts "#{config_key} is: #{Quonfig.get(config_key, 30)}" # 30 is the code default
 
 flag_name = "my-first-feature-flag"
 puts "#{flag_name} is: #{Quonfig.enabled? flag_name}"
@@ -21,13 +21,12 @@ my-first-int-config is: 30
 my-first-feature-flag is: false
 ```
 
-Now create a config named `my-first-int-config` in the Quonfig UI. Set a default value to 50 and sync your change to the
-API.
+Neither key exists yet, so you get the code default for the config and `false` for the flag.
 
-Add a feature flag named `my-first-feature-flag` in the Quonfig UI. Add boolean variants of `true` and `false`.
-Set the inactive variant to `false`, make the flag active and add a rule of type `ALWAYS_TRUE` with the variant to serve
-as `true`.
-Remember to sync your change to the API.
+Now create a config named `my-first-int-config` in the Quonfig UI with a default value of 50. Save and publish.
+
+Add a feature flag named `my-first-feature-flag` in the Quonfig UI (type `bool`) and set its default rule to serve `true`.
+Save and publish.
 
 Run your command again and you should see:
 
