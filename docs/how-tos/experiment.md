@@ -27,14 +27,13 @@ Quonfig is designed to give you a terrific solution to **targeting & bucketing**
 
 Let's walk through an example of adding experimentation to Mixpanel by bucketing users in Quonfig.
 
-First we'll create a new experiment: `experiment.ex-2.bigger-button`. We'll do it as type `string` rather than a boolean so that we can have nice `Control` and `Treatment` variants (and leave ourselves the option of a `Holdout` option).
-![image](/img/docs/how-tos/exp-prefab-create.jpg)
-Next we'll add these `Control` and `Treatment` variants.
-![image](/img/docs/how-tos/exp-prefab-variants.jpg)
-We'll select `Percent Rollout` for the value. 
-![image](/img/docs/how-tos/exp-prefab-percent-rollout.jpg)
-We can choose to "split evenly". Note the sticky property. This tells us which piece of [Context](/docs/explanations/concepts/context.md) to use to seed the random bucket generator. Our application sets context like `{user: {key: '123-45f', name: 'Bob Beemer'}}` so `user.key` is a natural choice here. This will ensure that any user that is bucketed into the `Treatment` stays in the treatment everytime they use the application. The sticky property doesn't have to be a `key` — it can be **any** context property, so you can bucket on a high-cardinality value without it counting toward MTK. See [What gets saved](/docs/explanations/concepts/context.md).
-![image](/img/docs/how-tos/exp-prefab-split-evenly.jpg)
+First we'll create a new flag: `experiment.ex-2.bigger-button`. We'll make it type `string` rather than a boolean so that we can have nice `Control` and `Treatment` variants (and leave ourselves the option of a `Holdout` variant later).
+
+Add `Control` and `Treatment` as variants. Then, in the Production rules, choose `Percent Rollout` and check "Split evenly". Note the sticky property. This tells us which piece of [Context](/docs/explanations/concepts/context.md) to use to seed the random bucket generator. Our application sets context like `{user: {key: '123-45f', name: 'Bob Beemer'}}` so `user.key` is a natural choice here. This will ensure that any user that is bucketed into the `Treatment` stays in the treatment every time they use the application. The sticky property doesn't have to be a `key` — it can be **any** context property, so you can bucket on a high-cardinality value without it counting toward MTK. See [What gets saved](/docs/explanations/concepts/context.md).
+
+Save and publish.
+
+![The experiment flag with Control and Treatment variants, split evenly on user.key in Production](/img/docs/tools/experiment-split-evenly.png)
 
 ### Setting up Exposure Tracking (Mixpanel example)
 
@@ -73,8 +72,9 @@ if(quonfig.get('experiment.ex-2.bigger-button') === "Treatment"){
 With that setup, we can run our application. 50% of users will see our new and 50% our existing logic.
 
 ## Verifying our Bucketing Evaluations
-A crucial part of bucketing is giving you confidence that the bucketing is happening as you expect. Quonfig evaluation charts are very useful here. This is showing us that at our low amount of traffic in staging the 50%/50% split is really a 54%/46% split. We'll expect to see this track to 50%/50% over time. 
-![image](/img/docs/how-tos//prefab-evaluations.jpg)
+A crucial part of bucketing is giving you confidence that the bucketing is happening as you expect. The flag's Evaluations tab is very useful here. At low traffic a 50%/50% split wobbles from day to day (here, 54%/46% on the first day), and it tracks toward 50%/50% as traffic grows.
+
+![Daily Control and Treatment evaluation counts for the experiment flag](/img/docs/tools/experiment-evaluations.png)
 
 ## Analyzing our Experiment
 In Mixpanel, we can now setup a funnel report. The conversion event for this example will be an event  called `QuonfigLandingPage` that we have triggered via basic `mixpanel.track('QuonfigLandingPage');` calls. 
@@ -94,10 +94,20 @@ Success! We can see our AB Test in it's full glory. We can see that we have some
 ## Testing Experiments Locally
 As a developer building out the new feature. It's pretty common to want to be able to quickly toggle back and forth between the variants of your experiment. You could do this by just changing the development value, but that will affect everyone on your team. 
 
-Quonfig's [personal overrides](/docs/explanations/features/personal-overrides) have you covered. Because the CLI knows who you are, `qfg override experiment.ex-2.bigger-button Treatment` adds a targeted override just for you, and `--remove` takes it away. Here's what that looks like: 
-![image](/img/docs/how-tos/prefab-cli-anim.gif)
+Quonfig's [personal overrides](/docs/explanations/features/personal-overrides) have you covered. Because the CLI knows who you are, `qfg override` adds a targeted override just for you, and `--remove` takes it away:
 
-And here's the resulting rule that you'll see in the Quonfig UI.
-![image](/img/docs/how-tos/exp-override.jpg)
+<TerminalAnimation
+  label="qfg override sets experiment.ex-2.bigger-button to Treatment for you@yourco.com in development, then removes the override"
+  lines={[
+    { kind: "command", text: "qfg override experiment.ex-2.bigger-button Treatment --env development" },
+    { kind: "output", text: "✔ Set override experiment.ex-2.bigger-button=\"Treatment\" (string) for you@yourco.com in env=development (commit 3f9a1c2)." },
+    { kind: "command", text: "qfg override experiment.ex-2.bigger-button --remove --env development" },
+    { kind: "output", text: "✔ Removed override on experiment.ex-2.bigger-button in env=development." },
+  ]}
+/>
+
+While the override is in place, here's the rule you'll see at the top of the Development rules in the Quonfig UI:
+
+![The personal-override rule: Treatment when quonfig-user.email is one of you@yourco.com](/img/docs/tools/experiment-override-rule.png)
 
 Happy experimenting!
