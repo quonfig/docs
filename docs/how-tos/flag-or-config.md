@@ -18,6 +18,17 @@ Our position is simple:
 - **Because the lifetimes differ, they're tracked differently.** A flag
   should be heading toward cleanup. A config shouldn't nag you.
 
+Here's what that looks like in practice. Every flag shows where it is in its
+life and how long it's been there, next to two weeks of evaluation activity:
+
+![The Quonfig flag list: lifecycle status with days in that status (Rollout, Live, Pre-rollout, Ready for cleanup) next to evaluation sparklines](/img/docs/how-tos/flag-lifecycle-list.png)
+
+`mobile.bottom-nav` has been **Live** for 157 days, so its rollout is long
+over and it should come out of the code. `payments.stripe-v2` is already
+marked **Ready for cleanup**, and its sparkline has dropped to zero because
+the code that read it is gone. Configs don't get any of this, because a
+timeout that hasn't changed in two years is just doing its job.
+
 This page covers what the two have in common, where they differ, and how to
 decide which one you want.
 
@@ -130,10 +141,9 @@ reading the same key.
 
 Creating a flag is easy; removing one is the hard part. A flag that outlives
 the project that created it tends to stay forever. So every boolean flag in
-Quonfig carries a lifecycle status, and the flag list shows it next to
-14 days of evaluation activity:
-
-![The flag list, showing Rollout, Live, Pre-rollout and Ready for cleanup statuses next to activity sparklines](/img/docs/how-tos/flag-lifecycle-list.png)
+Quonfig carries a lifecycle status, shown in the flag list (pictured at
+the top of this page) along with how many days the flag has held it. A
+flag that has been **Live (157d)** is telling you something.
 
 The statuses are:
 
@@ -163,7 +173,7 @@ The flow we recommend:
    should win, inlines it, and deletes the dead branch. The change goes
    through code review like any other.
 4. **Watch the sparkline flatline.** Once that PR deploys, nothing reads the
-   flag anymore and its activity drops to zero. In the list above,
+   flag anymore and its activity drops to zero. In the list at the top of this page,
    `payments.stripe-v2` is marked ready for cleanup and its sparkline has
    already fallen off. That's what "safe to delete" looks like.
 5. **Delete the flag.** `qfg cleanup verify <key>` confirms there have been
