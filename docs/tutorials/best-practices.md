@@ -101,19 +101,7 @@ These tools let you see the live contexts that are being used in your applicatio
 
 ## Configs vs Flags
 
-Many feature flag tools just have flags. Quonfig has both flags and configs. What's the difference? When should you use one over the other?
-
-Here's the basic guideline:
-    1. FF are designed for things that are ephemeral
-    2. Configs are designed for things that are permanent
-
-Under the covers, these objects are very similar. But in practice, we've found that these are two different concepts and that they are each deserving of their own user interface. 
-
-Sometimes we have ephemeral things. We're doing a rollout, we're launching something and we want to be able to turn it on and off while we verify that we like it. These are flags.
-
-Other times we have things that are more permanent, 
-
-In both cases we want to be able to have sophisticated targeting rules based on context. But for config it's pretty common that we may have no targeting rules at all. Something like the `http.timeout` is a great example. It's a great piece of configuration that we may want the option to change, but it may also just sit at 10 seconds for all time. 
+Quonfig has both flags and configs. They have the same targeting, types and environments; what differs is lifetime. Flags are ephemeral and head toward cleanup, while configs are permanent. See [Feature Flag or Config?](/docs/how-tos/flag-or-config) for how to decide, and how each one is tracked.
 
 ## Explore Advanced Datatypes
 ### Duration
