@@ -14,20 +14,34 @@ flag, and you change the percentage without a deploy.
 
 ## 1. Set the percentage
 
-From the CLI:
+1. Open the flag and select the environment tab, for example **Production**.
+2. Clear **Use the Default rules for this environment** if it's checked.
+3. In the rule's value dropdown, choose **Percent Rollout**.
+4. Type `10` next to `true`, or drag the slider. The other side fills in
+   the rest.
+5. Click **Save**.
+
+![The new-checkout flag on Production: a Percent Rollout with true at 10% and false at 90%, sticky property user.key](/img/docs/tools/rollout-sticky.png)
+
+Flags with more than two values (an A/B/C test, say) get one percentage
+box per value. **Split evenly** divides traffic equally between them.
+
+<details>
+<summary>Using the CLI instead</summary>
 
 ```bash
 qfg set-rollout new-checkout --environment production --true-percent 10
 ```
 
-Or in the app, open the flag, pick the environment, and set the rule's value
-to a percentage split. Drag the slider to 10%.
-
-For flags with more than two values (an A/B/C test, say), use weights:
+For flags with more than two values, pass weights that add up to 100:
 
 ```bash
 qfg set-rollout checkout-button-color --environment production --weights "red:34,green:33,blue:33"
 ```
+
+See [`set-rollout`](/docs/tools/cli#set-rollout) for every option.
+
+</details>
 
 ## 2. Check the flag in code
 
@@ -82,8 +96,8 @@ here.
 ## 3. Choose the sticky property
 
 Every percentage split has a **sticky property**. It decides how each
-evaluation picks a side. In the app it's the **Sticky property** field next
-to the slider. In the CLI it's `--hash-by`. The default is `user.key`.
+evaluation picks a side. It's the **Sticky property** field above the
+slider, and it starts as `user.key`.
 
 Quonfig hashes the flag key plus the value of that property, so the same
 value always lands on the same side. You have three choices:
@@ -117,6 +131,23 @@ context for this, and you don't need to generate your own random number.
 This is the right setting when the unit is the request, not the person: "send
 10% of jobs through the new pipeline."
 
+![The new-pipeline flag on Production: a 10% / 90% Percent Rollout with the Sticky property field left blank](/img/docs/tools/rollout-not-sticky.png)
+
+<details>
+<summary>Setting the sticky property from the CLI</summary>
+
+`qfg set-rollout` takes the sticky property as `--hash-by`:
+
+```bash
+qfg set-rollout new-checkout --environment production --true-percent 10 --hash-by organization.key
+```
+
+It defaults to `user.key`, and it writes that default every time you run it
+without `--hash-by`. If you use a different sticky property, pass the same
+`--hash-by` on every step. For a non-sticky rollout, use the app.
+
+</details>
+
 ## Watch out: a missing sticky property is not random
 
 If the sticky property is set but the context doesn't include it, Quonfig
@@ -136,23 +167,37 @@ details include `hashPropertyMissing: true`. Two fixes:
 
 ## Dialing up
 
-Raise the percentage in steps: 1% → 10% → 50% → 100%. On a two-way split,
-users who already get `true` keep getting `true` as the percentage goes up.
-Only new users join. Lowering it removes the most recently added users first.
+Raise the percentage in steps: 1% → 10% → 50% → 100%. Each step is the same
+edit: change the number, then **Save**. On a two-way split, users who already
+get `true` keep getting `true` as the percentage goes up. Only new users
+join. Lowering it removes the most recently added users first.
 
-Don't change the sticky property mid-rollout. It reshuffles everyone. If
-you set a custom sticky property with `qfg set-rollout --hash-by`, pass the
-same `--hash-by` on every step. Without it, the command writes the default
-`user.key`.
+Don't change the sticky property mid-rollout. It reshuffles everyone.
 
-A rollout sits underneath your targeting rules. If a rule above it says
-"internal users get `true`", internal users keep `true` whatever the
-percentage. `qfg set-rollout` keeps those rules, and `--replace-targeting`
-removes them so everyone goes through the split. See
-[`set-rollout`](/docs/tools/cli#set-rollout).
+Rules run top to bottom, and the first match wins. Put targeting rules, such
+as "internal users get `true`", above the rollout with **Add Rule**, and
+those users get their value whatever the percentage.
 
-When you reach 100% and it's been stable, make `true` the default with
-`qfg set-default`, then remove the flag check from your code.
+When you reach 100% and it's been stable, change the dropdown from
+**Percent Rollout** to `true`, then remove the flag check from your code.
+
+<details>
+<summary>Dialing up from the CLI</summary>
+
+Run `set-rollout` again with the new percentage:
+
+```bash
+qfg set-rollout new-checkout --environment production --true-percent 50
+```
+
+It keeps targeting rules above the split. `--replace-targeting` deletes them
+so everyone goes through the split. At 100%, switch to a plain value:
+
+```bash
+qfg set-default new-checkout --environment production --value true
+```
+
+</details>
 
 ## Related
 
