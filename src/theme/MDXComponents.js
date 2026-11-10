@@ -6,6 +6,7 @@ import TabItem from "@theme/TabItem";
 
 import Button from "../components/Button";
 import Section from "../components/Section";
+import TerminalAnimation from "../components/TerminalAnimation";
 
 export default {
   // Re-use the default mapping
@@ -13,6 +14,7 @@ export default {
   // Map tags to our custom components
   Button,
   Section,
+  TerminalAnimation,
   Tabs,
   TabItem,
 };

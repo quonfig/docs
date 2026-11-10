@@ -1,0 +1,98 @@
+.terminal {
+  --term-bg: #0d1117;
+  --term-fg: #e6edf3;
+  --term-dim: #8b949e;
+  --term-ok: #3fb950;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: var(--term-bg);
+  margin: 1rem 0 1.5rem;
+  overflow: hidden;
+}
+
+.bar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #21262d;
+}
+
+.bar span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #30363d;
+}
+
+.body {
+  margin: 0;
+  padding: 14px 16px;
+  min-height: 9.5em;
+  background: transparent;
+  color: var(--term-fg);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+  border-radius: 0;
+}
+
+.command {
+  display: flex;
+}
+
+.prompt {
+  color: var(--term-dim);
+}
+
+.typed {
+  display: inline-block;
+  overflow: hidden;
+  width: calc(var(--chars) * 1ch);
+  animation: type var(--duration) steps(var(--chars)) both;
+}
+
+.caret {
+  display: inline-block;
+  width: 0.6ch;
+  height: 1.2em;
+  margin-left: 1px;
+  background: var(--term-fg);
+  animation: blink 1s steps(1) infinite;
+  align-self: center;
+}
+
+.output {
+  color: var(--term-ok);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-left: 2ch;
+  text-indent: -2ch;
+  animation: appear 200ms ease-out both;
+}
+
+@keyframes type {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typed,
+  .output,
+  .caret {
+    animation: none;
+  }
+}
