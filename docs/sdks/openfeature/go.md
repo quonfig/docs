@@ -2,14 +2,14 @@
 title: Go (OpenFeature)
 ---
 
-`github.com/quonfig/openfeature-go` is an OpenFeature provider for Go server
-applications. It wraps `github.com/quonfig/sdk-go` and implements the
+`github.com/quonfig/openfeature-go/v2` is an OpenFeature provider for Go server
+applications. It wraps `github.com/quonfig/sdk-go/v2` and implements the
 `github.com/open-feature/go-sdk` `FeatureProvider` interface.
 
 ## Install
 
 ```bash
-go get github.com/quonfig/openfeature-go
+go get github.com/quonfig/openfeature-go/v2
 go get github.com/open-feature/go-sdk
 ```
 
@@ -20,7 +20,7 @@ import (
     "context"
     "log"
 
-    openfeaturego "github.com/quonfig/openfeature-go"
+    openfeaturego "github.com/quonfig/openfeature-go/v2"
     "github.com/open-feature/go-sdk/openfeature"
 )
 
@@ -42,15 +42,36 @@ func main() {
 ```
 
 :::note If Quonfig is unreachable at startup
-Whether `SetProviderAndWait` returns an error during an outage depends on the
-sdk-go version your module resolves. With sdk-go older than 1.9.0 (what
-openfeature-go 1.5.1 pins), the provider reports READY immediately, so the
-`log.Fatal` above does not fire when delivery is down. If your `go.mod`
-requires sdk-go 1.9.0 or later, `NewClient` fails by default after
-`WithInitTimeout` (10s): the provider goes to ERROR and `SetProviderAndWait`
-returns the error. Pass `quonfig.WithOnInitFailure(...)` through
-`AdditionalOptions` to choose `wait` or `continue` instead. See
-[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+`Init` (run by `SetProviderAndWait`) waits for the first config, up to the
+client's init timeout (default 10s). By default it then returns a
+`*quonfig.InitError`, the provider goes to `ERROR`, and the `log.Fatal` above
+fires. To wait or to start on code defaults instead, pass sdk-go options
+through `AdditionalOptions`:
+
+```go
+import (
+    "time"
+
+    quonfig "github.com/quonfig/sdk-go/v2"
+    openfeaturego "github.com/quonfig/openfeature-go/v2"
+)
+
+provider := openfeaturego.NewQuonfigProvider(openfeaturego.Options{
+    SDKKey: "qf_sk_production_...",
+    AdditionalOptions: []quonfig.Option{
+        quonfig.WithOnInitFailure(quonfig.InitFailureContinue), // default: InitFailureFail
+        quonfig.WithInitTimeout(5 * time.Second),
+    },
+})
+```
+
+| `onInitFailure` | `Init` | Provider status | When config arrives |
+|---|---|---|---|
+| `InitFailureFail` (default) | Returns `*quonfig.InitError` | `ERROR` | No client exists, so nothing retries. Register the provider again or restart. |
+| `InitFailureWait` | Blocks until the first config | `NOT_READY`; evaluations return the default with `PROVIDER_NOT_READY` | `Init` returns; `READY` |
+| `InitFailureContinue` | Returns `nil`, then emits `PROVIDER_ERROR` | `ERROR`; evaluations return the default with `PROVIDER_NOT_READY` | The client keeps retrying; the provider emits `PROVIDER_READY` |
+
+See [If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
 :::
 
 ## Evaluate flags

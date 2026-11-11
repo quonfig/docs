@@ -33,7 +33,7 @@ Without a bundler, import the ES module build from [jsDelivr][jsDelivr] in a `<s
 
 ```html
 <script type="module">
-  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@1/+esm";
+  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@2/+esm";
 </script>
 ```
 
@@ -75,7 +75,7 @@ You aren't required to `await` the `init` -- it is a promise, so you can use `.t
 
 ```html
 <script type="module">
-  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@1/+esm";
+  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@2/+esm";
 
   const options = {
     sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
@@ -101,12 +101,6 @@ While `quonfig` is loading, `isEnabled` will return `false`, `get` will return `
 :::
 
 ### If Quonfig is unreachable at startup
-
-:::info Since @quonfig/javascript 1.6.0
-This section describes `@quonfig/javascript` 1.6.0 and later. Earlier versions have no `onInitFailure` or `initTimeout`: `init()`
-makes one attempt and rejects (unless a cached copy exists), and the client
-recovers only through `poll()`.
-:::
 
 `init()` retries (jittered backoff 0.5s, 1s, 2s, ..., capped at 30s) until it
 has config or `initTimeout` (default 5000ms) passes. A last-known-good copy
@@ -171,12 +165,11 @@ You can also use:
   const stringValue = quonfig.get("my-string-flag");
   ```
 
-- `getDuration` for time-specific values
+- `getDuration` for time-specific values. It never throws: a missing key, a value of another type
+  or a malformed value returns the default you pass (or `undefined` when you omit it).
   ```javascript
-  const timeout = quonfig.getDuration("api-timeout");
-  if (timeout) {
-    console.log(`Timeout: ${timeout.seconds}s (${timeout.ms}ms)`);
-  }
+  const timeout = quonfig.getDuration("api-timeout", { seconds: 5, ms: 5000 });
+  console.log(`Timeout: ${timeout.seconds}s (${timeout.ms}ms)`);
   ```
 
 </TabItem>
@@ -212,7 +205,7 @@ await quonfig.init(options);
 
 ```html
 <script type="module">
-  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@1/+esm";
+  import { quonfig } from "https://cdn.jsdelivr.net/npm/@quonfig/javascript@2/+esm";
 
   const options = {
     sdkKey: "QUONFIG_FRONTEND_SDK_KEY",
@@ -260,7 +253,7 @@ await quonfig.init(options);
 
 ## `poll()`
 
-After `quonfig.init()`, you can start polling. Polling uses the context you defined in `init` by default. You can update the context for future polling by setting it on the `quonfig` object.
+After `quonfig.init()`, you can start polling. Polling uses the context you defined in `init` by default. To change the context for future polls, call `quonfig.updateContext(newContext)`.
 
 <Tabs groupId="lang">
 <TabItem value="javascript" label="JavaScript">
@@ -289,7 +282,7 @@ quonfig.updateContext({
 
 The browser SDK has no stream, so the rule applies to `poll()`. If a poll is
 rejected because Quonfig no longer accepts the SDK key, `@quonfig/javascript`
-1.5.0+ logs one `console.error` naming the HTTP status and host (never the
+logs one `console.error` naming the HTTP status and host (never the
 key), then waits `max(T, frequencyInMs)` between polls, with T picked at random
 between 150 and 300 seconds. The first accepted poll logs one `console.info`
 and polling returns to `frequencyInMs`. `init()` and `updateContext()` are not
@@ -343,7 +336,7 @@ The browser SDK evaluates log levels against the **context snapshot captured at 
 - A `log_level` config, keyed like `log-level.my-app`. Value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
 - Tell the SDK which config to consult with the `loggerKey` init option. `shouldLog({loggerPath, ...})` always reads that one config; `loggerPath` does not change which config is read.
 - The browser SDK does not evaluate rules itself. The server evaluates every config for the context you pass to `init()` / `updateContext()`, and `shouldLog` compares `desiredLevel` against that one pre-evaluated value. So every `loggerPath` gets the same answer from a given config.
-- `shouldLog` does not add `loggerPath` to the SDK's context, so it never changes what is fetched (since 1.4.0). Earlier versions added it as `quonfig-sdk-logging.key`, which changed the context of every later fetch.
+- `shouldLog` does not add `loggerPath` to the SDK's context, so it never changes what is fetched.
 
 ### Basic usage
 
@@ -367,7 +360,7 @@ The primitive shape — `shouldLog({configKey, desiredLevel, defaultLevel})` —
 
 Rules on a browser `log_level` config should target the context you pass to `init()`, such as user email, app version or deploy ring. For example, a `log-level.my-app` config with default `INFO` and a rule that returns `DEBUG` when `user.email` ends with `@mycompany.com` turns on debug logging for internal users only.
 
-Do not write browser rules on `quonfig-sdk-logging.key`. The browser SDK does not send the logger path with the context, so such a rule never matches (before 1.4.0 it sent whichever logger last called `shouldLog`, and the result was unpredictable). Per-logger rules on `quonfig-sdk-logging.key` work in the server SDKs, which evaluate locally for each call.
+Do not write browser rules on `quonfig-sdk-logging.key`. The browser SDK does not send the logger path with the context, so such a rule never matches. Per-logger rules on `quonfig-sdk-logging.key` work in the server SDKs, which evaluate locally for each call.
 
 ### Per-logger levels
 
@@ -449,7 +442,7 @@ Quonfig also stores the context that you pass in. The context keys are used to p
 
 How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
 every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
-The browser option names and defaults, passed to `quonfig.init()` (`@quonfig/javascript` 1.3.0+):
+The browser option names and defaults, passed to `quonfig.init()`:
 
 | Option                            | Default           |
 | --------------------------------- | ----------------- |
@@ -471,11 +464,6 @@ earlier failure are not resent.
 Telemetry drops log one `console.warn` and recovery one `console.info`. Debug lines print (via
 `console.debug`) only when the `log-level.quonfig-javascript.quonfig.telemetry` config (or a parent
 key such as `log-level.quonfig-javascript`) evaluates to `DEBUG` or `TRACE`.
-
-Changes in 1.3.0: the final flush moved from `beforeunload` to a `pagehide` keepalive POST;
-telemetry has its own 10s timeout instead of sharing the eval-fetch `timeout`; the per-window cap
-dropped from 100,000 to 10,000 evaluation-summary keys; a telemetry network error is no longer an
-unhandled promise rejection.
 
 ## Testing
 
@@ -509,11 +497,15 @@ it("shows the turbo button when the feature is enabled", () => {
 | --------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `contexts`      | `quonfig.contexts`                              | get the current context (after `init()`).                                                                                                                                                |
 | `extract`       | `quonfig.extract()`                             | returns the current config as a plain object of key, config value pairs                                                                                                                  |
-| `getDuration`   | `quonfig.getDuration("timeout-key")`            | returns a Duration object with `seconds` and `ms` properties for duration configs                                                                                                        |
+| `getDuration`   | `quonfig.getDuration("timeout-key", default?)`  | returns a Duration object with `seconds` and `ms` properties, or `default` (`undefined` if omitted) when the key is missing or is not a valid duration. Never throws.                    |
+| `getDetails`    | `quonfig.getDetails("my-flag")`                 | returns `{ value, reason, errorCode?, errorMessage?, variant, flagMetadata }`. `reason` is `STALE` when the value comes from this browser's cached copy, and `ERROR` (with an `errorCode`) when the read failed. |
 | `get`           | `quonfig.get('retry-count')`                    | returns the value of a flag or config evaluated in the current context                                                                                                                   |
 | `hydrate`       | `quonfig.hydrate(configurationObject)`          | sets the current config based on a plain object of key, config value pairs                                                                                                               |
 | `isEnabled`     | `quonfig.isEnabled("new-logo")`                 | returns a boolean (default `false`) if a feature is enabled based on the current context                                                                                                 |
 | `loaded`        | `if (quonfig.loaded) { ... }`                   | a boolean indicating whether quonfig content has loaded                                                                                                                                  |
+| `stale`         | `quonfig.stale`                                 | `true` while the served values come from this browser's last-known-good cache because no API URL was reachable; the next successful load sets it back to `false`                       |
+| `subscribe`     | `const off = quonfig.subscribe(listener)`       | calls `listener` after every config change (fetch, `hydrate`); returns an unsubscribe function                                                                                          |
+| `peek`          | `quonfig.peek("my-flag")`                       | reads a value without recording an evaluation or firing `afterEvaluationCallback`; for framework bindings. Application code should use `get()`                                          |
 | `isReady`       | `quonfig.isReady()`                             | whether the client holds live config (false while serving only a cached copy or code defaults)                                                                                          |
 | `error`         | `quonfig.error`                                 | the `QuonfigInitError` from a failed `init()`, or `undefined`; cleared when the client heals                                                                                            |
 | `loggerKey`     | `quonfig.loggerKey`                             | the init-time `loggerKey` used by the `shouldLog({loggerPath, ...})` overload                                                                                                            |
@@ -543,6 +535,7 @@ it("shows the turbo button when the feature is enabled", () => {
 | `collectEvaluationSummaries` | boolean  | `true`                | Send evaluation summary telemetry to Quonfig                                                                                                                                                                                                                                                                               |
 | `collectContextMode`         | string   | `"PERIODIC_EXAMPLE"`  | Context telemetry mode: `"PERIODIC_EXAMPLE"`, `"SHAPE_ONLY"`, or `"NONE"`                                                                                                                                                                                                                                                  |
 | `afterEvaluationCallback`    | function | `undefined`           | Callback invoked after each flag/config evaluation                                                                                                                                                                                                                                                                         |
+| `logger`                     | object   | `console`             | Receives every SDK log line (init failure and recovery, auth rejections, poll and telemetry failures, read warnings). Same shape as `console`, Pino, Winston or Bunyan: `warn` and `error` are required, `debug` and `info` are optional.                                                                                    |
 
 [React Client]: /docs/sdks/react
 [jsDelivr]: https://www.jsdelivr.com/package/npm/@quonfig/javascript

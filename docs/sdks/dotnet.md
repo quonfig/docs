@@ -6,13 +6,13 @@ title: .NET
 
 [GitHub](https://github.com/quonfig/sdk-net) | [NuGet](https://www.nuget.org/profiles/quonfig)
 
-Replace `1.7.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
+The .NET CLI installs the latest release. Where your build file needs an explicit version, replace `VERSION` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk).
 
 <Tabs groupId="dotnet-build">
 <TabItem value="dotnet-cli" label=".NET CLI">
 
 ```bash
-dotnet add package Quonfig.Sdk --version 1.7.0
+dotnet add package Quonfig.Sdk
 ```
 
 </TabItem>
@@ -21,7 +21,7 @@ dotnet add package Quonfig.Sdk --version 1.7.0
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Quonfig.Sdk" Version="1.7.0" />
+  <PackageReference Include="Quonfig.Sdk" Version="VERSION" />
 </ItemGroup>
 ```
 
@@ -30,7 +30,7 @@ dotnet add package Quonfig.Sdk --version 1.7.0
 <TabItem value="paket" label="Paket">
 
 ```paket
-nuget Quonfig.Sdk ~> 1.7.0
+nuget Quonfig.Sdk
 ```
 
 </TabItem>
@@ -40,7 +40,7 @@ nuget Quonfig.Sdk ~> 1.7.0
 ```xml
 <Project>
   <ItemGroup>
-    <PackageVersion Include="Quonfig.Sdk" Version="1.7.0" />
+    <PackageVersion Include="Quonfig.Sdk" Version="VERSION" />
   </ItemGroup>
 </Project>
 ```
@@ -105,12 +105,6 @@ await client.InitAsync();
 `InitAsync()` runs the first config fetch (or datadir read) and completes once the initial envelope has been installed. After it returns, every typed getter (`GetString`, `GetBool`, etc.) is a synchronous in-memory read — no `Async` suffix, no `Task` allocation per call.
 
 ### If Quonfig is unreachable at startup
-
-:::info Since Quonfig.Sdk 1.9.0
-This section describes `Quonfig.Sdk` 1.9.0 and later.
-Earlier versions make a single attempt, offer only `Throw` (default) and
-`ReturnDefaults`, and a client whose `InitAsync()` threw does not recover.
-:::
 
 `InitAsync()` retries through blips (jittered backoff from 0.5s, capped at 30s)
 until it has config or `InitTimeout` (default 10s, measured from construction)
@@ -441,10 +435,10 @@ Weighted-value configs resolve to the correct value and report `Reason.Split` wi
 The `Quonfig.Sdk.AspNetCore` companion package wires `Quonfig` into the ASP.NET Core host: it registers the singleton, runs `InitAsync` via `IHostedService`, and (optionally) binds per-request `ContextSet` from `HttpContext` so controllers can inject `IBoundQuonfig` directly.
 
 ```bash
-dotnet add package Quonfig.Sdk.AspNetCore --version 1.7.0
+dotnet add package Quonfig.Sdk.AspNetCore
 ```
 
-Replace `1.7.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.AspNetCore). The companion packages ship lock-step with `Quonfig.Sdk` from the same tag, so keep the versions aligned.
+The companion packages ship lock-step with `Quonfig.Sdk` from the same tag, so keep `Quonfig.Sdk.AspNetCore` on the [same version](https://www.nuget.org/packages/Quonfig.Sdk.AspNetCore) as `Quonfig.Sdk`.
 
 ```csharp
 // Program.cs
@@ -501,10 +495,10 @@ If no log-level config is found at any level, `ShouldLog` returns `true` — the
 The `Quonfig.Sdk.Extensions.Logging` package wires `ShouldLog` into the BCL logging pipeline by wrapping the providers already registered on the `ILoggingBuilder`:
 
 ```bash
-dotnet add package Quonfig.Sdk.Extensions.Logging --version 1.7.0
+dotnet add package Quonfig.Sdk.Extensions.Logging
 ```
 
-Replace `1.7.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Extensions.Logging). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
+Keep it on the [same version](https://www.nuget.org/packages/Quonfig.Sdk.Extensions.Logging) as the core `Quonfig.Sdk` package — the packages ship lock-step from one tag.
 
 `AddQuonfigFilter(quonfig)` takes the client instance and must be called **last** in the logging setup — it snapshots and wraps every `ILoggerProvider` registered up to that point. Because it needs the instance at logging-config time, construct the client up front and register the same instance with DI:
 
@@ -534,10 +528,10 @@ Every `ILogger<T>` call site is then automatically gated by Quonfig: the logger 
 For Serilog, use `Quonfig.Sdk.Serilog`. The `QuonfigLoggingLevelSwitchProvider` manages a set of Serilog `LoggingLevelSwitch` instances keyed by source context and re-evaluates them whenever the config envelope changes (it subscribes to the SDK's `OnConfigChange`, which fires after every successful install).
 
 ```bash
-dotnet add package Quonfig.Sdk.Serilog --version 1.7.0
+dotnet add package Quonfig.Sdk.Serilog
 ```
 
-Replace `1.7.0` with the [latest version on NuGet](https://www.nuget.org/packages/Quonfig.Sdk.Serilog). Keep it aligned with the core `Quonfig.Sdk` version — the packages ship lock-step from one tag.
+Keep it on the [same version](https://www.nuget.org/packages/Quonfig.Sdk.Serilog) as the core `Quonfig.Sdk` package — the packages ship lock-step from one tag.
 
 The provider resolves levels via `IQuonfig.GetLogLevel(...)`, so the config key is configured by `LoggerKey` on the **client** options — you don't pass a key to the provider. `GetSwitch(category)` returns (and caches) the switch for a source context; pass an empty string for the root switch used by `MinimumLevel.ControlledBy`:
 
@@ -643,19 +637,18 @@ By default Quonfig uploads telemetry that powers the dashboard's evaluation coun
 | `CollectEvaluationSummaries`  | Send aggregate counts of config/flag evaluation results back to Quonfig.                                                     | `true`            |
 | `ContextUploadMode`           | How named-context data is reported. One of `None`, `ShapesOnly` (names + types), or `PeriodicExample` (shapes plus example contexts with values). | `PeriodicExample` |
 
-:::note ContextUploadMode default changed in 1.3.0
+:::note What `PeriodicExample` uploads
 
-Before `Quonfig.Sdk` 1.3.0 the default was `ShapesOnly`, which uploads only context field names and
-types. The default is now `PeriodicExample`, matching every other Quonfig SDK. It additionally
-uploads **example contexts**: for each distinct context `key` (or `trackingId`), at most once per
+The default, `PeriodicExample`, matches every other Quonfig SDK. Besides context field names and
+types, it uploads **example contexts**: for each distinct context `key` (or `trackingId`), at most once per
 hour, the full evaluation context of that evaluation, meaning every named context (`user`, `team`,
 ...) including the `GlobalContext`, with **all property values** (for example `user.email`,
 `user.name`, `team.plan`). Contexts with neither a `key` nor a `trackingId` are never sampled.
 Example contexts power the dashboard's context drill-down and rule-editor autocomplete; see
 [What gets saved](../explanations/concepts/context.md#what-gets-saved--keys-example-contexts-and-your-bill).
 
-To keep the old behavior, set `ContextUploadMode = ContextUploadMode.ShapesOnly` (names and types,
-no values), or `ContextUploadMode.None` to send no context data at all.
+To send no property values, set `ContextUploadMode = ContextUploadMode.ShapesOnly` (names and types
+only), or `ContextUploadMode.None` to send no context data at all.
 
 :::
 
@@ -706,10 +699,6 @@ for source compatibility but no longer used.
 
 Telemetry logs through `QuonfigOptions.Logger`. The default is a no-op logger, so pass an
 `ILogger` to see telemetry drops (`Warning`), recovery (`Information`) and auth errors.
-
-Changes in 1.3.0: besides the `ContextUploadMode` default above, a timed-out telemetry POST no
-longer stops telemetry for the rest of the process; the timeout went from 30s to 15s; a failed POST
-logs at `Debug` instead of `Warning` every time.
 
 ## Testing
 

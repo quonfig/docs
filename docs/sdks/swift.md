@@ -13,12 +13,14 @@ server-side in Quonfig — there is no on-device targeting engine.
 ## Install
 
 Distributed via **Swift Package Manager**. In Xcode: **File → Add Package
-Dependencies…** and enter `https://github.com/quonfig/sdk-swift.git`, or add it
-to your `Package.swift`:
+Dependencies…** and enter `https://github.com/quonfig/sdk-swift.git` (Xcode
+offers the latest release), or add it to your `Package.swift`, replacing
+`VERSION` with the [latest release](https://github.com/quonfig/sdk-swift/releases/latest)
+(without the leading `v`):
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/quonfig/sdk-swift.git", from: "0.4.0"),
+    .package(url: "https://github.com/quonfig/sdk-swift.git", from: "VERSION"),
 ],
 targets: [
     .target(
@@ -59,12 +61,6 @@ from the cold-start cache. With no network and no cache it follows
 network never hangs your UI past `initTimeout`.
 
 ### If Quonfig is unreachable at startup
-
-:::info Since sdk-swift 0.5.0
-This section describes sdk-swift 0.5.0 and later.
-Earlier versions have no `onInitFailure` parameter and always start on empty
-defaults (with `isReady == true`) when there is no network and no cache.
-:::
 
 `initialize` retries with jittered backoff (0.5s, 1s, 2s, ... capped at 30s)
 for up to `initTimeout`. **A cached copy from an earlier launch counts as
@@ -309,12 +305,8 @@ wait for the next foreground tick, and the final POST is skipped if another POST
 flight or the 30s post-failure floor or a server `Retry-After` has not elapsed yet; the window
 stays on disk and is sent on the next foreground tick or launch.
 
-Changes in 0.1.0: a `401`, `403` or `404` now stops telemetry for the process with one error and
-deletes the queue (before, it was retried forever); the flush interval is a fixed 60s (was an 8s
-to 300s backoff); the foreground timeout is 15s (was the 60s URLSession default); the disk queue is
-capped at 5 batches / 512KB / 5 minutes (was 50 windows with no age limit). The 0.0.1 queue file is
-deleted on first launch and its windows are not resent. Changes in 0.2.0:
-`telemetryMaxEvaluationSummaries` defaults to 10,000 (was 100,000), matching the other SDKs.
+A `401`, `403` or `404` from the telemetry endpoint stops telemetry for the process with one error
+and deletes the queue.
 
 ## Teardown
 

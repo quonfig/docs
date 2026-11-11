@@ -6,14 +6,14 @@ title: Java
 
 [GitHub](https://github.com/quonfig/sdk-java) | [Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java)
 
-Replace `1.7.0` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
+Gradle and Maven need an explicit version: replace `VERSION` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/sdk-java).
 
 <Tabs groupId="java-build">
 <TabItem value="gradle-kotlin" label="Gradle (Kotlin DSL)">
 
 ```kotlin
 dependencies {
-    implementation("com.quonfig:sdk-java:1.7.0")
+    implementation("com.quonfig:sdk-java:VERSION")
 }
 ```
 
@@ -23,7 +23,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.quonfig:sdk-java:1.7.0'
+    implementation 'com.quonfig:sdk-java:VERSION'
 }
 ```
 
@@ -35,7 +35,7 @@ dependencies {
 <dependency>
     <groupId>com.quonfig</groupId>
     <artifactId>sdk-java</artifactId>
-    <version>1.7.0</version>
+    <version>VERSION</version>
 </dependency>
 ```
 
@@ -70,13 +70,6 @@ Quonfig quonfig = new Quonfig(
 `Quonfig` implements `AutoCloseable`. We recommend using it as a singleton in your application and calling `quonfig.close()` on shutdown to stop the SSE stream and send the last telemetry window.
 
 ### If Quonfig is unreachable at startup
-
-:::info sdk-java 2.0.0 (October 21, 2026)
-This section describes sdk-java 2.0.0. In 1.x the constructor returns
-immediately, the first getter blocks for up to `initTimeout`, and if
-initialization fails, getters return the caller's default value with
-`Reason.ERROR` (and `get*OrThrow` throws) with no retry afterwards.
-:::
 
 The constructor blocks until the first config loads, retrying through blips
 (jittered backoff from 0.5s, capped at 30s) until `initTimeout` (default
@@ -458,7 +451,7 @@ Because the evaluator sees your full context — global, bound, and the injected
 The `sdk-java-logback` module ships a `TurboFilter` that gates **every** Logback logger dynamically from Quonfig — no per-call-site `if (shouldLog)` wrapping. Add the dependency (you bring your own Logback; the module declares it `provided`):
 
 ```kotlin
-implementation("com.quonfig:sdk-java-logback:1.7.0")
+implementation("com.quonfig:sdk-java-logback:VERSION") // same version as sdk-java
 implementation("ch.qos.logback:logback-classic:1.5.18")
 ```
 
@@ -560,9 +553,8 @@ The Java builder methods and defaults:
 Invalid values (null, zero, negative) fall back to the default. Telemetry logs through SLF4J, or
 the `logger(...)` you pass (default `com.quonfig.sdk`).
 
-Changes in 1.3.0: the timeout went from 30s to 15s and the connect timeout from 10s to 5s; a failed
-POST now logs at DEBUG instead of WARN every time; the flush cadence is a fixed interval set by `telemetryFlushInterval` (default 60s).
-`telemetryMaxInterval` is deprecated and has no effect (the builder method still compiles).
+The flush cadence is a fixed interval set by `telemetryFlushInterval`. `telemetryMaxInterval` is
+deprecated and has no effect (the builder method still compiles).
 
 ## Invalid or revoked SDK key
 

@@ -9,11 +9,13 @@ interface.
 
 ## Install
 
+Replace `VERSION` with the [latest version on Maven Central](https://central.sonatype.com/artifact/com.quonfig/openfeature-server-java).
+
 Gradle (Kotlin DSL):
 
 ```kotlin
 dependencies {
-    implementation("com.quonfig:openfeature-server-java:1.4.0")
+    implementation("com.quonfig:openfeature-server-java:VERSION")
     implementation("dev.openfeature:sdk:1.20.2")
 }
 ```
@@ -24,7 +26,7 @@ Maven:
 <dependency>
   <groupId>com.quonfig</groupId>
   <artifactId>openfeature-server-java</artifactId>
-  <version>1.4.0</version>
+  <version>VERSION</version>
 </dependency>
 <dependency>
   <groupId>dev.openfeature</groupId>

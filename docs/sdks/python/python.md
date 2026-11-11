@@ -12,10 +12,10 @@ Add `quonfig` to your package dependencies
 pip install quonfig
 ```
 
-```python
-# pyproject.toml
-[tool.poetry.dependencies]
-quonfig = "^1.0.0"
+Or, with Poetry (it writes a constraint for the latest release into `pyproject.toml`):
+
+```bash
+poetry add quonfig
 ```
 
 ## Initialize Client
@@ -104,7 +104,7 @@ between the three, see
 
 </summary>
 
-**As of `quonfig` 1.4.0, no wiring is required on POSIX.** Importing `quonfig`
+**No wiring is required on POSIX.** Importing `quonfig`
 installs a child-only `os.register_at_fork` handler. A client built in the
 master is re-initialized in each forked worker on that worker's first use:
 the worker fetches its own config and opens its own SSE stream, and the
@@ -159,10 +159,8 @@ def post_fork(server, worker):
   the pre-start state (`initializing`, `False`) without starting threads or
   making a request.
 
-**Before 1.4.0** the SDK had no fork handling: a forked worker inherited dead
-background threads, stopped receiving updates, and `connection_state()` kept
-reporting `connected`. If you are on an older version, upgrade — or re-create
-the client after the fork:
+If you would rather build a fresh client in each worker, re-create it after
+the fork:
 
 ```python
 from quonfig import Quonfig
@@ -174,7 +172,7 @@ def post_worker_init(worker):
 ```
 
 The same shape works with `@uwsgidecorators.postfork`. Re-creating the client
-after the fork is also the right move under **gevent** with a monkey-patched
+after the fork is the right move under **gevent** with a monkey-patched
 master, and on **macOS** development machines, where a forked child that makes
 HTTPS requests can be killed by the platform regardless of the SDK.
 
@@ -584,10 +582,7 @@ after 15s. Telemetry logs through the stdlib logger `quonfig.telemetry`.
 
 A client you never close still sends its last window at interpreter exit, from an `atexit` hook
 (all clients in parallel, 5s at most in total). A forked child never re-sends its parent's window.
-
-Changes in 1.5.0: the flush interval went from 30s to 60s, so telemetry reaches the dashboard up to
-a minute after an evaluation; the in-place 3x retry is replaced by keeping the batch and resending
-it later; the `atexit` final flush is new.
+With the default 60s flush interval, evaluations reach the dashboard up to a minute later.
 
 ## Invalid or revoked SDK key
 

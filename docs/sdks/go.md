@@ -4,16 +4,20 @@ title: Go
 
 ## Install the latest version
 
-[Github](https://github.com/quonfig/sdk-go) | [pkg](https://pkg.go.dev/github.com/quonfig/sdk-go)
+[Github](https://github.com/quonfig/sdk-go) | [pkg](https://pkg.go.dev/github.com/quonfig/sdk-go/v2)
 
 
 ```bash
-go get github.com/quonfig/sdk-go@latest
+go get github.com/quonfig/sdk-go/v2
 ```
+
+The module path ends in `/v2`; the package name is still `quonfig`. Moving from v1? See
+[UPGRADE to v2](https://github.com/quonfig/sdk-go/blob/main/CHANGELOG.md#upgrade-to-v2) in the
+CHANGELOG.
 
 ## Initialize Client
 
-Add `quonfig "github.com/quonfig/sdk-go"` to your imports.
+Add `quonfig "github.com/quonfig/sdk-go/v2"` to your imports.
 
 Then, initialize the client with your SDK key:
 
@@ -26,7 +30,7 @@ sdk, err := quonfig.NewClient(quonfig.WithSdkKey(sdkKey))
 We recommend using the SDK client as a singleton in your application.
 
 ```go
-import quonfig "github.com/quonfig/sdk-go"
+import quonfig "github.com/quonfig/sdk-go/v2"
 
 var quonfigSdk *quonfig.Client
 
@@ -290,7 +294,7 @@ Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app
 
 ```go
 import (
-    quonfig "github.com/quonfig/sdk-go"
+    quonfig "github.com/quonfig/sdk-go/v2"
 )
 
 client, _ := quonfig.NewClient(
@@ -340,7 +344,7 @@ The SDK ships a `slog.Handler` that wraps any inner handler and gates each recor
 import (
     "log/slog"
     "os"
-    quonfig "github.com/quonfig/sdk-go"
+    quonfig "github.com/quonfig/sdk-go/v2"
 )
 
 client, _ := quonfig.NewClient(
