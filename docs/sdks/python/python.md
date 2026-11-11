@@ -471,22 +471,22 @@ if client.should_log(config_key="log-level.my-app", desired_level="DEBUG"):
     pass
 ```
 
-### Rule example
+### Rules
 
-Create a `log_level` config with key `log-level.my-app`, then target individual loggers via `quonfig-sdk-logging.key` with the [`qfg` CLI](/docs/tools/cli). Each `--target` adds a rule that matches every logger whose name starts with that prefix:
+Set levels with the [`qfg` CLI](/docs/tools/cli#log-level). Each `--target` adds a rule that matches every logger whose name starts with that prefix:
 
 ```bash
 # Default to INFO for every logger in this app
 qfg log-level log-level.my-app --value=INFO
 
-# Bump a module to DEBUG
+# Bump one subsystem to DEBUG
 qfg log-level log-level.my-app --target=my_app.auth --value=DEBUG
 
-# Silence a chatty library, in one environment only
+# Quiet a chatty library, in one environment only
 qfg log-level log-level.my-app --target=urllib3 --value=ERROR --environment=production
 ```
 
-For other criteria, such as turning DEBUG on for one developer by `user.email`, add the rule in the Quonfig app or edit the config's JSON in your workspace repo.
+For rules on other properties, such as turning on DEBUG for one developer by `user.email`, add the rule in the Quonfig app. [Dynamic Log Levels](../../explanations/features/dynamic-log-levels.md) walks through rule order and shows the stored JSON.
 
 Because the evaluator sees your full context — global context, per-request context, and `quonfig-sdk-logging.key` — you can combine logger rules with user, environment, or request context for targeted debugging.
 

@@ -553,32 +553,22 @@ Log.Logger = new LoggerConfiguration()
 
 To control a specific source context, request its switch with `levelSwitches.GetSwitch("Acme.Web.Auth")` and apply it with `Serilog`'s `MinimumLevel.Override`. Every switch the provider hands out is refreshed automatically when the Quonfig config changes — no enricher or per-event hook required. Call `levelSwitches.Dispose()` on shutdown to unsubscribe from `OnConfigChange`.
 
-### Rule example
+### Rules
 
-Create a `log_level` config keyed `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+Set levels with the [`qfg` CLI](/docs/tools/cli#log-level). Each `--target` adds a rule that matches every logger whose name starts with that prefix:
 
-```yaml
+```bash
 # Default to INFO for every logger in this app
-default: INFO
+qfg log-level log-level.my-app --value=INFO
 
-rules:
-  # Bump a subsystem to DEBUG
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "Acme.Web.Auth"
-    value: DEBUG
+# Bump one subsystem to DEBUG
+qfg log-level log-level.my-app --target=Acme.Web.Auth --value=DEBUG
 
-  # Silence a chatty third-party package
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "Microsoft.AspNetCore.HostFiltering"
-    value: ERROR
-
-  # Turn DEBUG on for one developer, everywhere
-  - criteria:
-      user.email: "developer@example.com"
-    value: DEBUG
+# Quiet a chatty library, in one environment only
+qfg log-level log-level.my-app --target=Microsoft.AspNetCore.HostFiltering --value=ERROR --environment=production
 ```
+
+For rules on other properties, such as turning on DEBUG for one developer by `user.email`, add the rule in the Quonfig app. [Dynamic Log Levels](../explanations/features/dynamic-log-levels.md) walks through rule order and shows the stored JSON.
 
 Because the evaluator sees your full context — global, bound, and the injected logger key — you can combine logger rules with user, environment, or request context to crank verbosity up for one user, one staging deploy, or one bad request, without touching anyone else.
 

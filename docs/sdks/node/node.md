@@ -769,7 +769,7 @@ Log levels in Quonfig are stored as a `log_level` config (e.g. `log-level.my-app
 
 - One `log_level` config per app, keyed like `log-level.my-app`. The value is one of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
 - Tell the SDK which config to consult by passing `loggerKey` at init time.
-- Every `shouldLog` / logger-adapter call pushes the logger's native name (`"MyApp.Services.Auth"`, `"com.app.Auth"`, whatever you use) into the evaluation context as `quonfig-sdk-logging.key` — verbatim, no normalization.
+- Every `shouldLog` / logger-adapter call pushes the logger's native name (`"my-app.auth"`, `"com.app.auth"`, whatever you use) into the evaluation context as `quonfig-sdk-logging.key` — verbatim, no normalization.
 - Rules match against `quonfig-sdk-logging.key` (or any other context property — user, environment, etc.) so one config can drive per-logger, per-user, or per-environment overrides.
 - Logger names flowing through `quonfig-sdk-logging.key` are auto-captured by Quonfig's example-context telemetry, so candidate logger names show up in the dashboard for rule-building.
 
@@ -787,7 +787,7 @@ const quonfig = new Quonfig({
 
 await quonfig.init();
 
-if (quonfig.shouldLog({ loggerPath: "MyApp.Services.Auth", desiredLevel: "DEBUG" })) {
+if (quonfig.shouldLog({ loggerPath: "my-app.auth", desiredLevel: "DEBUG" })) {
   console.log("auth debug line");
 }
 ```
@@ -802,32 +802,22 @@ quonfig.shouldLog({
 });
 ```
 
-### Rule example
+### Rules
 
-Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+Set levels with the [`qfg` CLI](/docs/tools/cli#log-level). Each `--target` adds a rule that matches every logger whose name starts with that prefix:
 
-```yaml
+```bash
 # Default to INFO for every logger in this app
-default: INFO
+qfg log-level log-level.my-app --value=INFO
 
-rules:
-  # Bump the auth subsystem to DEBUG
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "MyApp.Services.Auth"
-    value: DEBUG
+# Bump one subsystem to DEBUG
+qfg log-level log-level.my-app --target=my-app.auth --value=DEBUG
 
-  # Silence a chatty third-party logger
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "SomeLib"
-    value: ERROR
-
-  # Turn DEBUG on for one developer, everywhere
-  - criteria:
-      user.email: "developer@example.com"
-    value: DEBUG
+# Quiet a chatty library, in one environment only
+qfg log-level log-level.my-app --target=some-lib --value=ERROR --environment=production
 ```
+
+For rules on other properties, such as turning on DEBUG for one developer by `user.email`, add the rule in the Quonfig app. [Dynamic Log Levels](../../explanations/features/dynamic-log-levels.md) walks through rule order and shows the stored JSON.
 
 Because the evaluator sees your full context — not just `quonfig-sdk-logging.*` — you can combine logger rules with global or per-request context (`application.environment`, `user.email`, `team.id`, etc.) to crank verbosity up for a single user, a staging deploy, or one bad request, without affecting anyone else.
 
@@ -867,7 +857,7 @@ await quonfig.init();
 
 const logger = winston.createLogger({
   format: winston.format.combine(
-    createWinstonFormat(quonfig, "MyApp.Services.Auth"),
+    createWinstonFormat(quonfig, "my-app.auth"),
     winston.format.json()
   ),
   transports: [new winston.transports.Console()],
@@ -883,7 +873,7 @@ If you want a ready-to-go logger with the Quonfig gate already attached, use `cr
 ```typescript
 import { createWinstonLogger } from "@quonfig/node/winston";
 
-const logger = createWinstonLogger(quonfig, "MyApp.Services.Auth");
+const logger = createWinstonLogger(quonfig, "my-app.auth");
 logger.debug("debug line");
 ```
 
@@ -923,7 +913,7 @@ await quonfig.init();
 
 const logger = pino({
   level: "trace", // let Pino emit everything; Quonfig decides what survives
-  hooks: createPinoHooks(quonfig, "MyApp.Services.Auth"),
+  hooks: createPinoHooks(quonfig, "my-app.auth"),
 });
 
 logger.debug("debug line");
@@ -936,12 +926,12 @@ As with Winston, the convenience constructor `createPinoLogger(quonfig, loggerPa
 | Name                                                 | Example                                                                                   | Description                                                                                                                                      |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `loggerKey` (constructor option)                     | `new Quonfig({ loggerKey: "log-level.my-app", ... })`                                     | The `log_level` config consulted by the `shouldLog({loggerPath})` convenience. Required for the `loggerPath` form.                               |
-| `shouldLog({loggerPath, desiredLevel, contexts?})`   | `quonfig.shouldLog({ loggerPath: "MyApp.Auth", desiredLevel: "DEBUG" })`                  | Convenience shape. Uses `loggerKey` + injects `contexts["quonfig-sdk-logging"] = { key: loggerPath }` so rules can target individual loggers.    |
+| `shouldLog({loggerPath, desiredLevel, contexts?})`   | `quonfig.shouldLog({ loggerPath: "my-app.auth", desiredLevel: "DEBUG" })`                  | Convenience shape. Uses `loggerKey` + injects `contexts["quonfig-sdk-logging"] = { key: loggerPath }` so rules can target individual loggers.    |
 | `shouldLog({configKey, desiredLevel, contexts?})`    | `quonfig.shouldLog({ configKey: "log-level.my-app", desiredLevel: "DEBUG" })`             | Primitive shape. Evaluates the named config directly — no auto-injection. Use when you're building a custom adapter.                             |
-| `createWinstonFormat(quonfig, loggerPath, options?)` | `winston.format.combine(createWinstonFormat(quonfig, "MyApp.Auth"), winston.format.json())` | Winston format that consults `shouldLog`. Import from `@quonfig/node/winston`.                                                                 |
-| `createWinstonLogger(quonfig, loggerPath, options?)` | `createWinstonLogger(quonfig, "MyApp.Auth")`                                              | Ready-to-use Winston logger with the Quonfig format pre-attached. Import from `@quonfig/node/winston`.                                         |
-| `createPinoHooks(quonfig, loggerPath, options?)`     | `pino({ hooks: createPinoHooks(quonfig, "MyApp.Auth") })`                                 | Pino hooks that gate every emission through `shouldLog`. Import from `@quonfig/node/pino`.                                                     |
-| `createPinoLogger(quonfig, loggerPath, options?)`    | `createPinoLogger(quonfig, "MyApp.Auth")`                                                 | Ready-to-use Pino logger with Quonfig hooks pre-attached. Import from `@quonfig/node/pino`.                                                    |
+| `createWinstonFormat(quonfig, loggerPath, options?)` | `winston.format.combine(createWinstonFormat(quonfig, "my-app.auth"), winston.format.json())` | Winston format that consults `shouldLog`. Import from `@quonfig/node/winston`.                                                                 |
+| `createWinstonLogger(quonfig, loggerPath, options?)` | `createWinstonLogger(quonfig, "my-app.auth")`                                              | Ready-to-use Winston logger with the Quonfig format pre-attached. Import from `@quonfig/node/winston`.                                         |
+| `createPinoHooks(quonfig, loggerPath, options?)`     | `pino({ hooks: createPinoHooks(quonfig, "my-app.auth") })`                                 | Pino hooks that gate every emission through `shouldLog`. Import from `@quonfig/node/pino`.                                                     |
+| `createPinoLogger(quonfig, loggerPath, options?)`    | `createPinoLogger(quonfig, "my-app.auth")`                                                 | Ready-to-use Pino logger with Quonfig hooks pre-attached. Import from `@quonfig/node/pino`.                                                    |
 
 ## Mustache Templating
 

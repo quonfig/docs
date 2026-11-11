@@ -431,32 +431,22 @@ if Quonfig.instance.should_log?(
 end
 ```
 
-### Rule example
+### Rules
 
-Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+Set levels with the [`qfg` CLI](/docs/tools/cli#log-level). Each `--target` adds a rule that matches every logger whose name starts with that prefix:
 
-```yaml
+```bash
 # Default to INFO for every logger in this app
-default: INFO
+qfg log-level log-level.my-app --value=INFO
 
-rules:
-  # Bump one namespace to DEBUG
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "MyApp::Services::Auth"
-    value: DEBUG
+# Bump one subsystem to DEBUG
+qfg log-level log-level.my-app --target=MyApp::Services::Auth --value=DEBUG
 
-  # Silence a chatty gem
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "SomeGem"
-    value: ERROR
-
-  # Turn DEBUG on for one developer, everywhere
-  - criteria:
-      user.email: "developer@example.com"
-    value: DEBUG
+# Quiet a chatty library, in one environment only
+qfg log-level log-level.my-app --target=SomeGem --value=ERROR --environment=production
 ```
+
+For rules on other properties, such as turning on DEBUG for one developer by `user.email`, add the rule in the Quonfig app. [Dynamic Log Levels](../explanations/features/dynamic-log-levels.md) walks through rule order and shows the stored JSON.
 
 The evaluator sees your global context plus `quonfig-sdk-logging.key`, so logger rules can combine with global-context attributes. Request context is not included: the logger has no access to a bound client. To include it, call `Quonfig.instance.should_log?(logger_path:, desired_level:, contexts: ...)` with that context yourself.
 
@@ -520,7 +510,7 @@ Please read the [Puma/Unicorn](ruby#forking-servers-and-forking-jobs) notes for 
 </TabItem>
 </Tabs>
 
-The filter uses the SemanticLogger log's `name` as the `quonfig-sdk-logging.key` context value, so the rule examples above (`starts-with: "MyApp::Services::Auth"`) work out of the box.
+The filter uses the SemanticLogger log's `name` as the `quonfig-sdk-logging.key` context value, so a rule such as `--target=MyApp::Services::Auth` matches out of the box.
 
 ### Stdlib Logger integration
 
