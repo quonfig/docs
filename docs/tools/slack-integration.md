@@ -6,7 +6,7 @@ sidebar_label: Slack Integration
 
 ![image](/img/docs/tools/devtools-slack.jpg)
 
-The Slack integration sends a message to a channel of your choice every time a flag, config, segment, or log-level changes in a workspace. The message body is formatted from the same audit translator the in-app audit log uses, so what your team sees in Slack matches what they see in the UI.
+The Slack integration sends a message to a channel of your choice every time a flag, config, segment, or log-level changes in a workspace. Each message uses the same change summaries as the in-app audit log, so what your team sees in Slack matches what they see in the UI.
 
 ## Connect a workspace
 
@@ -40,10 +40,10 @@ Quonfig posts one message per commit to the workspace's git repo that touches a 
 - `segments/`
 - `log-levels/`
 
-Each message starts with the commit author and the commit subject, so you can trace the change back to the person and PR. Below that is one line per changed file, in the form `` • `key` <action> — <summary> ``, where the action is `created`, `updated`, or `deleted` and the summary is the same human-readable text the audit log shows. For example:
+Each message starts with the commit author and the commit subject, so you can trace the change back to the person and PR. Below that is one line per changed file, in the form `` • `key` <action> — <summary> ``, where the action is `created`, `updated`, or `deleted` and the summary is the same human-readable text the audit log shows. For example, in Slack markup (the author is bold and the subject is a quote):
 
 ```text
-Jane Doe updated configs:
+*Jane Doe* updated configs:
 > Turn on the new checkout flow
 • `checkout.new-flow` updated — Changed value from false to true
 ```
@@ -54,7 +54,7 @@ Non-config files (READMEs, top-level `quonfig.json`, non-`.json` files, anything
 
 ## Disconnect
 
-On the integrations page, click **Disconnect**. Quonfig calls Slack's `apps.uninstall` to revoke the bot token and removes the installation row. You can reconnect at any time by repeating the connect flow.
+On the integrations page, click **Disconnect**. Quonfig calls Slack's `apps.uninstall` to revoke the bot token and removes the connection from Quonfig. You can reconnect at any time by repeating the connect flow.
 
 :::tip Looking for Claude in Slack?
 This integration is one-way: Quonfig posts change notifications into a
