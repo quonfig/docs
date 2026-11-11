@@ -118,7 +118,7 @@ let details = quonfig.details("checkout-experiment")
 ```
 
 Configs (non-flag values) are read the same way. By default configs are **not**
-sent to client SDKs — enable "Send to client SDKs" on each config you want a
+sent to frontend SDKs — enable "Send to frontend SDKs" on each config you want a
 frontend SDK to read. Feature flags are always sent.
 
 ## Context & `updateContext`

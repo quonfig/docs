@@ -103,7 +103,7 @@ This generates TypeScript files in the `generated/` directory:
 - `quonfig-client-types.d.ts` - Type definitions for React/JavaScript
 - `quonfig-client.ts` - Type-safe React/JavaScript client
 
-**Filter**: The `react-ts` target only includes configs with "Send to Client SDKs" enabled or configs of type `FEATURE_FLAG`. If a config is missing from generated types, check that setting in the Quonfig dashboard.
+**Filter**: The `react-ts` target only includes configs with "Send to frontend SDKs" enabled or configs of type `FEATURE_FLAG`. If a config is missing from generated types, check that setting in the Quonfig dashboard.
 
 ### Generate for Node.js
 

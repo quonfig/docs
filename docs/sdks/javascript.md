@@ -328,7 +328,7 @@ The payload is typed as `QuonfigBootstrap` (exported from `@quonfig/javascript`)
 
 Config values are accessed the same way as feature flag values. You can use `isEnabled` as a convenience for boolean values, and `get` works for all data types.
 
-By default configs are not sent to client SDKs. You must enable access for each individual config. You can do this by checking the "Send to client SDKs" checkbox when creating or editing a config.
+By default configs are not sent to frontend SDKs. You must enable access for each individual config. You can do this by checking the "Send to frontend SDKs" checkbox when creating or editing a config.
 
 ## Dynamic Log Levels
 

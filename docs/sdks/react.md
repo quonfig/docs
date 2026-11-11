@@ -46,7 +46,7 @@ By default `generate --targets react-ts` writes two files under `./generated/`:
 
 Override the directory with `-o <path>`. Import the typed hook with `import { useQuonfig } from "./generated/quonfig-client"` (note: this replaces the default `useQuonfig` from `@quonfig/react`).
 
-**Note**: The `react-ts` target only includes configs with "Send to Client SDKs" enabled and all feature flags. If a config is missing from the generated types, check that setting in the Quonfig dashboard.
+**Note**: The `react-ts` target only includes configs with "Send to frontend SDKs" enabled and all feature flags. If a config is missing from the generated types, check that setting in the Quonfig dashboard.
 
 :::
 
@@ -550,7 +550,7 @@ In your Quonfig dashboard, create a string configuration with Mustache variables
     cta: z.string(),
   });
   ```
-- **Send to Client SDKs**: ✅ Enabled
+- **Send to frontend SDKs**: ✅ Enabled
 
 ### Usage Examples
 
