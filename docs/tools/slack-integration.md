@@ -12,37 +12,45 @@ The Slack integration sends a message to a channel of your choice every time a f
 
 Each Quonfig workspace is connected to Slack independently — connect once per workspace.
 
-1. In the Quonfig app, open your workspace and click **Integrations** in the sidebar (between API Keys and Debugger).
+1. In the Quonfig app, open your workspace and click **Integrations** in the sidebar (between Environments & Keys and Debugger).
 2. Click **Connect to Slack**. You'll be redirected to Slack's OAuth consent page.
 3. Pick the Slack workspace to install Quonfig into and approve the requested scopes:
    - `chat:write` — post messages to a channel
    - `channels:read` / `groups:read` — list channels for the picker
-4. Slack returns you to the integrations page. The installation is now in **pending** status — Slack is connected but no channel is selected yet.
+4. Slack returns you to the integrations page. The integration now shows **Needs setup**: Slack is connected but no channel is selected yet.
 
-You must be a member of the Quonfig org that owns the workspace to start the OAuth flow.
+Any member of the Quonfig org that owns the workspace can start the Slack install, but saving the notification channel and disconnecting need the `integrations.manage` permission, which only the built-in **Admin** role grants. Have an Admin do the setup, or see [Authorization](/docs/explanations/features/authorization).
 
 ## Pick a notification channel
 
 After the OAuth dance the page shows a channel picker listing every channel the Quonfig bot is currently a member of.
 
 1. In Slack, run `/invite @Quonfig` in the channel where you want change notifications to land.
-2. Back in the Quonfig integrations page, click **Refresh channels**. The new channel will appear in the picker (Slack reflects new memberships immediately on the `users.conversations` endpoint Quonfig uses).
-3. Select the channel and click **Save**. The installation moves to **configured**.
+2. Back in the Quonfig integrations page, click **Refresh channels** if the picker is empty, or reload the page otherwise. The new channel appears in the picker (Slack reflects new memberships immediately on the `users.conversations` endpoint Quonfig uses).
+3. Select the channel and click **Save**. The integration now shows **Connected**.
 
-You can change the channel later by re-opening the integrations page and selecting a different one.
+Once a channel is saved, the page shows only the current channel and a **Disconnect** button. To send notifications to a different channel, click **Disconnect** and repeat the connect flow, picking the new channel.
 
 ## What gets notified
 
-Quonfig posts one message per push to the workspace's git repo, summarizing every config-shaped change in the commit. A change is config-shaped if it touches a file under any of:
+Quonfig posts one message per commit to the workspace's git repo that touches a config-shaped file, so a push with several such commits produces several messages. A file is config-shaped if it is a `.json` file under any of:
 
 - `configs/`
 - `feature-flags/`
 - `segments/`
 - `log-levels/`
 
-For each changed file, the message includes the same human-readable summary that appears in the audit log (e.g. *"changed default value from `false` to `true` in production"*, *"added rule targeting `user.country IN ['DE','FR']`"*). Author and commit subject are included so you can trace the change back to the person and PR.
+Each message starts with the commit author and the commit subject, so you can trace the change back to the person and PR. Below that is one line per changed file, in the form `` • `key` <action> — <summary> ``, where the action is `created`, `updated`, or `deleted` and the summary is the same human-readable text the audit log shows. For example:
 
-Non-config files (READMEs, top-level `quonfig.json`, anything outside the four directories above) are skipped.
+```text
+Jane Doe updated configs:
+> Turn on the new checkout flow
+• `checkout.new-flow` updated — Changed value from false to true
+```
+
+Other summaries look like *"Changed rollout from … to …"* or *"Added rule 2 (…) → true"*, matching what you see in the audit log.
+
+Non-config files (READMEs, top-level `quonfig.json`, non-`.json` files, anything outside the four directories above) are skipped.
 
 ## Disconnect
 

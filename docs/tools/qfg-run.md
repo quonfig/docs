@@ -82,7 +82,7 @@ qfg run --env-file=.qfg.env -- bash -c "npm run db:migrate && npm run build"
 Set `QUONFIG_BACKEND_SDK_KEY`. The SDK key encodes both the workspace and the environment, so do **not** also set `QUONFIG_ENVIRONMENT` or pass `--environment`.
 
 ```bash
-export QUONFIG_BACKEND_SDK_KEY=qfg_sk_…
+export QUONFIG_BACKEND_SDK_KEY=qf_sk_…
 qfg run --env DATABASE_URL=db.url -- drizzle-kit migrate
 ```
 
@@ -104,6 +104,14 @@ qfg login
 export QUONFIG_ENVIRONMENT=staging
 qfg run --env DATABASE_URL=db.url -- drizzle-kit migrate
 ```
+
+Mode B evaluates against your current workspace: the one named by `--workspace` / `-w` (`<org>/<workspace>`), else `QUONFIG_WORKSPACE`, else your saved default. Pass `-w` when you belong to several workspaces:
+
+```bash
+qfg run -w my-org/my-ws --environment=staging --env DATABASE_URL=db.url -- drizzle-kit migrate
+```
+
+In CI you can use an [API key](/docs/explanations/concepts/keys-and-credentials#api-keys--automation-managing-config) instead of `qfg login`: set `QUONFIG_API_KEY` and `QUONFIG_WORKSPACE=<org>/<workspace>`, and still pass exactly one of `--environment` or `QUONFIG_ENVIRONMENT`.
 
 ### Errors you'll see when you cross the streams
 
