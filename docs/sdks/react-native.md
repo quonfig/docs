@@ -212,6 +212,7 @@ and the full rule on the [Reliability](../explanations/architecture/resiliency.m
 Wrap the component under test in a `QuonfigTestProvider` and pass a config object to set up your test state. The general approach is the same as on the [React page](./react.md#testing), with two React Native differences:
 
 - Import `QuonfigTestProvider` from `@quonfig/react-native`, like everything else. (The React page's `@quonfig/react/testing` entry point belongs to `@quonfig/react` 2.x; `@quonfig/react-native` builds on 1.x, which exports `QuonfigTestProvider` from its main entry.)
+- In the 1.x `QuonfigTestProvider`, `isEnabled` returns `true` for any truthy value in the config, while the real client returns `true` only for a boolean `true`. Set feature flags to `true` or `false` in your test config so tests match production.
 - Render with [React Native Testing Library][rntl] instead of React Testing Library.
 
 ```tsx

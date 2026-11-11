@@ -128,8 +128,7 @@ files directly. **No login needed.** You can also be explicit with
 
 Every server-side SDK supports a `datadir` option. With `datadir` set and
 no `sdkKey`, the SDK runs in fully local mode: no SSE, no telemetry, no API
-fetches. (Setting an SDK key turns usage telemetry back on, even in datadir
-mode.) See the [Next.js + TypeScript tutorial](/docs/tutorials/nextjs-typescript-local)
+fetches. See the [Next.js + TypeScript tutorial](/docs/tutorials/nextjs-typescript-local)
 for a complete walkthrough, and [Local Workspace](/docs/explanations/concepts/local-workspace)
 for how the SDK finds the directory, which environment names are valid, and
 what it sends over the network.
