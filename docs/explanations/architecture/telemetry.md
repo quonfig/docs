@@ -23,8 +23,7 @@ delivered the SDK drops it rather than slow down or grow your process.
   passes, for example `user.email: string`. These power autocomplete in the
   rule editor.
 - **Example contexts.** For each distinct context `key`, at most one full
-  context per hour, with its values (Go: v1.4.0+; earlier Go versions send one
-  per flush window). See
+  context per hour, with its values. See
   [What gets saved](../concepts/context.md#what-gets-saved--keys-example-contexts-and-your-bill)
   for how keys, example contexts and MTK billing relate.
 - **Failover counters.** How often the SDK used the secondary delivery leg.
@@ -134,7 +133,7 @@ have `flush()`; in Go, Ruby and .NET, close the client (`Close()`, `stop`,
 | `Retry-After` honored up to   | 10 min                                       | 10 min                       | 10 min                      |
 | Kept batches                  | 5 batches / 2MB, in memory                   | 5 batches / 512KB, in memory | 5 batches / 512KB, on disk  |
 | Kept batch max age            | 5 min                                        | 5 min                        | 5 min                       |
-| Evaluation-summary keys       | 10,000 per window                            | 10,000 per window            | 100,000 per window          |
+| Evaluation-summary keys       | 10,000 per window                            | 10,000 per window            | 10,000 per window           |
 | Context-shape fields          | 10,000 per window                            | server-side                  | server-side                 |
 | Example contexts              | 10,000 per window                            | server-side                  | server-side                 |
 | Final flush on shutdown       | 5s                                           | 2s (`pagehide` keepalive)    | about 5s (background task)  |
@@ -144,17 +143,16 @@ The Swift SDK's disk queue survives an app relaunch, so a batch that was in
 flight when the app was suspended is resent on the next launch, still subject to
 the 5 minute age limit.
 
-Option names and the versions that introduced these defaults:
+Option names for each language are on the SDK pages:
 
-- [Node](../../sdks/node/node.md#telemetry) (`@quonfig/node` 1.3.0+)
-- [Go](../../sdks/go.md#telemetry) (v1.3.0+; v1.4.0+ for the once-per-hour
-  example-context limit)
-- [Python](../../sdks/python/python.md#telemetry) (`quonfig` 1.5.0+)
-- [Ruby](../../sdks/ruby.md#telemetry) (`quonfig` gem 1.5.0+)
-- [Java](../../sdks/java.md#telemetry) (`com.quonfig:sdk-java` 1.3.0+)
-- [.NET](../../sdks/dotnet.md#telemetry) (`Quonfig.Sdk` 1.3.0+)
-- [JavaScript](../../sdks/javascript.md#telemetry) and [React](../../sdks/react.md#telemetry) (1.3.0+)
-- [Swift](../../sdks/swift.md#telemetry--privacy) (v0.1.0+)
+- [Node](../../sdks/node/node.md#telemetry)
+- [Go](../../sdks/go.md#telemetry)
+- [Python](../../sdks/python/python.md#telemetry)
+- [Ruby](../../sdks/ruby.md#telemetry)
+- [Java](../../sdks/java.md#telemetry)
+- [.NET](../../sdks/dotnet.md#telemetry)
+- [JavaScript](../../sdks/javascript.md#telemetry) and [React](../../sdks/react.md#telemetry)
+- [Swift](../../sdks/swift.md#telemetry--privacy)
 
 ## Why it works this way
 

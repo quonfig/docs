@@ -29,9 +29,9 @@ primary delivery service is down — or merely slow — the SDK also asks the
 secondary (details below), so a booting client still gets its configuration
 within a few seconds during a full primary outage. On the startup fetch the
 secondary is asked after a 2-second hedge delay, and in server SDKs each leg is
-abandoned after 6 seconds (3 seconds in the browser SDK), so a hung primary can't consume the whole initialization
-budget and starve the secondary attempt. The fallback poller's fetches use the
-same hedged cycle.
+abandoned after 6 seconds (3 seconds in the browser SDK), so a hung primary
+can't consume the whole initialization budget and starve the secondary attempt.
+The fallback poller's fetches use the same hedged cycle.
 
 If neither leg can be reached at startup, what happens next is your choice.
 See [If Quonfig Is Unreachable at Startup](./startup-failure.md).
