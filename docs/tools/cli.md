@@ -297,11 +297,12 @@ See [Secret Management](/docs/explanations/features/secret-management) for the f
 
 ### pull
 
-`qfg pull` clones or updates a local copy of your workspace config files. This is required before running `generate`, and it is also how you edit flag JSON directly for anything beyond the `set-default` / `set-rollout` shortcuts.
+`qfg pull` clones or updates a local copy of your workspace config files. `generate` reads from this copy when one exists, and it is also how you edit flag JSON directly for anything beyond the `set-default` / `set-rollout` shortcuts.
 
 Options:
 - `--dir <path>` - Local directory to clone/update (defaults to `QUONFIG_DIR`, then the nearest directory at or above the current one that has a `quonfig.json`)
 - `--workspace <id>` (`-w`) - Workspace to pull (defaults to your saved default workspace)
+- `--rebase` - When your local commits and the workspace's `main` have diverged, replay your commits on top of `main`. Without it, `qfg pull` stops and tells you to re-run with `--rebase`.
 
 Examples:
 ```bash
@@ -901,7 +902,7 @@ qfg delete my.config --yes
 
 ### environments
 
-`qfg environments` (alias `qfg envs`) lists the environment names in your workspace and marks the protected ones. Every `--environment` flag on this page takes one of these exact names, or `"[Default]"` for the default rules that environments without rules of their own inherit.
+`qfg environments` (alias `qfg envs`) lists the environment names in your workspace and marks the protected ones. Pass one of these exact names to `--environment` (on `set-default`, `set-rollout`, `get`, `run` and so on). `"[Default]"` is not an environment: it names the default rules that every environment without rules of its own inherits.
 
 ```bash
 qfg envs
@@ -1028,7 +1029,7 @@ If a push is rejected because someone else pushed first, pull and rebase, then p
 again:
 
 ```bash
-qfg pull && qfg push          # or: git pull --rebase origin main && git push origin main
+qfg pull --rebase && qfg push   # or: git pull --rebase origin main && git push origin main
 ```
 
 If the rejection came from `qfg workspace bootstrap` on an older CLI, upgrade the
