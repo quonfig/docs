@@ -104,8 +104,9 @@ workspace. They differ in who the changes are attributed to:
   Keys** page, **CLI & API keys** tab.
 - **Service-account key (`qf_sa_…`)** acts as a **named bot** with its own role,
   so the audit trail shows the bot (for example `deploy-bot`) rather than a
-  person. Use it for anything shared: CI, integrations, agents. Create it under
-  **Settings → Service accounts**. With the CLI, set `QUONFIG_WORKSPACE` to the
+  person. Use it for anything shared: CI, integrations, agents. An org admin
+  creates it under **Settings → Service accounts** (the tab appears only for
+  admins). With the CLI, set `QUONFIG_WORKSPACE` to the
   workspace's **UUID**, not `org/workspace`; see the
   [CLI environment variables](/docs/tools/cli#environment-variables) reference.
 
