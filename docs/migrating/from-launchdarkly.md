@@ -96,17 +96,17 @@ different system.
 
 ## What happens during migration
 
-The migrator runs in up to two phases:
+The migrator imports in one of two modes:
 
-- **Phase 1 (always): config snapshot.** Roughly ~60 API calls for a typical
+- **Config snapshot (default).** Roughly ~60 API calls for a typical
   500-flag project. Fast — seconds to a couple of minutes. This is the
   "imports current state" pass and is fully lossless within the documented
   gap list.
-- **Phase 2 (only with `--full-summary`): history backfill.** Walks the
-  LaunchDarkly audit log and replays each change as a per-flag git commit
-  with the original author, date, and message. Slow — hours for a real
-  account. Resumable on its own checkpoint, so an interrupted run picks up
-  where it left off.
+- **History backfill (with `--full-summary`).** Instead of the snapshot,
+  walks the LaunchDarkly audit log and replays each flag change as a git
+  commit with the original author, date, and message, then adds the current
+  segments. Slow — hours for a real account. It keeps a checkpoint, so an
+  interrupted run picks up where it left off.
 
 History retention is plan-gated on the LaunchDarkly side: **Developer plans
 retain only the last 30 days**; unlimited history is Enterprise/select-plan
@@ -254,9 +254,8 @@ Run `qfg migrate --help` for live descriptions.
   flag gets a `-segment` suffix), the "Rewritten keys (ACTION REQUIRED)"
   section of `.qf/MIGRATION_REPORT.md` lists each old and new key, and
   `.qf/key-map.json` has the same map in machine-readable form (written only
-  when a key was renamed). The report's "Identifier map" section lists every
-  legacy key next to its Quonfig key. Point your coding agent at the report
-  to rewrite your LaunchDarkly SDK call sites.
+  when a key was renamed). Point your coding agent at the report to rewrite
+  your LaunchDarkly SDK call sites.
 - Swap your SDK. Backend: [Node](../sdks/node/node.md), [Go](../sdks/go.md),
   [Python](../sdks/python/python.md), [Ruby](../sdks/ruby.md),
   [Java](../sdks/java.md), [.NET](../sdks/dotnet.md). Frontend and mobile:

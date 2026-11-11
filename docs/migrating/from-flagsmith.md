@@ -65,10 +65,10 @@ hosted delivery:
 
 ## Get a Flagsmith API token
 
-In the Flagsmith UI: **Account → API Keys**. Create a Management API
-token (the personal-access-style token, not an environment or server-side
-key). Read access is enough — the migrator never writes back to
-Flagsmith.
+In the Flagsmith dashboard, create an organisation API key for the
+Management API (under API Keys in your organisation settings). Don't use
+an environment key or a server-side SDK key. The migrator only reads from
+Flagsmith; it never writes back.
 
 Pass it with `--source-api-key <token>`, or export it:
 
@@ -88,10 +88,9 @@ The CLI uses the first key it finds, in this order:
 over it. Unset those, or pass `--source-api-key`, if they hold a key for a
 different system.
 
-> Flagsmith Management API tokens authenticate via `Authorization: Token <token>`.
-> The migrator handles this for you. Rate limits are per-token (default
-> 500 req/min on the free tier); the migrator backs off and retries
-> automatically.
+> The migrator sends the key as `Authorization: Api-Key <token>` for you.
+> When Flagsmith rate-limits a request (HTTP 429), the migrator backs off
+> and retries automatically.
 
 ### Find your project ID
 
@@ -103,8 +102,9 @@ https://app.flagsmith.com/project/38856/environments
                                   ^^^^^
 ```
 
-Pass it as `--project 38856`, or set `FLAGSMITH_PROJECT_ID=38856`. There
-is no implicit "default project" — Flagsmith requires you to be explicit.
+Pass it as `--project 38856`, or set `FLAGSMITH_PROJECT_ID=38856`. Always
+set one of them: without either, the migrator falls back to project ID `1`,
+which is almost certainly not your project.
 
 ---
 
@@ -121,7 +121,7 @@ weight order and other API quirks before handing data to the converter —
 see [API quirks](#api-quirks-the-migrator-handles-for-you).
 
 Phase-2 history backfill (replaying the Flagsmith audit log as per-feature
-git commits) is on the roadmap but not in v1. The MIGRATION_REPORT
+git commits) is on the roadmap but not in v1. The migration report
 captures all the same dispositions either way.
 
 ### API quirks the migrator handles for you
@@ -164,18 +164,18 @@ over:
    will land in different buckets after cutover. The report lists every
    multivariate feature under a "users will be re-bucketed" heading —
    plan your comms accordingly.
-2. **`enabled=false` on non-boolean features (D-F1).** Flagsmith serves
+2. **`enabled=false` on non-boolean features.** Flagsmith serves
    your code's default for a disabled non-bool feature; Quonfig serves
    the *stored* value with a note. Each instance is named in the report
    so you can review whether the stored value is what you actually want.
-3. **Skipped operators / rules.** Flagsmith's `MODULO` (D-F3) and
-   segment-level `PERCENTAGE_SPLIT` (D-F4) have no Quonfig equivalent in
+3. **Skipped operators / rules.** Flagsmith's `MODULO` and
+   segment-level `PERCENTAGE_SPLIT` have no Quonfig equivalent in
    v1, and a `REGEX` condition whose pattern is outside
    [Quonfig regex v1](../explanations/features/rules-and-segmentation.md#quonfig-regex-v1)
    is skipped too. Each clause is listed by feature and reason so you can
    rebuild it by hand.
-4. **Identity-trait references (D-F6).** Every segment condition
-   property name your converter sees is summarised. Your SDK callers
+4. **Identity-trait references.** Every trait name used in a segment
+   condition is listed. Your SDK callers
    must include those attributes on the evaluation context, or matching
    rules will silently miss. The report tells you which segments
    reference which traits so you can audit your call sites.
@@ -201,30 +201,36 @@ call sites.
 
 ## What doesn't migrate cleanly
 
-The full gap list lives in your workspace's `.qf/MIGRATION_REPORT.md`.
-The short version, organised by disposition code (`D-F*`), so you can find
-each one in the report:
+The full gap list lives in your workspace's `.qf/MIGRATION_REPORT.md`,
+grouped under its "Conversion notes" section. The short version:
 
-- **D-F1 — `enabled=false` on non-boolean features.** Flagsmith would
+- **`enabled=false` on non-boolean features.** Flagsmith would
   have served your code's default; Quonfig serves the stored value with
   a note. Bool features serve `false` (no surprise).
-- **D-F2 — Identity > segment priority.** Identity overrides become a
+- **Identity > segment priority.** Identity overrides become a
   leading `PROP_IS_ONE_OF` rule on `user.key`, evaluated before any
   segment rules. Order matches Flagsmith's behavior; you lose the
   dedicated identities-pane UI affordance.
-- **D-F3 — `MODULO` operator.** Skipped and reported. No Quonfig
+- **`MODULO` operator.** Skipped and reported. No Quonfig
   equivalent.
-- **D-F4 — Segment-level `PERCENTAGE_SPLIT`.** Skipped and reported.
+- **Segment-level `PERCENTAGE_SPLIT`.** Skipped and reported.
   Quonfig does percentage rollouts at the rule level, not the segment
   condition level.
-- **D-F5 — Per-environment value-type divergence.** A feature whose
+- **Per-environment value-type divergence.** A feature whose
   envs disagree on type (`string` in Dev, `int` in Prod, etc.) is
   coerced to `string` and the divergence is named in the report.
-- **D-F6 — Identity traits.** Flagsmith identity *traits* are runtime
+- **Identity traits.** Flagsmith identity *traits* are runtime
   context the SDK sends — they have no server-side artifact to migrate.
   The report lists every trait referenced by a segment condition so you
   can audit your call sites.
-- **D-F7 — Multivariate identity overrides.** Both pinning to a single
+- **`ANY` / `NONE` segment rules.** Quonfig criteria within one rule are
+  AND-only, so segment rules of type `ANY` or `NONE` are skipped and
+  reported.
+- **Some `:semver` comparisons.** Semver `NOT_EQUAL`,
+  `GREATER_THAN_INCLUSIVE`, and `LESS_THAN_INCLUSIVE` have no Quonfig
+  semver equivalent and are skipped and reported. The other semver
+  comparisons convert to Quonfig's semver operators.
+- **Multivariate identity overrides.** Both pinning to a single
   variation and re-weighting the allocation are preserved.
 
 ### Plan-gated features the migrator cannot see
@@ -265,8 +271,9 @@ Flagsmith-specific notes:
   `FLAGSMITH_API_KEY` as the fallback) — the Flagsmith Management API
   token. See [Get a Flagsmith API token](#get-a-flagsmith-api-token) for
   the full precedence.
-- `--project <id>` (env: `FLAGSMITH_PROJECT_ID`) — required. The numeric
-  Flagsmith project ID; find it in the project URL.
+- `--project <id>` (env: `FLAGSMITH_PROJECT_ID`) — the numeric Flagsmith
+  project ID; find it in the project URL. Always set it: without it the
+  migrator uses project ID `1`.
 
 Run `qfg migrate --help` for live descriptions.
 
@@ -279,10 +286,9 @@ Run `qfg migrate --help` for live descriptions.
   Quonfig key (letters, numbers, `.`, `-`, `_`) is renamed. The
   "Rewritten keys (ACTION REQUIRED)" section of `.qf/MIGRATION_REPORT.md`
   lists each old and new key, and `.qf/key-map.json` has the same map in
-  machine-readable form (written only when a key was renamed). The
-  report's "Identifier map" section lists every legacy key next to its
-  Quonfig key. Point your coding agent at the report to rewrite your
-  Flagsmith SDK call sites.
+  machine-readable form (written only when a key was renamed). Point
+  your coding agent at the report to rewrite your Flagsmith SDK call
+  sites.
 - Swap your SDK. Backend: [Node](../sdks/node/node.md), [Go](../sdks/go.md),
   [Python](../sdks/python/python.md), [Ruby](../sdks/ruby.md),
   [Java](../sdks/java.md), [.NET](../sdks/dotnet.md). Frontend and mobile:
