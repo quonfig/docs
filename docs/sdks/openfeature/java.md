@@ -162,11 +162,11 @@ back, with the error code and message set on the evaluation details.
 - A value of the right type that does not parse (a stored int `"twelve"`, an ENV_VAR set to
   an unparseable string, or a malformed duration such as `"30s"` read with
   `getStringValue`) returns `PARSE_ERROR`. An unset ENV_VAR returns `GENERAL`.
+- Calls made before the provider is initialized return the default with
+  `PROVIDER_NOT_READY`.
 
 The rules come from the native SDK; see
 [Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
-- Calls made before the provider is initialized return the default with
-  `PROVIDER_NOT_READY`.
 
 ## Native SDK escape hatch
 
@@ -196,7 +196,7 @@ OpenFeature is designed for feature flags, not general configuration. Some Quonf
 features require the native `com.quonfig:sdk-java` SDK directly:
 
 1. **Log levels** -- `shouldLog()` and `getLogLevel()` are native-only; use `provider.getClient()`.
-2. **`duration` configs** -- returned as the ISO 8601 string (e.g. `"PT90S"`) exactly as stored, via `getStringValue()` (3.2.0+); use `getClient().getDuration()` for a `java.time.Duration`.
+2. **`duration` configs** -- returned as the ISO 8601 string (e.g. `"PT90S"`) exactly as stored, via `getStringValue()`; use `getClient().getDuration()` for a `java.time.Duration`.
 3. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
 4. **`keys()`** and raw config access -- use `provider.getClient()`.
 5. **Context keys use dot-notation** -- pass `"user.email"`, not nested objects.

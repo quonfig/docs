@@ -563,7 +563,7 @@ which flags are used and with what contexts. Opt out with `collect_evaluation_su
 
 How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
 every SDK and is explained once on the [Telemetry](../../explanations/architecture/telemetry.md)
-page. The Python option names and defaults (`quonfig` 1.5.0+), all keyword arguments to
+page. The Python option names and defaults, all keyword arguments to
 `Quonfig(...)`:
 
 | Option                               | Default           |
@@ -591,7 +591,7 @@ it later; the `atexit` final flush is new.
 
 ## Invalid or revoked SDK key
 
-If Quonfig rejects the SDK key while the client is running, `quonfig` 1.8.0+
+If Quonfig rejects the SDK key while the client is running, `quonfig`
 stops streaming, probes every 150-300 seconds until the key works again, and
 logs one ERROR naming the HTTP status and host (never the key). The full rule
 is on the [Reliability](../../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
@@ -641,7 +641,7 @@ All parameters are keyword arguments to `Quonfig(...)`.
   or `"periodic_example"` (types plus example contexts; the default).
 - `global_context` - a global context to be used in all lookups. Use this for things like availability zone, machine type...
 - `fallback_poll_enabled` / `fallback_poll_interval_ms` - poll the CDN when the SSE stream is unavailable (defaults `True` / `60000`).
-- `enable_sse` - keep a live SSE stream open for real-time updates (defaults to `True`). Pass `False` on serverless hosts; with `fallback_poll_enabled=True` polling becomes the primary update channel, with both `False` the client only updates via `refresh()` / `update_if_staler_than()`. Requires `quonfig >= 1.3.0`; see [Lambdas / Serverless](/docs/sdks/python/lambdas).
+- `enable_sse` - keep a live SSE stream open for real-time updates (defaults to `True`). Pass `False` on serverless hosts; with `fallback_poll_enabled=True` polling becomes the primary update channel, with both `False` the client only updates via `refresh()` / `update_if_staler_than()`. See [Lambdas / Serverless](/docs/sdks/python/lambdas).
 - `logger_key` - the `log_level` config key consulted by `should_log(logger_path=...)`. No default — set it to enable the `logger_path` convenience (defaults to `None`).
 
 The SDK README's [Configuration table](https://github.com/quonfig/sdk-python#configuration) lists every option, including `telemetry_url` and the URLs derived from `QUONFIG_DOMAIN`.

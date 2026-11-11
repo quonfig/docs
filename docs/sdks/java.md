@@ -183,7 +183,7 @@ Quonfig quonfig = new Quonfig(
 );
 ```
 
-Or set `QUONFIG_DOMAIN` in the environment. For local development with the bundled Caddy reverse proxy (`scripts/local-proxy/setup.sh` in the monorepo), set `QUONFIG_DOMAIN=quonfig-localhost` and the SDK will route to `primary.quonfig-localhost`, `stream.primary.quonfig-localhost`, etc.
+Or set `QUONFIG_DOMAIN=<your-domain>` in the environment to derive every service URL from one domain (for example a proxied deployment). The SDK then routes to `primary.<your-domain>`, `stream.primary.<your-domain>`, and so on.
 
 If you need to point individual services somewhere the derivation rule doesn't fit, override the URL lists directly. `apiUrls` accepts an ordered list — pass **both** a primary and a secondary to keep automatic failover:
 
@@ -250,7 +250,7 @@ ContextSet ctx = new ContextSet()
     ));
 ```
 
-Properties are looked up in rules using dotted notation: `user.email`, `team.plan`. The magic property `quonfig.current-time` (also `prefab.current-time` and `reforge.current-time`, kept for compatibility) resolves to the current wall-clock time in milliseconds since the epoch — useful for time-windowed rollouts.
+Properties are looked up in rules using dotted notation: `user.email`, `team.plan`. The magic property `quonfig.current-time` resolves to the current wall-clock time in milliseconds since the epoch — useful for time-windowed rollouts.
 
 ### Global Context
 
@@ -543,7 +543,7 @@ Options.builder()
 
 How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
 every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
-The Java builder methods and defaults (`com.quonfig:sdk-java` 1.3.0+):
+The Java builder methods and defaults:
 
 | `Options.builder()` method         | Default                   |
 | ---------------------------------- | ------------------------- |
@@ -567,7 +567,7 @@ POST now logs at DEBUG instead of WARN every time; the flush cadence is a fixed 
 ## Invalid or revoked SDK key
 
 If Quonfig rejects the SDK key while the client is running,
-`com.quonfig:sdk-java` 1.7.0+ stops streaming, probes every 150-300 seconds
+`com.quonfig:sdk-java` stops streaming, probes every 150-300 seconds
 until the key works again, and logs one ERROR naming the HTTP status and host
 (never the key). The full rule is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
 
@@ -637,4 +637,4 @@ Options options = Options.builder()
 | `collectEvaluationSummaries`  | Send aggregate evaluation counts to Quonfig.                                                                                               | `true`                                 |
 | `contextUploadMode`           | `NONE`, `SHAPES_ONLY`, or `PERIODIC_EXAMPLE`.                                                                                              | `PERIODIC_EXAMPLE`                     |
 | `telemetryFlushInterval`      | How often the background reporter sends telemetry. Other telemetry options: [Delivery options](#delivery-options).                         | `60s`                                  |
-| `telemetryMaxInterval`        | Deprecated since 1.3.0; no effect. See [Delivery options](#delivery-options).                                                              | n/a                                    |
+| `telemetryMaxInterval`        | Deprecated; no effect. See [Delivery options](#delivery-options).                                                              | n/a                                    |

@@ -190,7 +190,7 @@ let token = await quonfig.subscribe {
 ### Invalid or revoked SDK key
 
 If a poll is rejected because Quonfig no longer accepts the SDK key, sdk-swift
-0.4.0+ logs one ERROR (`config fetch rejected: the SDK key is invalid or
+logs one ERROR (`config fetch rejected: the SDK key is invalid or
 revoked`, with the HTTP status and host, never the key), then waits
 `max(T, pollInterval)` between polls, with T picked at random between 150 and
 300 seconds. Going to the background and back keeps the slow cadence. The first
@@ -284,7 +284,7 @@ eval URL is never written to an on-device cache.
 
 How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
 every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
-The Swift `Configuration` options and defaults (0.2.0+):
+The Swift `Configuration` options and defaults:
 
 | option                            | default                 |
 | --------------------------------- | ----------------------- |
