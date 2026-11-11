@@ -32,7 +32,7 @@ Set `QUONFIG_DIR=./my-config` to avoid repeating `--dir`.
 
 **Prerequisites**
 
-- `pull` requires authentication. Either run `npx @quonfig/cli login` once (interactive OAuth, recommended for local dev) **or** export a `QUONFIG_API_KEY` (starts with `qf_uk_…`) plus `QUONFIG_WORKSPACE=<workspace-slug>` for headless / CI use. Generate a `qf_uk_` key from the **API Keys** tab on the **Environments & Keys** page in the dashboard. Note: this is a *user* API key, not an SDK key — the `qf_sk_…` / `qf_pk_…` SDK keys do not work with the CLI.
+- `pull` requires authentication. Either run `npx @quonfig/cli login` once (interactive OAuth, recommended for local dev) **or** export a `QUONFIG_API_KEY` (starts with `qf_uk_…`) plus `QUONFIG_WORKSPACE=<workspace-slug>` for headless / CI use. Generate a `qf_uk_` key from the **CLI & API keys** tab on the **Environments & Keys** page in the dashboard. Note: this is a *user* API key, not an SDK key — the `qf_sk_…` / `qf_pk_…` SDK keys do not work with the CLI.
 - `generate` does **not** call the network when `--dir` (or `QUONFIG_DIR`) points at a checkout from `pull`, so it can run in any environment.
 
 **Output**
@@ -1620,7 +1620,7 @@ const MyComponent = () => {
 
 :::info Custom Hook Requirements
 
-Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/v2.0.0/src/QuonfigProvider.tsx#L156-L182) implementation for additional details.
+Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/main/src/QuonfigProvider.tsx) implementation in `src/QuonfigProvider.tsx` for additional details.
 
 You must implement `get` method + expose the javascript `quonfig` property directly in custom implementations.
 :::
