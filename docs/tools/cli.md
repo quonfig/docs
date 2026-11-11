@@ -9,7 +9,7 @@ The Quonfig CLI provides powerful tools for creating, modifying, and getting inf
 
 ## Installation
 
-On a system with Node version 18+, run
+On a system with Node 20.9 or newer, run
 
 ```bash
 npm install -g @quonfig/cli
@@ -32,13 +32,9 @@ To use the hosted features, authenticate with Quonfig:
 qfg login
 ```
 
-This will open your browser and authenticate you with Quonfig. You can also use profiles to manage multiple workspaces:
+This prints a sign-in URL and code; press Enter to open it in your browser. One login covers every organization you belong to, so you don't need a separate login per workspace. To aim a command at a particular workspace, pass `--workspace <org>/<workspace>` (`-w`), or change your saved default with [`qfg workspace switch`](#workspace-switch).
 
-```bash
-qfg login --profile my-company
-```
-
-For additional details about authentication, profiles, and troubleshooting, see the [`login` command documentation](#login) below.
+For additional details about authentication and troubleshooting, see the [`login` command documentation](#login) below.
 
 ## Usage
 
@@ -56,9 +52,9 @@ These flags are available for all commands:
 
 - `--verbose` - Enable verbose output for debugging and detailed logging
 - `--no-color` - Disable colored output (useful for CI/CD or when piping output)
-- `--interactive / --no-interactive` - Force interactive mode on/off (defaults to auto-detect)
+- `--interactive / --no-interactive` - Turn prompts on or off (on by default; prompts are skipped anyway when there is no terminal)
 - `--json` - Format output as JSON instead of human-readable text
-- `--profile <name>` - Use a specific authentication profile (available on API commands)
+- `--workspace <org>/<workspace>` (`-w`) - The workspace to act on (commands that talk to a hosted workspace). Overrides `QUONFIG_WORKSPACE` and your saved default.
 
 Examples:
 ```bash
@@ -71,8 +67,8 @@ qfg get my.config --no-color --json
 # Force non-interactive mode for automation
 qfg create my.flag --type boolean-flag --value=true --no-interactive
 
-# Use a specific profile
-qfg list --profile production
+# Act on a specific workspace
+qfg list --workspace acme/web
 ```
 
 ## TypeScript Code Generation
@@ -194,8 +190,9 @@ typed.get('build.dark-mode');             // same value, key autocompleted
 
 ### init
 
-`qfg init` scaffolds a new Quonfig workspace in the current directory, or
-refreshes an existing one. **Fully offline — no login required.**
+`qfg init [directory]` scaffolds a new Quonfig workspace in the given
+directory (the current directory by default), or refreshes an existing one.
+**Fully offline — no login required.**
 
 It creates:
 
@@ -205,24 +202,39 @@ It creates:
 - A `quonfig.json` describing the workspace and its environments
 - A managed `README.md`, `CLAUDE.md`, and `AGENTS.md` that explain the
   local-only workflow to humans and AI agents
-- Optionally, one sample of each config type (with `--samples`) so you have
-  working files to copy from
+- Sample configs so you have working files to copy from (on a first init,
+  unless you pass `--no-samples`)
 
 Options:
-- `--samples` — drop in one example feature flag, config, and segment
-- `--workspace <org/slug>` — pin the workspace identity (only matters if
-  you later run `qfg push` against a hosted account)
-- `--dir <path>` — initialize in a path other than the current directory
+- `--samples` / `--no-samples` — include sample configs. Defaults to yes on a
+  first init and no when refreshing an existing workspace.
+- `--workspace <org>/<workspace>` (`-w`) — pin the workspace identity in
+  `quonfig.json` (only matters if you later run `qfg push` against a hosted
+  account)
+- `--dry-run` — show what would be written without writing anything
 
 Examples:
 ```bash
-# Scaffold a brand-new workspace with samples
-mkdir my-config && cd my-config
-qfg init --samples
+# Scaffold a brand-new workspace (samples included)
+qfg init ./my-config
+
+# Scaffold without samples, in the current directory
+qfg init --no-samples
+
+# Preview what a refresh would change
+qfg init --dry-run
 
 # Refresh templates in an existing workspace (idempotent — safe to re-run)
 qfg init
 ```
+
+A workspace made by `qfg init` without `--workspace` is **local-only**. Commands
+that write to a hosted workspace (`create`, `delete`, `set-default`,
+`set-rollout`, `log-level`, `override` and `activity restore`) refuse to run
+inside it, because they would change a hosted workspace rather than these
+files. Edit the JSON files and run `qfg verify` instead. To write to a hosted
+workspace from there anyway, pass `--workspace <org>/<workspace>` or set
+`QUONFIG_WORKSPACE`.
 
 After `qfg init`, the next things you'll run are
 [`qfg verify`](#verify) (validation) and [`qfg generate`](#generate)
@@ -242,7 +254,7 @@ It checks:
 - Segment references (`IN_SEG` / `NOT_IN_SEG`) resolve to real segments
 - Schema references (`schemaKey`) resolve to real schemas
 - Every schema compiles, and every value of a schema-bound config matches its
-  schema (`@quonfig/cli` 0.2.0 or later)
+  schema
 - Variant-only configs only emit declared variants
 
 Examples:
@@ -288,8 +300,8 @@ See [Secret Management](/docs/explanations/features/secret-management) for the f
 `qfg pull` clones or updates a local copy of your workspace config files. This is required before running `generate`, and it is also how you edit flag JSON directly for anything beyond the `set-default` / `set-rollout` shortcuts.
 
 Options:
-- `--dir <path>` - Local directory to clone/update (defaults to `QUONFIG_DIR` env var)
-- `--workspace <id>` - Workspace ID (defaults to active profile)
+- `--dir <path>` - Local directory to clone/update (defaults to `QUONFIG_DIR`, then the nearest directory at or above the current one that has a `quonfig.json`)
+- `--workspace <id>` (`-w`) - Workspace to pull (defaults to your saved default workspace)
 
 Examples:
 ```bash
@@ -313,6 +325,32 @@ git -C ./my-config commit -m "feat: target beta cohort"
 git -C ./my-config push
 ```
 
+### push
+
+`qfg push` sends local config changes up to your hosted workspace. It
+validates the workspace first (the same checks as [`qfg verify`](#verify)),
+then shows a summary of what will change and asks you to confirm.
+
+Before it pushes, it checks that the directory belongs to the workspace you're
+pushing to: a `workspace` pin in `quonfig.json`, or a git `origin` that points
+at a different workspace, makes it refuse. Destructive pushes (10 or more
+deletes, at least a quarter of the files, or a directory with no workspace pin)
+make you type the workspace slug to confirm.
+
+Options:
+- `--dir <path>` - Local directory to push (defaults to `QUONFIG_DIR`, then the nearest directory at or above the current one that has a `quonfig.json`)
+- `--workspace <org>/<workspace>` (`-w`) - Workspace to push to (slug or UUID; defaults to your saved default workspace)
+- `--yes` - Skip the normal yes/no confirmation. It never skips the typed-slug confirmation.
+- `--skip-validate` - Skip the validation step
+- `--message <msg>` (`-m`) - Commit message when the directory is not a git repo. In a git checkout, `qfg push` pushes what you have already committed and ignores this flag.
+- `--no-pin-write` - Don't offer to write the workspace pin into `quonfig.json` after a successful push
+
+Examples:
+```bash
+qfg push --dir ./my-config
+qfg push --dir ./my-config --workspace acme/web
+```
+
 ### serve
 
 `qfg serve` reads a local datadir and exposes it over the HTTP wire
@@ -326,7 +364,7 @@ qfg serve --datadir ./our-config --environment development
 ```
 
 Options:
-- `--datadir <path>` - Path to the workspace (defaults to `./our-config`, then `./.quonfig`, then `QUONFIG_DIR`)
+- `--datadir <path>` - Path to the workspace. Without the flag, `qfg serve` uses `QUONFIG_DIR`, then `./our-config`, then `./.quonfig` (relative to the current directory; it does not search parent directories the way `pull` and `push` do)
 - `--environment <slug>` - Environment to evaluate. The flag wins; otherwise `QUONFIG_ENVIRONMENT`; otherwise `development`. `qfg serve` hosts a service, so it reads the variable the same way an SDK does (see [Environment Variables](#environment-variables)).
 - `--port <n>` - TCP port (default `6580`)
 - `--host <addr>` - Bind address (default `127.0.0.1`; non-loopback requires `--allow-non-loopback`)
@@ -348,7 +386,7 @@ It can read from either:
   ancestor) contains a `quonfig.json`, `generate` uses that. **No login
   required** — this is the path the [Open Source / Fully Local](/docs/how-tos/open-source-local) workflow uses.
 - **The API.** When no local workspace can be found and `--workspace` is
-  given (or active credentials are set), `generate` mints a Gitea read
+  given (or active credentials are set), `generate` mints a read
   token, clones the workspace into a temp dir, generates from it, and cleans
   up. Use this in CI or one-shot scripts where you don't want to keep a
   working copy on disk.
@@ -390,19 +428,21 @@ For detailed setup instructions, configuration options, and usage examples, see 
 
 ### login
 
-`qfg login` authenticates you with Quonfig using OAuth. This opens your browser to complete the authentication flow and stores tokens locally for subsequent CLI commands.
+`qfg login` authenticates you with Quonfig using a device sign-in flow: it prints a URL and a code, and pressing Enter opens the URL in your browser. Once you approve, it stores a token for each organization you belong to, so later commands can reach any of your workspaces.
 
 Options:
-- `--profile <name>` - Profile name to create or update (defaults to "default")
 - `--json` - Format output as JSON
 
 Example:
 ```bash
 qfg login
-qfg login --profile production
 ```
 
-Profiles allow you to manage multiple Quonfig accounts or environments. Use the `QUONFIG_PROFILE` environment variable or `--profile` flag to specify which profile to use.
+On success it prints your default workspace. To pick a different default, run [`qfg workspace switch`](#workspace-switch); to target another workspace for a single command, pass `--workspace <org>/<workspace>`.
+
+:::note Profiles are deprecated
+Older CLI versions used `--profile` to manage multiple accounts. You no longer need it: one login covers all your organizations. `--profile` still works but is hidden from help, and `qfg profile` now runs `qfg workspace switch`.
+:::
 
 ### logout
 
@@ -413,7 +453,15 @@ Example:
 qfg logout
 ```
 
-This affects all profiles and is useful for security, troubleshooting authentication issues, or switching accounts.
+This clears the tokens for every organization and is useful for security, troubleshooting authentication issues, or switching accounts.
+
+### whoami
+
+`qfg whoami` shows the email you're logged in as and the organizations you belong to, with your role in each and a marker on the active one.
+
+```bash
+qfg whoami
+```
 
 ### list
 
@@ -426,7 +474,6 @@ Options:
 - `--schemas` - Include only schemas
 - `--segments` - Include only segments
 - `--json` - Format output as JSON
-- `--profile <name>` - Use specific profile
 
 Examples:
 ```bash
@@ -533,7 +580,7 @@ Surface:
 - `qfg override --clear` — remove all of your overrides in the current env.
 
 Flags:
-- `--env <env>` — environment to operate in. Required. `qfg override` never reads `QUONFIG_ENVIRONMENT` (it did before CLI 0.0.74), so a variable left over from local development cannot pick the environment a write lands in.
+- `--env <env>` — environment to operate in. Required. `qfg override` never reads `QUONFIG_ENVIRONMENT`, so a variable left over from local development cannot pick the environment a write lands in.
 - `--remove` — remove your override on the given key.
 - `--clear` — remove every override you have in this env.
 
@@ -567,7 +614,7 @@ Quonfig evaluates a flag by walking its rules in order, and the last rule is nor
 
 To target a particular customer or user, match their **key** (`organization.key`, `user.key`), not a slug or email — run [`qfg contexts search`](#contexts-search) to find it from a name.
 
-`override` is deliberately NOT on this list — it only affects *your* SDK key. For production targeting, reach for one of the options above.
+`override` is deliberately NOT on this list — it only affects SDK clients that send your `quonfig-user.email` in their context. For production targeting, reach for one of the options above.
 
 #### Editing JSON directly
 
@@ -578,7 +625,7 @@ qfg config-schema                # human-readable operator reference + worked ex
 qfg config-schema --json-schema  # machine-readable JSON Schema (e.g. for IDE completion)
 ```
 
-For IDE autocomplete while editing, point your editor at `our-config/quonfig.schema.json` (or the equivalent file in your workspace clone).
+Every config file starts with a `$schema` field pointing at `https://api.quonfig.com/schemas/v1/stored-config.json`, so editors that understand JSON Schema give you autocomplete and validation with no setup.
 
 #### Sample rule — target a single user
 
@@ -633,44 +680,39 @@ git -C ./my-config push
 
 `qfg verify` validates against the same schema the SDK uses, so a passing verify is a strong signal the rule will evaluate correctly.
 
-### profile
-
-`qfg profile` manages authentication profiles and allows you to set the default profile for CLI operations.
-
-Example:
-```bash
-qfg profile
-```
-
-This command helps you switch between different Quonfig accounts or workspace configurations.
-
 ### schema
 
-`qfg schema NAME` manages Zod schema definitions for your configs, providing type safety and validation.
+`qfg schema NAME` gets or sets a schema document in your workspace. A schema is a plain [JSON Schema](https://json-schema.org/) document; a JSON config that names it in `schemaKey` must match it, and `qfg generate` uses it to type that config.
 
 Options:
-- `--get` - Get the current schema definition
-- `--set-zod <schema>` - Set a new Zod schema definition
-- `--profile <name>` - Use specific profile
+- `--get` - Print the schema document
+- `--set-json-schema <schema>` - Create or replace the schema. Pass the JSON inline, or `@path/to/file.json` to read it from a file.
+- `--protected` - Store the schema as protected
+- `--set-zod <schema>` - Deprecated alias for `--set-json-schema`. It takes JSON Schema, not a Zod expression.
 
 Examples:
 ```bash
-qfg schema my-schema --set-zod="z.object({url: z.string()})"
 qfg schema my-schema --get
+qfg schema my-schema --set-json-schema='{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}'
+qfg schema my-schema --set-json-schema=@schemas/my-schema.json --protected
 ```
-
-Schemas enable runtime validation and better TypeScript integration when using generated types.
 
 ### workspace
 
-`qfg workspace` allows you to switch between different Quonfig workspaces or display your current active workspace.
+`qfg workspace` shows your active workspace, the organizations you have tokens for, and every workspace you can reach.
 
-Example:
 ```bash
 qfg workspace
 ```
 
-This helps when you have access to multiple Quonfig workspaces and need to switch contexts.
+#### workspace switch
+
+`qfg workspace switch [<org>/<workspace>]` changes your saved default workspace, the one commands use when you don't pass `--workspace` or set `QUONFIG_WORKSPACE`. Without an argument it opens an interactive picker.
+
+```bash
+qfg workspace switch
+qfg workspace switch acme/production
+```
 
 #### workspace create
 
@@ -701,7 +743,7 @@ Which workspace it pushes to is resolved the same way `push`, `pull` and
 
 1. `QUONFIG_WORKSPACE`, if set (`<org>/<workspace>`, or the workspace UUID).
 2. The `workspace` pin in `<dir>/quonfig.json`, if the directory has one.
-3. Your active profile (`qfg workspace`).
+3. Your saved default workspace (shown by `qfg workspace`, changed with `qfg workspace switch`).
 
 The confirmation prompt names the workspace that won, so check it before
 answering. If the directory is pinned to one workspace and something else
@@ -814,15 +856,56 @@ qfg create log-level.my-app --type log_level --value=INFO
 - `--secret` implies `--confidential`, so you don't need both
 - Neither `create` nor `set-default` prints a secret's value; they confirm with a redacted fingerprint. Details in [Secret Management](/docs/explanations/features/secret-management#checking-a-secret-without-revealing-it).
 
+Inside a local-only workspace made by `qfg init`, `create` refuses to run unless you name the target with `--workspace` or `QUONFIG_WORKSPACE`; see [init](#init). The same goes for `delete`, `set-default`, `set-rollout`, `log-level`, `override` and `activity restore`.
+
 **Log levels:** `--type log_level` requires the key to start with `log-level.` and the value to be a recognized level name (case-insensitive). `--secret`, `--env-var`, and `--confidential` are rejected on this type. To target individual loggers without creating one config per logger, write rules on the `quonfig-sdk-logging.key` context property — see the SDK docs for details.
 
 ### log-level
 
-`qfg log-level NAME` is a thin alias for `qfg create --type log_level NAME`. It exists for discoverability — running `qfg log-level --help` surfaces the `log-level.` prefix rule and the `quonfig-sdk-logging.key` per-logger targeting pattern in one place.
+`qfg log-level NAME` creates a log-level config, or adds a per-logger rule to one. The key must start with `log-level.`.
 
-Example:
+It has two modes:
+
+1. **Create** (no `--target`): creates the config with `--value` as its default level. This is the same as `qfg create NAME --type log_level`.
+2. **Target loggers** (`--target`): adds a rule to an existing config that sets `--value` for every logger whose name starts with the given prefix. SDKs fill in the `quonfig-sdk-logging.key` context property from the logger name, and the rule matches it with `PROP_STARTS_WITH_ONE_OF`. The rule goes above the catch-all; if a rule with the same prefixes already exists, its level is replaced.
+
+Options:
+- `--value <level>` - `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`. In create mode it is the default level; with `--target` it is required and is the level for the matched loggers.
+- `--target <prefix>` - Logger name prefix. Repeat it to match any of several prefixes.
+- `--environment <env>` - With `--target`, add the rule to this environment instead of the default rules. Without `--target` it is an error; use `qfg set-default` to change an environment's level.
+
+Examples:
 ```bash
+# Create
 qfg log-level log-level.my-app --value=WARN
+
+# Turn one noisy package down everywhere
+qfg log-level log-level.my-app --target=MyPackage.Noisy --value=ERROR
+
+# Turn two packages up, in production only
+qfg log-level log-level.my-app --target=A --target=B --value=DEBUG --environment=production
+```
+
+For anything more complex (regex, several criteria, exact matches), edit the config's JSON.
+
+### delete
+
+`qfg delete NAME` deletes a flag, config or log level from the workspace. It removes the file and commits the change under your name; the earlier content stays in the workspace's git history, and [`qfg activity restore`](#activity) brings it back.
+
+It asks you to type the key back to confirm. Pass `--yes` to skip that in scripts and CI.
+
+```bash
+qfg delete my.flag            # type the key to confirm
+qfg delete my.config --yes
+```
+
+### environments
+
+`qfg environments` (alias `qfg envs`) lists the environment names in your workspace and marks the protected ones. Every `--environment` flag on this page takes one of these exact names, or `"[Default]"` for the default rules that environments without rules of their own inherit.
+
+```bash
+qfg envs
+qfg envs --json   # {"environments": [{"id", "name", "protected"}]}
 ```
 
 ### get
@@ -879,6 +962,54 @@ qfg run --env-file=.qfg.env -- next build
 
 The `--` separator between `qfg run` flags and the child command is required. Auth/environment is binary — set either `QUONFIG_BACKEND_SDK_KEY` (Mode A) or use `qfg login` plus `--environment` / `QUONFIG_ENVIRONMENT` (Mode B), never both. See [Running commands with injected env](/docs/tools/qfg-run) for the full reference, package.json patterns, and the `instrumentation.ts` comparison.
 
+### sdk-key
+
+`qfg sdk-key` creates, lists and revokes the SDK keys your applications use.
+
+- `qfg sdk-key create --name <name>` - Create a key. `--name` (`-n`) is required; name it after what uses the key. `--environment` (`-e`) picks the environment and `--type` (`-t`) is `server` (backend SDKs) or `browser` (frontend SDKs); leave either off to be prompted.
+- `qfg sdk-key list` - List keys, optionally filtered with `--environment`.
+- `qfg sdk-key revoke <key-id>` - Revoke a key by the ID that `list` shows.
+
+```bash
+qfg sdk-key create --name "checkout service" --environment production --type server
+qfg sdk-key create --name "marketing site" --environment staging --type browser
+qfg sdk-key list --environment production
+qfg sdk-key revoke a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+### activity
+
+`qfg activity` shows what changed in the workspace.
+
+- `qfg activity feed` - Recent changes across the workspace, newest first: who changed which key, and how. `--limit` sets how many (1-100, default 30).
+- `qfg activity history NAME` - The full change history of one flag, config, log level, segment or schema.
+- `qfg activity deleted` - Keys that were deleted and not restored.
+- `qfg activity restore NAME` - Bring back a deleted key from its last content. It shows who deleted it and when, then asks to confirm (`--yes` skips that). `--type` is inferred when omitted. Schemas can't be restored this way; use git history.
+
+```bash
+qfg activity feed --limit 5
+qfg activity history my.flag
+qfg activity deleted
+qfg activity restore my.flag --yes
+```
+
+### agent install-skill
+
+`qfg agent install-skill` installs the Quonfig agent skill into an application repo, so coding agents use the SDK, `qfg` and the MCP tools correctly. It writes `.claude/skills/quonfig/`, which Claude Code picks up automatically. The files are the same as `claude plugin install quonfig@quonfig` from [github.com/quonfig/skills](https://github.com/quonfig/skills), bundled into the CLI so nothing is downloaded.
+
+Options:
+- `--add-pointer` - Also add a one-line pointer to the skill in `./AGENTS.md`, for Codex, Cursor and other agents that read it
+- `--dir <path>` - Install into a different skills directory (for example `.agents/skills`)
+- `--force` - Overwrite skill files you've edited
+
+Re-running it upgrades the files it wrote earlier. If you've edited one, it stops and lists the file unless you pass `--force`.
+
+```bash
+qfg agent install-skill --add-pointer
+```
+
+This skill is for application repos. A workspace made by `qfg init` already has its own `AGENTS.md` and `CLAUDE.md`.
+
 ## Your workspace's `main` is append-only
 
 Every workspace is a git repo, and you can push to it with plain `git` as well as
@@ -901,8 +1032,7 @@ qfg pull && qfg push          # or: git pull --rebase origin main && git push or
 ```
 
 If the rejection came from `qfg workspace bootstrap` on an older CLI, upgrade the
-CLI (`npm install -g @quonfig/cli@latest`); bootstrap has not force-pushed since
-0.1.0.
+CLI (`npm install -g @quonfig/cli@latest`); current versions never force-push.
 
 ## Rolling the whole workspace back to an earlier commit
 
@@ -946,8 +1076,9 @@ workspace back.
 qfg logout
 qfg login
 
-# Use specific profile
-qfg login --profile production
+# Check who you're logged in as and which workspace is the default
+qfg whoami
+qfg workspace
 ```
 
 **Configuration Generation Issues:**
@@ -964,16 +1095,16 @@ cat quonfig.config.json | jq .
 # Test connectivity with verbose output
 qfg list --verbose
 
-# Check API endpoint override
-echo $QUONFIG_API_URL_OVERRIDE
+# Check whether the API host has been overridden
+echo $QUONFIG_DOMAIN $QUONFIG_API_BASE_URL_OVERRIDE
 ```
 
 ### Environment Variables
 
 - `QUONFIG_API_KEY` - Authenticate with an API key instead of a `qfg login` session — for CI and scripts. Either a personal key (`qf_uk_...`) or a service-account key (`qf_sa_...`); mint both in the app, see [REST API authentication](/docs/api/rest-api#authentication). When set, the workspace must also be named, with `QUONFIG_WORKSPACE` or `--workspace`.
-- `QUONFIG_WORKSPACE` - The workspace to act on when `QUONFIG_API_KEY` is set: `<org>/<workspace>` (e.g. `acme/production`) or the workspace's UUID. **Service-account keys must use the UUID** — `qf_sa_` principals have no user-level workspace list, so an `org/workspace` slug fails with `No workspace matching ... Available: (none)`. Find the UUID with `GET /v1/whoami` using the same key (it returns `workspaceId`), or read it from the app's URL — every workspace page is `/workspaces/<uuid>/...`.
-- `QUONFIG_API_URL_OVERRIDE` - Override the default API URL
-- `QUONFIG_DIR` - Default local directory for `pull` and `generate` (avoids repeating `--dir`)
+- `QUONFIG_WORKSPACE` - The workspace to act on, overriding your saved default (`--workspace` wins over it). Required when `QUONFIG_API_KEY` is set: `<org>/<workspace>` (e.g. `acme/production`) or the workspace's UUID. **Service-account keys must use the UUID** — `qf_sa_` principals have no user-level workspace list, so an `org/workspace` slug fails with `No workspace matching ... Available: (none)`. Find the UUID with `GET /v1/whoami` using the same key (it returns `workspaceId`), or read it from the app's URL — every workspace page is `/workspaces/<uuid>/...`.
+- `QUONFIG_DOMAIN` - The base domain the CLI derives its API host from (default `quonfig.com`, giving `https://app.quonfig.com`)
+- `QUONFIG_API_BASE_URL_OVERRIDE` - Full API base URL; wins over `QUONFIG_DOMAIN`
+- `QUONFIG_DIR` - Default local directory for `pull`, `push`, `generate` and `serve` (avoids repeating `--dir`)
 - `QUONFIG_ENVIRONMENT` - Read **only** by the two commands that run as a service: `qfg serve` (flag, then the variable, then `development`) and `qfg run`. Every operator command that reads or writes a workspace (`get`, `set-default`, `set-rollout`, `override`, `log-level`, ...) ignores it and takes `--environment` (or `--env` for `override`) explicitly. The rule: the variable tells a service what it _is_; the flag tells the CLI what to _aim at_. An ambient variable must never choose where a write lands.
-- `QUONFIG_PROFILE` - Set default profile to use
 - `NO_COLOR` - Disable colored output
