@@ -42,7 +42,9 @@ export default async function MyPage() {
 
 ---
 
-## Netlify / AWS Lambda
+## Netlify Functions
+
+The examples below use Netlify Functions conventions (the `(req, context)` handler, `context.params`, and `export const config = { path }`). The same two approaches work in an AWS Lambda handler (`export const handler = async (event) => { ... }`); only the handler signature and how you read the user ID change.
 
 :::tip TypeScript Support
 
@@ -54,13 +56,13 @@ npx @quonfig/cli generate --targets node-ts
 
 :::
 
-## Choosing an Approach
+### Choosing an Approach
 
-The first step is to choose between a client-side style or server-side style approach. We've written a blog post that goes into detail about [choosing how to use Quonfig with Netlify](https://quonfig.com/blog/feature-flags-for-netlify-functions/).
+The first step is to choose between a client-side style or server-side style approach. For background on the difference, see [Frontend SDKs](/docs/explanations/concepts/frontend-sdks).
 
 ### Feature Flags in Lambdas: The Browser-Like Approach
 
-A practical solution is to treat Netlify functions similar to a browser. Quonfig's [Javascript client](https://docs.quonfig.com/docs/sdks/javascript), for instance, caches flag evaluations per user in a CDN. Here's a sample code snippet for this approach:
+A practical solution is to treat Netlify functions similar to a browser. Quonfig's [JavaScript client](/docs/sdks/javascript) fetches values already evaluated for one context from Quonfig's delivery API, using a frontend SDK key. Here's a sample code snippet for this approach:
 
 <Tabs groupId="lang">
 <TabItem value="typescript" label="TypeScript (Recommended)">
@@ -105,13 +107,13 @@ export default async (req, context) => {
 </TabItem>
 </Tabs>
 
-In our testing from a Netlify function we see results around a 50ms latency initially and around then 10ms for each subsequent request for the same context. That may be too slow for some applications, but it's a good starting point and very easy to set up.
+Each invocation costs one network round-trip to fetch the evaluated values. That may be too slow for some applications, but it's a good starting point and very easy to set up.
 
 The nice thing about this solution is that you're going to get instant updates when you change a flag. The next request will have up to date data.
 
 ### The Server-Side Alternative
 
-Alternatively, you can implement a server-side strategy using the Quonfig [NodeJS](https://docs.quonfig.com/docs/sdks/node) client.
+Alternatively, you can implement a server-side strategy using the Quonfig [Node.js](./node.md) client.
 The key will be configuring our client to disable background updates and background telemetry, then performing an update on our own timeline.
 
 Here's a sample code snippet for this approach:
@@ -237,7 +239,7 @@ export const config = { path: "/users/:userId" };
 </TabItem>
 </Tabs>
 
-With this approach every request is served from memory. `updateIfStalerThan` does no network round-trip unless the last successful refresh is older than the interval you pass, and when it does start one it returns immediately — the fetch runs in the background and the new config is installed when it lands, about 50ms later in our testing from a Netlify function. Concurrent calls coalesce onto the same in-flight fetch, so a burst of requests during an outage never stacks retries. We're entirely in control of the frequency here, so it's a judgment call on how real-time you want your feature flag updates. You could even disable the updates altogether if you didn't mind redeploying to update your flags.
+With this approach every request is served from memory. `updateIfStalerThan` does no network round-trip unless the last successful refresh is older than the interval you pass, and when it does start one it returns immediately — the fetch runs in the background and the new config is installed when it lands. Concurrent calls coalesce onto the same in-flight fetch, so a burst of requests during an outage never stacks retries. We're entirely in control of the frequency here, so it's a judgment call on how real-time you want your feature flag updates. You could even disable the updates altogether if you didn't mind redeploying to update your flags.
 
 Two things to know about that background fetch in a frozen lambda:
 
@@ -246,14 +248,10 @@ Two things to know about that background fetch in a frozen lambda:
 
 ## If Quonfig is unreachable on a cold start
 
-:::info Since @quonfig/node 1.9.0
-Describes `@quonfig/node` 1.9.0 and later.
-:::
-
 A module-level `await quonfig.init()` retries for up to `initTimeout` (10s by
 default) and then applies `onInitFailure`. Under the default, `"fail"`, the
-rejected `await` fails the cold start, and the platform retries the
-invocation. If the SDK key is rejected on every delivery leg, it fails at once.
+rejected `await` fails the cold start, so that invocation returns an error,
+and the next invocation runs the module's `init()` again. If the SDK key is rejected on every delivery leg, it fails at once.
 
 - Keep `initTimeout` well under your function timeout, so a cold start during
   an outage fails cleanly instead of being killed by the platform.

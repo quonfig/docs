@@ -39,8 +39,8 @@ client.init()
 ```
 
 `init()` returns the client, so `client = Quonfig(sdk_key="sdk-...").init()` works too.
-Unless your options are configured to run using only local data, the client will attempt to connect to
-the remote CDN.
+Unless your options are configured to run using only local data, the client connects to Quonfig's
+delivery servers (`primary.quonfig.com`, with `secondary.quonfig.com` as the failover).
 
 ### If Quonfig is unreachable at startup
 
@@ -116,10 +116,9 @@ and the exact list of calls that trigger the rebuild are in the SDK README's
 Two things worth knowing:
 
 - The **first evaluation** in a forked worker pays one config fetch, bounded
-  by `init_timeout_ms`. If that lazy fetch can't load config, the worker logs
-  the failure and serves defaults while it keeps retrying; an explicit
-  `init()` in the worker instead follows `on_init_failure` exactly like a
-  fresh boot. To pay it before the
+  by `init_timeout_ms`, and follows `on_init_failure` exactly like a fresh
+  boot (see worker recycling below for what that means during an outage).
+  To pay it before the
   first request instead, call `init()` on the master-built client in the
   worker's post-fork hook (only under `--preload`; a client that was built in
   the worker is already fresh and must not be `init()`ed twice). **Catch
@@ -148,11 +147,14 @@ def post_fork(server, worker):
   unreachable (Gunicorn `max_requests`, a Celery child replaced after
   `max_tasks_per_child`) never uses the master's config: its first evaluation
   blocks for up to `init_timeout_ms` (10s by default). Under the default
-  `on_init_failure="fail"`, 2.0.0 then serves defaults until Quonfig is
-  reachable (an upcoming release raises `QuonfigInitError` instead, matching
-  Ruby). Under `"wait"` that first request blocks until Quonfig is back. If
-  you recycle workers often, consider `on_init_failure="continue"` and make
-  sure your in-code defaults are safe. See
+  `on_init_failure="fail"`, that read and every later content read raise
+  `QuonfigInitError` until Quonfig is reachable. `is_feature_enabled` is the
+  exception: it never raises and returns its default instead, and the
+  `*_details` getters return `reason="ERROR"` with
+  `error_code="PROVIDER_NOT_READY"`. Under `"wait"` that first request blocks
+  until Quonfig is back. If you recycle workers often, consider
+  `on_init_failure="continue"` and make sure your in-code defaults are safe.
+  The full table, for every mode, is in
   [Forked workers and worker recycling](../../explanations/architecture/startup-failure.md#forked-workers-and-worker-recycling).
 - Health accessors such as `connection_state()` and `ready()` are
   diagnostic-only: in a worker that has not evaluated anything yet they report
@@ -283,13 +285,13 @@ The full list is in the
 
 ### Getting Started
 
-Now create a config named `my-first-int-config` in the Quonfig UI. Set a default
-value to 50 and sync your change to the API.
+Create an int config and a feature flag that is on, with the [`qfg` CLI](/docs/tools/cli)
+(or in the Quonfig app; the [Get Started tutorial](/docs/tutorials/get-started) shows how):
 
-Add a feature flag named `my-first-feature-flag` in the Quonfig UI. Add boolean
-variants of `true` and `false`. Set the inactive variant to false, make the flag
-active and add a rule of type `ALWAYS_TRUE` with the variant to serve as `true`.
-Remember to sync your change to the API.
+```bash
+qfg create my-first-int-config --type int --value=50
+qfg create my-first-feature-flag --type boolean-flag --value=true
+```
 
 ```python
 config_key = "my-first-int-config"
@@ -471,30 +473,20 @@ if client.should_log(config_key="log-level.my-app", desired_level="DEBUG"):
 
 ### Rule example
 
-Create a `log_level` config with key `log-level.my-app` and target individual loggers via `quonfig-sdk-logging.key`:
+Create a `log_level` config with key `log-level.my-app`, then target individual loggers via `quonfig-sdk-logging.key` with the [`qfg` CLI](/docs/tools/cli). Each `--target` adds a rule that matches every logger whose name starts with that prefix:
 
-```yaml
+```bash
 # Default to INFO for every logger in this app
-default: INFO
+qfg log-level log-level.my-app --value=INFO
 
-rules:
-  # Bump a module to DEBUG
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "my_app.auth"
-    value: DEBUG
+# Bump a module to DEBUG
+qfg log-level log-level.my-app --target=my_app.auth --value=DEBUG
 
-  # Silence a chatty library
-  - criteria:
-      quonfig-sdk-logging.key:
-        starts-with: "urllib3"
-    value: ERROR
-
-  # Turn DEBUG on for one developer, everywhere
-  - criteria:
-      user.email: "developer@example.com"
-    value: DEBUG
+# Silence a chatty library, in one environment only
+qfg log-level log-level.my-app --target=urllib3 --value=ERROR --environment=production
 ```
+
+For other criteria, such as turning DEBUG on for one developer by `user.email`, add the rule in the Quonfig app or edit the config's JSON in your workspace repo.
 
 Because the evaluator sees your full context — global context, per-request context, and `quonfig-sdk-logging.key` — you can combine logger rules with user, environment, or request context for targeted debugging.
 
@@ -515,7 +507,7 @@ root.addFilter(QuonfigLoggerFilter(client))
 logging.getLogger("my_app.auth").debug("filtered by Quonfig")
 ```
 
-The record's `name` flows into the context verbatim as `quonfig-sdk-logging.key`, so rules that `starts-with: "my_app.auth"` match what your app already logs.
+The record's `name` flows into the context verbatim as `quonfig-sdk-logging.key`, so a `--target=my_app.auth` rule matches what your app already logs.
 
 ### structlog integration
 
@@ -598,7 +590,7 @@ recovers by itself on the first accepted probe.
 
 ## Testing
 
-Point the client at a local data directory instead of the remote CDN with `datadir`. Datadir mode
+Point the client at a local data directory instead of Quonfig's delivery servers with `datadir` (or the `QUONFIG_DIR` environment variable). Datadir mode
 requires an environment: pass `environment=` or set `QUONFIG_ENVIRONMENT`, otherwise `init()` raises
 `RuntimeError`.
 
@@ -635,7 +627,7 @@ All parameters are keyword arguments to `Quonfig(...)`.
 - `context_upload_mode` - send context information to Quonfig. One of `"none"`, `"shapes_only"` (field names and types only),
   or `"periodic_example"` (types plus example contexts; the default).
 - `global_context` - a global context to be used in all lookups. Use this for things like availability zone, machine type...
-- `fallback_poll_enabled` / `fallback_poll_interval_ms` - poll the CDN when the SSE stream is unavailable (defaults `True` / `60000`).
+- `fallback_poll_enabled` / `fallback_poll_interval_ms` - poll the delivery API when the SSE stream is unavailable (defaults `True` / `60000`).
 - `enable_sse` - keep a live SSE stream open for real-time updates (defaults to `True`). Pass `False` on serverless hosts; with `fallback_poll_enabled=True` polling becomes the primary update channel, with both `False` the client only updates via `refresh()` / `update_if_staler_than()`. See [Lambdas / Serverless](/docs/sdks/python/lambdas).
 - `logger_key` - the `log_level` config key consulted by `should_log(logger_path=...)`. No default — set it to enable the `logger_path` convenience (defaults to `None`).
 
