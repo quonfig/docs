@@ -58,11 +58,11 @@ npx @quonfig/cli generate --targets node-ts
 
 ### Choosing an Approach
 
-The first step is to choose between a client-side style or server-side style approach. For background on the difference, see [Frontend SDKs](/docs/explanations/concepts/frontend-sdks).
+The first step is to choose between a client-side style or server-side style approach. For background on the difference, see [Frontend SDKs](../../explanations/concepts/frontend-sdks.md).
 
 ### Feature Flags in Lambdas: The Browser-Like Approach
 
-A practical solution is to treat Netlify functions similar to a browser. Quonfig's [JavaScript client](/docs/sdks/javascript) fetches values already evaluated for one context from Quonfig's delivery API, using a frontend SDK key. Here's a sample code snippet for this approach:
+A practical solution is to treat Netlify functions similar to a browser. Quonfig's [JavaScript client](../javascript.md) fetches values already evaluated for one context from Quonfig's delivery API, using a frontend SDK key. Here's a sample code snippet for this approach:
 
 <Tabs groupId="lang">
 <TabItem value="typescript" label="TypeScript (Recommended)">
