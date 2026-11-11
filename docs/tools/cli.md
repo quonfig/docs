@@ -859,7 +859,7 @@ qfg create log-level.my-app --type log_level --value=INFO
 
 Inside a local-only workspace made by `qfg init`, `create` refuses to run unless you name the target with `--workspace` or `QUONFIG_WORKSPACE`; see [init](#init). The same goes for `delete`, `set-default`, `set-rollout`, `log-level`, `override` and `activity restore`.
 
-**Log levels:** `--type log_level` requires the key to start with `log-level.` and the value to be a recognized level name (case-insensitive). `--secret`, `--env-var`, and `--confidential` are rejected on this type. To target individual loggers without creating one config per logger, write rules on the `quonfig-sdk-logging.key` context property — see the SDK docs for details.
+**Log levels:** `--type log_level` requires the key to start with `log-level.` and the value to be a recognized level name (case-insensitive). `--secret`, `--env-var`, and `--confidential` are rejected on this type. To target individual loggers without creating one config per logger, write rules on the `quonfig-sdk-logging.key` context property — see [`log-level`](#log-level) and [Dynamic Log Levels](/docs/explanations/features/dynamic-log-levels).
 
 ### log-level
 
@@ -887,7 +887,7 @@ qfg log-level log-level.my-app --target=MyPackage.Noisy --value=ERROR
 qfg log-level log-level.my-app --target=A --target=B --value=DEBUG --environment=production
 ```
 
-For anything more complex (regex, several criteria, exact matches), edit the config's JSON.
+For anything more complex (regex, several criteria, exact matches), edit the config's JSON. [Dynamic Log Levels](/docs/explanations/features/dynamic-log-levels) explains how rules are evaluated and shows the stored JSON.
 
 ### delete
 
