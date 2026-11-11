@@ -30,6 +30,12 @@ Every flag and config carries an `access` field. Default if omitted: `standard`.
 
 Hierarchy from lowest to highest: `support` < `standard` < `protected-env` < `protected-all-envs`.
 
+### The tier a new item gets
+
+The create form lets you pick a tier, limited to the tiers your role may create at. A create that names no tier (the CLI, the [REST API](/docs/api/rest-api#creating-a-flag-or-config), MCP) uses the workspace's default tier, which is `standard` unless a workspace admin has set another one.
+
+A workspace default is a starting point, not a lock. If your role can't create at that tier (an Engineer and the protected tiers, for example), the item is created at `standard` instead and you're told so. The REST API reports this as `accessDefaultApplied: false`.
+
 ## Roles
 
 Three roles grant config editing. Each one is a row of the matrix below:
