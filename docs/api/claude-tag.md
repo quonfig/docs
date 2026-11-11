@@ -46,16 +46,24 @@ In the Quonfig app, open the workspace you want the bot to act on, go to
    |---|---|
    | Read-only | Answer questions. Cannot change anything. |
    | Support | Read, plus edit `support`-tier configs. |
-   | Engineer | Read, plus edit `support` and `standard`-tier configs — where most flags live. |
-   | Protected Engineer | Everything, including `protected` configs. |
+   | Engineer | Read, plus edit `support` and `standard`-tier configs everywhere — where most flags live — and `protected-env` configs in non-protected environments. |
+   | Protected Engineer | Everything, including `protected-env` configs in protected environments and `protected-all-envs` configs. |
+
+   Some organizations also see **Support (non-protected envs)** and
+   **Engineer (non-protected envs)**, which fence the bot out of protected
+   environments entirely.
 
    Start with **Read-only**. A bot that answers "what's the rollout?" is
    useful on day one and can't break anything; you can raise the tier later
-   from the roles editor once the team trusts it. See
+   from the account's **Access** dropdown in Settings → Service accounts once
+   the team trusts it. See
    [Authorization](/docs/explanations/features/authorization) for exactly what
-   each tier covers.
+   each tier covers, and
+   [MCP permissions](/docs/api/mcp-server#permissions) for what a read-only
+   bot sees.
 
-4. On the new account's row, click **Mint key**. Choose the workspace the key
+4. In the new account's panel (it opens automatically after you create it),
+   under **API keys**, click **Mint key**. Choose the workspace the key
    is scoped to, give it a label (`claude-tag`), and optionally an expiry.
 
 The key — it starts with `qf_sa_` — is shown once and never stored in

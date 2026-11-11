@@ -145,6 +145,10 @@ The key pins the workspace and the bot's roles, and changes are attributed to
 the service account. This is the same credential shape
 [Claude Tag](/docs/api/claude-tag) uses.
 
+A key whose service account has no config-tier role lists only the sixteen
+read tools; the write tools aren't registered for it. That's expected, not a
+broken setup. See [Permissions](/docs/api/mcp-server#permissions).
+
 ## Troubleshooting
 
 | Symptom | What to do |

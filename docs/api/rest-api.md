@@ -154,8 +154,8 @@ Two things to know about the values you'll see:
 
 ### When something last changed
 
-Flag and config rows — on both the list and the detail responses — carry
-`lastModified`:
+Flag and config rows — on both the list and the detail responses — and
+[log-level](#log-levels) rows carry `lastModified`:
 
 ```json
 { "date": "2026-07-07T17:07:41-04:00", "author": "Jeff Dwyer" }
@@ -686,7 +686,7 @@ Two config-specific points:
 deliberately minimal: a create writes **one unconditional default rule and
 an empty `environments` array**, so every environment inherits that default
 until one is given an entry of its own. Anything richer — variants,
-targeting rules, `sendToClientSdk`, a non-standard access tier — is a
+targeting rules, `sendToClientSdk`, a different access tier — is a
 follow-up `PUT` to [the document endpoint](#replacing-a-document), using
 the `commitSha` the create returns as `expectedCommitSha`.
 
@@ -702,12 +702,21 @@ curl -X POST https://api.quonfig.com/v1/flags \
   "key": "checkout-redesign",
   "valueType": "bool",
   "commitSha": "5e7a9c1...",
-  "document": { "key": "checkout-redesign", "type": "feature_flag", "valueType": "bool", "default": { "rules": [ "..." ] }, "environments": [], "variants": [] }
+  "document": { "key": "checkout-redesign", "type": "feature_flag", "valueType": "bool", "default": { "rules": [ "..." ] }, "environments": [], "variants": [] },
+  "accessDefaultApplied": false
 }
 ```
 
 `document` is the complete JSON as written to git, the same shape
 [`GET .../document`](#reading-a-document) returns.
+
+**Access tier.** A create takes no `access` field. The item is created at
+the workspace's default access tier when an admin has set one and your role
+may create at it; otherwise it is created at the standard tier.
+`accessDefaultApplied` says which: `true` when `document.access` came from
+the workspace default. See
+[Authorization](/docs/explanations/features/authorization) for what each
+tier means.
 
 **Flag body.** `key` is required. `type` defaults to `bool` and may be
 `string`, `int`, `double`, `string_list`, `json`, or `duration` (`boolean`
@@ -721,8 +730,8 @@ type requires `value`, which the default rule serves. `description` and
 `valueType` is never inferred — `42` is an int or a double, `"PT90S"` is a
 string or a duration, and whatever a create guessed would be what every
 later write is validated against. The value is stored **plain**: this
-endpoint never encrypts, the config is created at the standard access tier,
-and `sendToClientSdk` is `false`. To create a secret, use
+endpoint never encrypts, the access tier follows the rule above, and
+`sendToClientSdk` is `false`. To create a secret, use
 `qfg create --secret`, which encrypts locally — see
 [Secret Management](/docs/explanations/features/secret-management).
 
@@ -893,8 +902,10 @@ The rest of the contract:
   tier you're moving it to. See
   [Authorization](/docs/explanations/features/authorization).
 - **Update-only.** The endpoint never creates and never deletes — a PUT to
-  an unknown key is a `404`. Creating and deleting items stays in the app
-  and the CLI.
+  an unknown key is a `404`. Create with
+  [`POST /v1/flags` or `POST /v1/configs`](#creating-a-flag-or-config) (or
+  the [log-level PATCH](#log-levels)); deleting items stays in the app and
+  the CLI.
 - **No-op writes cost nothing.** If your document is deep-equal to what's
   stored, the response is `changed: false` with the current `commitSha` and
   no commit is made. Key order and a re-stamped `$schema` don't count as
@@ -983,7 +994,7 @@ the `default` block first, then each environment with an entry of its own
         { "scope": "production", "fallbackLevel": "WARN", "targets": [], "otherRuleCount": 0 }
       ],
       "commitSha": "a1b2c3d...",
-      "lastModified": "2026-09-08T18:37:00Z"
+      "lastModified": { "date": "2026-09-08T14:37:00-04:00", "author": "Jeff Dwyer" }
     }
   ]
 }

@@ -128,8 +128,9 @@ Things the tools are good at, in practice:
   off in every environment; enabling it anywhere is a separate, explicit
   `set_flag`.
 - **"That was wrong — put it back."** — `get_document` reads the flag as it
-  stood at the commit the bad write named, and `set_document` writes that
-  version back. Two tool calls, no UI trip. See
+  stood before the bad write, a second `get_document` gets the current sha,
+  and `set_document` writes the old version back. Three tool calls, no UI
+  trip. See
   [Raw documents and undo](#raw-documents-and-undo).
 
 ### Targeting a named customer
