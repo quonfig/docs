@@ -13,9 +13,9 @@ graph TD;
     subgraph Server
         Filter
         subgraph Filter[Set Context In Filter]
-            D["Quonfig.setContext (<br/>user: {key: 123, name: bob},<br/>team: {key: 456, name: Lumon, tier: enterprise}<br/>cloud: {pod: pod/web-55bbd, region: us-east})"]
+            D["Set context (<br/>user: {key: 123, name: bob},<br/>team: {key: 456, name: Lumon, tier: enterprise}<br/>cloud: {pod: pod/web-55bbd, region: us-east})"]
             subgraph ApplicationCode[Application Code]
-                E[Quonfig.enabled? my-flag // target user, team or cloud]
+                E[Evaluate my-flag // target user, team or cloud]
             end
             D --> ApplicationCode
         end
@@ -25,7 +25,7 @@ graph TD;
 
 Setting context in a filter allows you to set this knowledge once and use it everywhere when you evaluate feature flags, configs, and targeted log levels without having to pass your context data deeply around your app.
 
-In a web app, the life-cycle of contexts are the life-cycle of the request. You set context at the beginning of the request and then it is cleared out when the request finishes.
+In a web app, the life-cycle of contexts are the life-cycle of the request. You set context at the beginning of the request and it goes away when the request finishes. How you carry it through the request depends on the SDK: some keep it in an ambient scope (Python's `scoped_context`), while others, such as Ruby and Java, give you a context-bound client that you keep for the request and evaluate through.
 
 For feature flags, context usage is optional but a useful ergonomic -- you can always pass in your context just-in-time to your FF evaluations.
 
@@ -33,26 +33,29 @@ For usage examples, see your relevant SDK client documentation.
 
 ## Global and scoped context
 
-To avoid deeply passing around awareness of the current user, request, etc., Quonfig allows you to set Context globally and also for a thread/request scope or block. The mechanisms for doing so will vary by language and framework.
+To avoid deeply passing around awareness of the current user, request, etc., Quonfig allows you to set context globally and also for a request or block. The mechanism varies by SDK: Python has an ambient, thread-local scope; Ruby and Java bind the context to a client object (`with_context` / `withContext`) that you evaluate through, and nothing outside that bound client sees it. (Micronaut adds a request-scoped store; see its tab below.)
 
-When context is set, log levels and feature flags will be evaluated in that context. If you provide just-in-time context to your FF evaluations, it will be merged with the thread/request context and global context. More on merging below.
+When context is set, feature flags and configs evaluated in that scope (or through that bound client) use it. If you provide just-in-time context to your FF evaluations, it will be merged with the scoped or bound context and the global context. More on merging below.
 
 The most-specific context will always win. Merging works per named context, not per attribute: if your JIT context names the same context (for example `user`) as a global or scoped context, the JIT one replaces that whole named context for the duration of the evaluation. Named contexts it doesn't mention are kept.
 
 <Tabs groupId="lang">
 <TabItem value="ruby" label="Ruby">
 
-We can use a block to specify the context for the duration of the block.
+Ruby has no ambient context. `with_context` binds a context to a `Quonfig::BoundClient` and yields it to the block. Evaluate through that bound client: plain `Quonfig.enabled?` / `Quonfig.get` calls inside the block do not see the context.
 
 ```ruby
-
-Quonfig.init(global_context: {application: {key: "my.corp.web"}})
+Quonfig.init(global_context: { application: { key: "my.corp.web" } })
 
 context = { device: { key: "abcdef", mobile: mobile? } }
 
-Quonfig.with_context(context) do
-  # ...
+Quonfig.with_context(context) do |bound|
+  bound.enabled?("my-flag")
+  bound.get_int("max-items", default: 10)
 end
+
+# or pass context just-in-time to a single call
+Quonfig.enabled?("my-flag", context)
 ```
 
 </TabItem>
@@ -62,32 +65,44 @@ We can set global context when initializing Quonfig
 
 ```ruby
 # in config/application.rb
-Quonfig.init(global_context: {application: {key: "my.corp.web"}})
+Quonfig.init(global_context: { application: { key: "my.corp.web" } })
 ```
 
-We can use an `around_action` to set our context for the life-cycle of the request.
+Called without a block, `with_context` returns the bound client. Build it once per request in a `before_action` and evaluate through it in your actions and views.
 
 ```ruby
 # in app/controllers/application_controller.rb
 class ApplicationController < ActionController::Base
-  around_action :set_Quonfig_context
+  before_action :set_quonfig
+  helper_method :quonfig
 
-  def set_Quonfig_context
-    Quonfig.with_context(context) do
-      yield
-    end
+  private
+
+  attr_reader :quonfig
+
+  def set_quonfig
+    @quonfig = Quonfig.with_context(quonfig_context)
   end
 
-  def context
-    {
+  def quonfig_context
+    context = {
       device: {
         key: "abcdef",
         mobile: mobile?
       }
-      user: current_user&.to_context
-      # ...
     }
+    if current_user
+      context[:user] = { key: current_user.id, email: current_user.email }
+    end
+    context
   end
+end
+```
+
+```ruby
+# in a controller action or view
+if quonfig.enabled?("new-dashboard")
+  # ...
 end
 ```
 

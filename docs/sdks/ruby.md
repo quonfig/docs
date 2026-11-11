@@ -5,8 +5,17 @@ title: Ruby
 ## Install the latest version
 [Github](https://github.com/quonfig/sdk-ruby) | [Ruby Gems](https://rubygems.org/gems/quonfig)
 
+Add the gem to your Gemfile:
+
+```bash
+bundle add quonfig
+```
+
+Or, outside Bundler, `gem install quonfig`. Then:
 
 ```ruby
+require "quonfig" # not needed in Rails, where Bundler.require loads it
+
 Quonfig.init
 
 context = {
@@ -86,7 +95,7 @@ Ruby threads do not survive `fork(2)`, so a forked child needs its own Quonfig c
 
 That first fetch **blocks**, and it blocks every other thread that reaches the client while it is in flight — they wait for it and then see the fetched config. One fetch, one stream dial, and one telemetry reporter per child, however many threads race the first request.
 
-**The default is `on_init_failure: :fail`** (`:raise` before 1.10.0), so if the child's fetch fails against every `api_urls` leg (primary and secondary both unreachable) the failure **raises out of that first lookup**, exactly as `Quonfig::Client.new` would at boot, and later lookups keep raising — without re-fetching — until the update channel lands an envelope. On 1.3.0 and earlier a child in that situation silently served the parent's snapshot. If you would rather a forked child serve defaults through an outage, set `on_init_failure: :continue` (`:return` before 1.10.0): a failed first fetch then logs one line and the child serves defaults until its stream or poller lands an envelope.
+**The default is `on_init_failure: :fail`**, so if the child's fetch fails against every `api_urls` leg (primary and secondary both unreachable) the failure **raises out of that first lookup**, exactly as `Quonfig::Client.new` would at boot, and later lookups keep raising — without re-fetching — until the update channel lands an envelope. If you would rather a forked child serve defaults through an outage, set `on_init_failure: :continue`: a failed first fetch then logs one line and the child serves defaults until its stream or poller lands an envelope.
 
 **This matters when a worker is recycled during an outage.** A Puma worker started by a phased restart or `worker_timeout`, a Unicorn worker replaced after a kill, or a Resque child forked per job while Quonfig is unreachable blocks on its first lookup for up to `init_timeout_ms` (10s by default). Under `:fail` it then raises on every lookup until Quonfig is reachable; under `:wait` that first request blocks until Quonfig is back. The master and the workers that were already running keep serving their last config, so during a long outage the fleet splits. If you recycle workers often (or fork per job), consider `on_init_failure: :continue` and make sure your in-code defaults are safe. See [Forked workers and worker recycling](../explanations/architecture/startup-failure.md#forked-workers-and-worker-recycling).
 
@@ -96,11 +105,9 @@ That first fetch **blocks**, and it blocks every other thread that reaches the c
 
 The at-exit drain depends on the child running `at_exit` handlers at all. `Parallel` children do. **Resque children call `exit!` by default**, which skips every `at_exit` handler — so there is no drain and no telemetry POST unless you set `RUN_AT_EXIT_HOOKS=1`. Nothing else about the child changes; it just never flushes the evaluations it collected.
 
-**A fork never touches the process that forked.** The parent keeps its stream, its poller, and its live config straight through any number of forks — so a long-lived process that forks workers *and keeps evaluating* stays current. (Before 1.4.0 the SDK tore the parent's stream down before the fork syscall, and the parent stopped receiving updates permanently. If you fork from a process that keeps evaluating, upgrade to 1.4.0 or later.)
+**A fork never touches the process that forked.** The parent keeps its stream, its poller, and its live config straight through any number of forks — so a long-lived process that forks workers *and keeps evaluating* stays current.
 
-:::note Upgrading from 1.3.0 or earlier
-If you added a manual `Quonfig.instance.after_fork_in_child` call **in the parent** as a workaround for the parent going dark, remove it. As of 1.4.0 that call is a no-op in the process that owns the client — the SDK decides that by comparing the current pid against the one it stamped when the client was built, so it is exact whether or not the parent has any threads running. It will not hurt you, but it is no longer doing anything, and the parent needs no call.
-:::
+You don't need to call `Quonfig.instance.after_fork_in_child` in the parent. In the process that owns the client it is a no-op (the SDK compares the current pid against the one it stamped when the client was built).
 
 Sidekiq OSS itself does **not** fork — it runs jobs on threads in one process — so `Quonfig.init` in your initializer is all it needs.
 
@@ -109,7 +116,7 @@ If you use SemanticLogger, you still need to reopen the logger in each fork.
 <Tabs groupId="lang">
 <TabItem value="puma" label="Puma">
 
-On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — `Quonfig.fork` is not needed in that block. The SDK has already handled the fork by the time `on_worker_boot` runs, and since 1.4.0 a `Quonfig.fork` call in a child the hook has already prepared simply returns the same client, so a leftover call from older docs is harmless:
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — `Quonfig.fork` is not needed in that block. The SDK has already handled the fork by the time `on_worker_boot` runs, and a `Quonfig.fork` call in a child the hook has already prepared simply returns the same client, so a leftover call is harmless:
 
 ```ruby
 # puma.rb (Ruby 3.1+)
@@ -134,7 +141,7 @@ Do **not** add a `before_fork { Quonfig.instance.stop }` — the master does not
 
 <TabItem value="unicorn" label="Unicorn">
 
-On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — `Quonfig.fork` is not needed in that block, for the same reason as Puma above (the SDK has already handled the fork, and since 1.4.0 the call just returns the client the hook prepared):
+On Ruby 3.1+, no Quonfig wiring is needed. If you use SemanticLogger, reopen it in the worker — `Quonfig.fork` is not needed in that block, for the same reason as Puma above (the SDK has already handled the fork, and the call just returns the client the hook prepared):
 
 ```ruby
 # unicorn.rb (Ruby 3.1+)
@@ -194,14 +201,16 @@ end
 Feature flags don't have to return just true or false.
 </summary>
 
-You can get other data types using `get`:
+You can get other data types using `get`, or with the [typed getters](#typed-getters):
 
 ```ruby
 Quonfig.get("ff-with-string")
-Quonfig.get("ff-with-int")
+Quonfig.instance.get_int("ff-with-int", default: 0)
 ```
 
 </details>
+
+`enabled?` is true only when the flag resolves to the bool `true`. It never raises: a missing key, a flag with no matching rule, a non-bool value (a stored string `"true"` included) or any resolution error returns `false` and logs one WARN per key.
 
 ## Context
 
@@ -223,15 +232,31 @@ Quonfig.init(
 
 Global context is the least specific context and will be overridden by more specific context passed in at the time of evaluation.
 
-### Thread-local (Request-scoped)
+### Request-scoped context with a bound client
 
-To make the best use of Quonfig, we recommend setting [context](/docs/explanations/concepts/context) in an `around_action` in your `ApplicationController`. Setting this context for the life-cycle of the request means the Quonfig logger can be aware of your user/etc and you won't have to explicitly pass context into your `.enabled?` and `.get` calls.
+The Ruby SDK has no thread-local or ambient context. `with_context` binds a context to a `Quonfig::BoundClient`: with a block it yields the bound client, and without one it returns it. Only calls made through that bound client see the context; plain `Quonfig.enabled?` and `Quonfig.get` calls do not.
+
+```ruby
+Quonfig.with_context(user: { key: "user-123", plan: "pro" }) do |bound|
+  bound.enabled?("beta-feature")
+  bound.get_string("homepage-hero", default: "Welcome")
+end
+```
+
+In Rails, build the bound client once per request in a `before_action` and evaluate through it:
 
 ```ruby
 # application_controller.rb
 class ApplicationController < ActionController::Base
-  around_action do |_, block|
-    Quonfig.with_context(quonfig_context, &block)
+  before_action :set_quonfig
+  helper_method :quonfig
+
+  private
+
+  attr_reader :quonfig
+
+  def set_quonfig
+    @quonfig = Quonfig.with_context(quonfig_context)
   end
 
   def quonfig_context
@@ -258,6 +283,8 @@ class ApplicationController < ActionController::Base
   end
 end
 ```
+
+Then, in actions and views, call `quonfig.enabled?("my-flag")` or `quonfig.get_int("max-items", default: 10)`. A `BoundClient` has the typed getters, the `*_details` getters, `get_or_raise`, `enabled?` and `in_context(additional)` (which returns a new bound client with more context); it has no untyped `get`.
 
 <details>
 <summary>
@@ -292,12 +319,40 @@ puts "my-first-feature-flag is: #{result} for #{context.inspect}"
 
 ## Dynamic Config
 
-Config values are accessed the same way as feature flag values. You can use `enabled?` as a convenience for boolean values, and `get` works for all data types
+Config values are accessed the same way as feature flag values. `get` works for all data types:
 
 ```ruby
 config_key = "my-first-int-config"
 puts "#{config_key} is: #{Quonfig.get(config_key)}"
 ```
+
+### Typed getters
+
+The typed getters live on the client (`Quonfig.instance`, or a `Quonfig::Client` you built) and on a bound client. Each takes `default:` and, on the client, `context:`:
+
+```ruby
+client = Quonfig.instance
+
+client.get_string("app.display-name", default: "Acme")
+client.get_int("rate-limit", default: 100, context: { user: { key: "user-123" } })
+client.get_float("sample-rate", default: 0.1)
+client.get_bool("beta-banner", default: false)
+client.get_string_list("allowed-regions", default: [])
+client.get_duration("request-timeout", default: 5_000) # integer milliseconds
+client.get_json("pricing-table", default: {})
+```
+
+They follow the shared [typed-getter contract](/docs/explanations/concepts/typed-getters):
+
+- A read that can't return a value of the getter's type (a missing key, another type, a malformed value, an unset ENV_VAR, a decryption failure) returns your `default:`, and logs one WARN per key.
+- There is no string coercion: a stored string `"false"` is not a bool, and `"3"` is not a number.
+- With no `default:`, `on_no_default` decides: `:raise` (the default) raises, `:return_nil` returns `nil`.
+- `get_or_raise(key, default: ...)` raises on an unset ENV_VAR, a malformed value or a decryption failure even when you pass a `default:`. Use it for reads that must be fatal.
+- The `*_details` getters (`get_bool_details`, `get_int_details`, ...) never raise and return the value with a reason and, on failure, an error code.
+
+:::note Upgrading to 2.0
+2.0 changed these rules: in 1.x a typed getter raised even when you passed a `default:`, `enabled?` returned `true` for a stored string `"true"`, and `enabled?` could raise. See the [UPGRADE to 2.0 notes](https://github.com/quonfig/sdk-ruby/blob/main/CHANGELOG.md#200---2026-10-26).
+:::
 
 <details>
 <summary>
@@ -403,7 +458,7 @@ rules:
     value: DEBUG
 ```
 
-Because the evaluator sees your full context — global context, per-request thread-local context, and `quonfig-sdk-logging.key` — you can combine logger rules with user, environment, or request context for targeted debugging.
+The evaluator sees your global context plus `quonfig-sdk-logging.key`, so logger rules can combine with global-context attributes. Request context is not included: the logger has no access to a bound client. To include it, call `Quonfig.instance.should_log?(logger_path:, desired_level:, contexts: ...)` with that context yourself.
 
 ### SemanticLogger integration
 
@@ -522,7 +577,7 @@ end
 
 How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
 every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
-The Ruby option names and defaults (`quonfig` gem 1.5.0+), all passed to `Quonfig::Options.new`:
+The Ruby option names and defaults, all passed to `Quonfig::Options.new`:
 
 | Option                             | Default                                                           |
 | ---------------------------------- | ----------------------------------------------------------------- |
@@ -546,11 +601,6 @@ and, if that POST fails, dropped rather than kept. Large batches come from examp
 see telemetry drop warnings with large batches, use `context_upload_mode: :shapes_only` or a lower
 `context_max_size`.
 
-Changes in 1.5.0: the per-window caps dropped from 100,000 to 10,000; the flush interval is a fixed
-60s (before, it started at 8s and grew to 600s); a telemetry POST now has its own 15s timeout
-(before, Faraday's 60s connect plus 60s read); a failed POST logs at debug instead of warning every
-time.
-
 ## Debugging
 
 In the rare
@@ -562,8 +612,8 @@ QUONFIG_LOG_CLIENT_BOOTSTRAP_LOG_LEVEL=debug
 
 ## Invalid or revoked SDK key
 
-If Quonfig rejects the SDK key while the client is running, the `quonfig` gem
-1.8.0+ stops streaming, probes every 150-300 seconds until the key works
+If Quonfig rejects the SDK key while the client is running, the client
+stops streaming, probes every 150-300 seconds until the key works
 again, and logs one ERROR naming the HTTP status and host (never the key). The
 full rule is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
 
@@ -572,13 +622,9 @@ While the key is rejected, `connection_state` returns `:disconnected` (never
 serving the last installed configuration, and the client recovers by itself on
 the first accepted probe.
 
-:::note `terminal_failure?` changed meaning in 1.8.0
-It now means "the key is rejected right now", and it goes back to `false` when
-a probe is accepted. Before 1.8.0 it turned `true` on the first SSE `401`,
-`403` or `404` and stayed `true`, because the client stopped streaming and
-polling for the life of the process. If your code rebuilt the client when it
-saw `true`, you can remove that: the client recovers by itself.
-:::
+`terminal_failure?` means "the key is rejected right now" and goes back to
+`false` when a probe is accepted, so you don't need to rebuild the client when
+you see `true`.
 
 ## Asset Precompilation in Rails
 
@@ -591,15 +637,15 @@ qfg pull --dir ./config
 # clones your workspace config files to ./config
 ```
 
-Check the resulting files into your repo (or into your Docker build context) for use in CI/CD and automated testing.
+`./config` is its own git checkout. Run `qfg pull` as a build step, or copy the files into your repo or Docker build context without the `.git` directory; see [Get a local copy](/docs/explanations/concepts/local-workspace#get-a-local-copy).
 
-Now point the SDK at that directory for `assets:precompile` — the client boots entirely from the local files and never contacts the Quonfig servers:
+Now point the SDK at that directory for `assets:precompile`. The client boots from the local files and makes no config-delivery requests (telemetry is sent only if an SDK key is set; see [Local Workspace](/docs/explanations/concepts/local-workspace#point-an-sdk-at-it)):
 
 ```bash
-QUONFIG_DIR=./config QUONFIG_ENVIRONMENT=test bundle exec rake assets:precompile
+QUONFIG_DIR=./config QUONFIG_ENVIRONMENT=production bundle exec rake assets:precompile
 ```
 
-Set `QUONFIG_ENVIRONMENT` to whichever environment you want to evaluate (`test`, `production`, etc.). Re-run `qfg pull` to refresh the local files.
+Set `QUONFIG_ENVIRONMENT` to whichever environment you want to evaluate (`development`, `production`, or any environment your workspace defines). Re-run `qfg pull` to refresh the local files.
 
 ## Testing
 
@@ -641,12 +687,6 @@ end
 
 ### If Quonfig is unreachable at startup
 
-:::info Since quonfig gem 1.10.0
-This section describes the `quonfig` gem 1.10.0 and later.
-Earlier versions make a single attempt within `init_timeout_ms`, and spell the
-values `:raise` and `:return`.
-:::
-
 `Client.new` fetches config from both delivery legs (primary, then the
 secondary in parallel) and retries through blips with a jittered backoff
 (0.5s, 1s, 2s ... capped at 30s) for up to `init_timeout_ms` (default 10s).
@@ -672,8 +712,8 @@ rescue Quonfig::Errors::InitializationError => e
 end
 ```
 
-`InitializationError` is no longer a bare `RuntimeError`, so a
-`rescue RuntimeError` around `Client.new` no longer catches it; rescue
+`InitializationError` is not a bare `RuntimeError`, so a
+`rescue RuntimeError` around `Client.new` doesn't catch it; rescue
 `Quonfig::Errors::InitializationError` instead.
 
 Readiness: `client.ready?` is true once config has loaded, and

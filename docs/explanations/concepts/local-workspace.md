@@ -49,9 +49,9 @@ In datadir mode the SDK loads config from the local files. It doesn't fetch conf
 
 ## Testing with a datadir
 
-1. Create a `test` environment in the Quonfig UI and set the values your tests expect.
+1. Pick the environment your tests evaluate. `development` exists in every new workspace; if you want test-only values, create a dedicated environment (for example `test`) in Quonfig first and set the values your tests expect.
 2. Pull the workspace: `qfg pull --dir ./my-config`.
-3. Point your test setup at `./my-config` and evaluate the `test` environment.
+3. Point your test setup at `./my-config` and evaluate that environment, for example `QUONFIG_ENVIRONMENT=development`.
 
 Mock or stub individual values when a test needs a specific scenario. See [Testing][testing].
 
@@ -60,11 +60,10 @@ Mock or stub individual values when a test needs a specific scenario. See [Testi
 A datadir lets build steps evaluate config without an SDK key. A common case is `assets:precompile` in Rails:
 
 ```dockerfile
-RUN RAILS_ENV=production QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=test bundle exec rake assets:precompile
+RUN RAILS_ENV=production QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=production bundle exec rake assets:precompile
 ```
 
-This uses the `test` environment from the previous section.
-If you don't want test values in the build, create a separate environment (for example `docker-build`) and set `QUONFIG_ENVIRONMENT` to that.
+`QUONFIG_ENVIRONMENT` must name an environment the workspace defines. If you want build-specific values, create a separate environment (for example `docker-build`) and set `QUONFIG_ENVIRONMENT` to that.
 
 [offline]: ../../how-tos/offline-mode
 [local]: ../../how-tos/open-source-local
