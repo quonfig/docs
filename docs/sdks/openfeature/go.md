@@ -17,9 +17,11 @@ go get github.com/open-feature/go-sdk
 
 ```go
 import (
+    "context"
+    "log"
+
     openfeaturego "github.com/quonfig/openfeature-go"
     "github.com/open-feature/go-sdk/openfeature"
-    "log"
 )
 
 func main() {
@@ -32,6 +34,10 @@ func main() {
     }
 
     client := openfeature.NewDefaultClient()
+    ctx := context.Background()
+
+    enabled, _ := client.BooleanValue(ctx, "checkout-v2", false, openfeature.EvaluationContext{})
+    log.Println("checkout-v2:", enabled)
 }
 ```
 
@@ -50,7 +56,7 @@ returns the error. Pass `quonfig.WithOnInitFailure(...)` through
 ## Evaluate flags
 
 ```go
-ctx := context.Background()
+// Inside main, using client and ctx from above.
 
 // Boolean flag
 enabled, err := client.BooleanValue(ctx, "checkout-v2", false, openfeature.EvaluationContext{})
@@ -67,6 +73,28 @@ limit, err := client.FloatValue(ctx, "upload-limit-gb", 1.0, openfeature.Evaluat
 // Object config (JSON or string_list)
 details, err := client.ObjectValue(ctx, "plan-config", map[string]any{}, openfeature.EvaluationContext{})
 ```
+
+### Type mapping
+
+| Quonfig type | OpenFeature method | Notes |
+|-------------|--------------------|-------|
+| `bool` | `BooleanValue` | Direct |
+| `string` | `StringValue` | Direct |
+| `int` | `IntValue` | Returns `int64` |
+| `double` | `FloatValue` | Returns `float64` |
+| `string_list` | `ObjectValue` | Returns `[]any` |
+| `json` | `ObjectValue` | Returns parsed JSON |
+| `duration` | `StringValue` | Returns the ISO 8601 string (e.g. `"PT90S"`); use the native client for `time.Duration` |
+| `log_level` | N/A | Native SDK only |
+
+Reading a config with the method for another type returns your default with a
+`TYPE_MISMATCH` error; values are never coerced (a string `"false"` is not a
+bool). The only conversions are `int` to `FloatValue`, and a whole `double`
+within ±(2^53-1) to `IntValue` (`3.9` is a type mismatch, never truncated). A
+value of the right type that does not parse (a stored int `"twelve"`, a
+duration such as `"30s"`, or an ENV_VAR that cannot be converted) returns your
+default with `PARSE_ERROR`. The rules come from the native SDK; see
+[Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
 
 ## Evaluation context
 

@@ -143,7 +143,18 @@ set on the resolution details.
 - Reasons pass through from the SDK: `STATIC`, `TARGETING_MATCH`, `SPLIT`, `DEFAULT`
   (anything else becomes `UNKNOWN`).
 - A missing flag returns reason `DEFAULT` with `FLAG_NOT_FOUND`. Other errors
-  (`TYPE_MISMATCH`, `GENERAL`) return reason `ERROR`.
+  (`TYPE_MISMATCH`, `PARSE_ERROR`, `GENERAL`) return reason `ERROR`.
+- Each resolver reads only its own config type, and values are never coerced: a stored
+  `"true"` is not a boolean and `"3"` is not a number. Reading a config with the resolver
+  for another type returns `TYPE_MISMATCH`. The only conversions are `int` to
+  `GetDoubleValueAsync`, and a whole `double` within ±(2^53-1) to `GetIntegerValueAsync`
+  (a fractional double is never truncated).
+- A value of the right type that does not parse (a stored int `"twelve"`, a malformed
+  duration such as `"30s"`, or an ENV_VAR that cannot be converted) returns `PARSE_ERROR`.
+  An unset ENV_VAR or a decryption failure returns `GENERAL`.
+
+The rules come from the native SDK; see
+[Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
 - Calls made before the provider is initialized return the default with
   `PROVIDER_NOT_READY`.
 

@@ -153,7 +153,18 @@ back, with the error code and message set on the evaluation details.
 - Reasons pass through from the SDK: `STATIC`, `TARGETING_MATCH`, `SPLIT`, `DEFAULT`
   (anything else becomes `UNKNOWN`).
 - A missing flag returns reason `DEFAULT` with error code `FLAG_NOT_FOUND`. Other errors
-  (`TYPE_MISMATCH`, `GENERAL`) return reason `ERROR`.
+  (`TYPE_MISMATCH`, `PARSE_ERROR`, `GENERAL`) return reason `ERROR`.
+- Values are never coerced: a stored `"true"` is not a boolean, `"3"` is not a number, and
+  an int or bool config is not a string. Reading a flag with the method for another type
+  returns `TYPE_MISMATCH`. Numbers convert only when exact: `getDoubleValue` reads an int
+  config, and `getIntegerValue` reads a double only when it is a whole number within
+  ±(2^53-1) and the `int` range.
+- A value of the right type that does not parse (a stored int `"twelve"`, an ENV_VAR set to
+  an unparseable string, or a malformed duration such as `"30s"` read with
+  `getStringValue`) returns `PARSE_ERROR`. An unset ENV_VAR returns `GENERAL`.
+
+The rules come from the native SDK; see
+[Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
 - Calls made before the provider is initialized return the default with
   `PROVIDER_NOT_READY`.
 
@@ -185,9 +196,8 @@ OpenFeature is designed for feature flags, not general configuration. Some Quonf
 features require the native `com.quonfig:sdk-java` SDK directly:
 
 1. **Log levels** -- `shouldLog()` and `getLogLevel()` are native-only; use `provider.getClient()`.
-2. **`string_list` configs** -- returned as a list `Value` via `getObjectValue()`.
-3. **`duration` configs** -- returned as the ISO 8601 string (e.g. `"PT90S"`) exactly as stored, via `getStringValue()` (3.2.0+); use `getClient().getDuration()` for a `java.time.Duration`.
-4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
-5. **`keys()`** and raw config access -- use `provider.getClient()`.
-6. **Context keys use dot-notation** -- pass `"user.email"`, not nested objects.
-7. **`targetingKey` maps to `user.id` by default** -- configure `targetingKeyMapping` if different.
+2. **`duration` configs** -- returned as the ISO 8601 string (e.g. `"PT90S"`) exactly as stored, via `getStringValue()` (3.2.0+); use `getClient().getDuration()` for a `java.time.Duration`.
+3. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
+4. **`keys()`** and raw config access -- use `provider.getClient()`.
+5. **Context keys use dot-notation** -- pass `"user.email"`, not nested objects.
+6. **`targetingKey` maps to `user.id` by default** -- configure `targetingKeyMapping` if different.

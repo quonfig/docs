@@ -42,6 +42,28 @@ api.add_handler(ProviderEvent.PROVIDER_READY, lambda details: on_ready())
 api.set_provider(provider)  # returns immediately; PROVIDER_READY fires once init completes
 ```
 
+:::note If Quonfig is unreachable at startup
+Extra keyword arguments to `QuonfigProvider(...)` go to the native `quonfig`
+client, so its startup options pass straight through. Under the default
+`on_init_failure="fail"`, `api.set_provider_and_wait()` raises
+`ProviderNotReadyError` if no config loads within `init_timeout_ms` (10s by
+default). Pass `on_init_failure="continue"` to start on code defaults instead,
+or `"wait"` to block until config loads:
+
+```python
+provider = QuonfigProvider(
+    sdk_key="qf_sk_production_...",
+    on_init_failure="continue",  # default "fail"; or "wait"
+    init_timeout_ms=10_000,
+)
+```
+
+Plain `api.set_provider()` never raises. Until config loads, evaluations return
+your default with `PROVIDER_NOT_READY`, and the provider emits
+`PROVIDER_READY` once the client heals. See
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+:::
+
 ## Evaluate flags
 
 ```python
@@ -60,6 +82,12 @@ upload_limit = client.get_float_value("upload-limit-gb", 1.0)
 # Object config (JSON or string_list)
 allowed_plans = client.get_object_value("allowed-plans", [])
 ```
+
+Values are never coerced: reading a config with the method for another type
+returns your default with `TYPE_MISMATCH`, and a value of the right type that
+does not parse (a stored int `"twelve"`, a malformed duration) returns your
+default with `PARSE_ERROR`. The rules come from the native SDK; see
+[Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
 
 ## Evaluation context
 
@@ -126,7 +154,7 @@ features require the native `quonfig` SDK directly:
 
 1. **Log levels** -- `should_log()` is native-only; access via `provider.get_client()`.
 2. **`string_list` configs** -- must be accessed via `get_object_value()` and used as a `list[str]`.
-3. **`duration` configs** -- exposed only via the native `get_duration()` for now; `get_float_value()` and `get_string_value()` on a duration return your default.
+3. **`duration` configs** -- `get_string_value()` returns the ISO 8601 text exactly as stored (e.g. `"PT90S"`); use `provider.get_client().get_duration()` for float seconds. `get_float_value()` on a duration returns your default with `TYPE_MISMATCH`.
 4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
 5. **`keys()` and raw config access** -- native-only via `provider.get_client()`.
 6. **Context keys use dot-notation** -- pass `"user.email"`, not nested dicts.
