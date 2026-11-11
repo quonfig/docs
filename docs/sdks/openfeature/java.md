@@ -16,7 +16,6 @@ Gradle (Kotlin DSL):
 ```kotlin
 dependencies {
     implementation("com.quonfig:openfeature-server-java:VERSION")
-    implementation("dev.openfeature:sdk:1.20.2")
 }
 ```
 
@@ -28,14 +27,10 @@ Maven:
   <artifactId>openfeature-server-java</artifactId>
   <version>VERSION</version>
 </dependency>
-<dependency>
-  <groupId>dev.openfeature</groupId>
-  <artifactId>sdk</artifactId>
-  <version>1.20.2</version>
-</dependency>
 ```
 
-The provider brings in `com.quonfig:sdk-java` as a transitive dependency.
+The provider brings in `com.quonfig:sdk-java` and the OpenFeature Java SDK
+(`dev.openfeature:sdk`) as transitive dependencies.
 
 ## Initialize
 

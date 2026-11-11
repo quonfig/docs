@@ -221,13 +221,13 @@ read returns your default with reason `ERROR` and error code `TYPE_MISMATCH`:
 | Getter | Reads |
 |---|---|
 | `getBooleanValue` | `bool` |
-| `getStringValue` | `string`; `duration` as its stored ISO 8601 string (`"PT90S"` stays `"PT90S"`) |
+| `getStringValue` | `string` and `log_level`; `duration` as its stored ISO 8601 string (`"PT90S"` stays `"PT90S"`) |
 | `getNumberValue` | `int` and `double` |
-| `getObjectValue` | `json` (whatever JSON value it holds); `string_list` as an array |
+| `getObjectValue` | `json` holding an object or array; `string_list` as an array |
 
 Strings are never coerced: a stored `"true"` is not a boolean and a stored `"3"`
-is not a number. A `json` config is read only with `getObjectValue`, even when
-its value is `true` or `3`.
+is not a number. A `json` config never reads as a boolean, string, or number,
+even when its value is `true` or `3`.
 
 A stored value that can't be parsed as its declared type (an `int` holding
 `"twelve"`, a `duration` holding `"30s"`) returns your default with reason
