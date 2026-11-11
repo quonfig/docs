@@ -25,8 +25,8 @@ filesystem. Browser and React Native SDKs have no filesystem — use
 - `qfg config-schema` — print the canonical config schema for AI agents and
   editor tooling
 - `qfg migrate` — import flags from LaunchDarkly, Flagsmith, etc.
-- Every Quonfig SDK can be pointed at a local directory (`datadir`) and will
-  evaluate flags entirely from local files, with no SSE connection, no API
+- Every server-side Quonfig SDK can be pointed at a local directory (`datadir`)
+  and will evaluate flags entirely from local files, with no SSE connection, no API
   fetch, and no telemetry POSTs.
 
 ## What you don't get without an account
