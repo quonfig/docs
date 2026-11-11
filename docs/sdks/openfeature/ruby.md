@@ -92,12 +92,15 @@ provider = Quonfig::OpenFeature::Provider.new(
 ## Local / offline mode
 
 Evaluate against a Quonfig workspace on disk -- no network or SDK key required.
-This is the same layout the integration test suite uses.
+The environment name must match one listed in the workspace's `quonfig.json`
+exactly (matching is case-sensitive, and workspace environments are lowercase,
+such as `production`). `QUONFIG_DIR` and `QUONFIG_ENVIRONMENT` work as
+alternatives to the keyword arguments.
 
 ```ruby
 provider = Quonfig::OpenFeature::Provider.new(
   datadir:     '/path/to/workspace',
-  environment: 'Production',
+  environment: 'production',
   enable_sse:  false
 )
 ```
@@ -136,13 +139,17 @@ end
 
 ## What you lose vs. the native SDK
 
-OpenFeature is designed for feature flags, not general configuration. Some Quonfig
-features require the native `quonfig` SDK directly:
+OpenFeature is designed for feature flags, not general configuration. These Quonfig
+features require the native `quonfig` SDK directly (via `provider.client`):
 
 1. **Log levels** -- `should_log?` and the `semantic_logger_filter` are native-only.
-2. **`string_list` configs** -- accessed via `fetch_object_value` and used as an `Array<String>`.
-3. **`duration` configs** -- returned as the ISO 8601 text exactly as stored (e.g. `"PT90S"`) via `fetch_string_value`; use the native `get_duration` for milliseconds. Requires `quonfig-openfeature` 2.2.0.
-4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
-5. **`keys` / raw config inspection** -- native-only via `provider.client`.
-6. **Context keys use dot-notation** -- pass `"user.email"`, not nested hashes.
-7. **`targeting_key` maps to `user.id` by default** -- configure `targeting_key_mapping` if different.
+2. **Durations in milliseconds** -- use the native `get_duration`.
+3. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
+4. **`keys` / raw config inspection** -- native-only.
+
+Type mapping and context notes (these work through OpenFeature):
+
+- **`string_list` configs** -- read with `fetch_object_value`; the value is an `Array<String>`.
+- **`duration` configs** -- `fetch_string_value` returns the ISO 8601 text exactly as stored (e.g. `"PT90S"`).
+- **Context keys use dot-notation** -- pass `"user.email"`, not nested hashes.
+- **`targeting_key` maps to `user.id` by default** -- configure `targeting_key_mapping` if different.

@@ -118,17 +118,31 @@ const keys = native.keys();
 
 ## Configuration options
 
-All `@quonfig/node` options pass through to the provider constructor:
+All `@quonfig/node` options pass through to the provider constructor. Pick one of
+two modes.
+
+Delivery mode reads config from Quonfig. The SDK key decides the environment:
 
 ```typescript
 const provider = new QuonfigProvider({
-  sdkKey: "qf_sk_...",          // required unless datadir is set
-  datadir: "./my-workspace",    // local mode — no server required
-  environment: "production",
-  targetingKeyMapping: "user.id",
-  enableSSE: true,              // default true; set false for datadir mode
+  sdkKey: "qf_sk_...",            // or set QUONFIG_BACKEND_SDK_KEY; not needed with datadir
+  targetingKeyMapping: "user.id", // default
+  enableSSE: true,                // default true
 });
 ```
+
+Local mode evaluates a workspace on disk and never contacts the server:
+
+```typescript
+const provider = new QuonfigProvider({
+  datadir: "./my-workspace",
+  environment: "production",      // or set QUONFIG_ENVIRONMENT
+  dataDirAutoReload: true,        // optional — re-read the directory when files change
+});
+```
+
+`environment` applies only in local mode. With an SDK key it is ignored, and the
+SDK logs a warning.
 
 ## What you lose vs. the native SDK
 
@@ -137,7 +151,7 @@ features require the native `@quonfig/node` SDK directly:
 
 1. **Log levels** -- `shouldLog()` and the Winston/Pino adapters are native-only.
 2. **`string_list` configs** -- must be accessed via `getObjectValue()` and cast to `string[]`.
-3. **`duration` configs** -- returned as the ISO 8601 text exactly as stored (e.g. `"PT90S"`) via `getStringValue()`; use `getClient().getDuration()` for milliseconds. Requires `@quonfig/openfeature-node` 3.2.0.
+3. **`duration` configs** -- returned as the ISO 8601 text exactly as stored (e.g. `"PT90S"`) via `getStringValue()`; use `getClient().getDuration()` for milliseconds.
 4. **`bytes` configs** -- not accessible (no binary type in OpenFeature).
 5. **`keys()` and `rawConfig()`** -- use `provider.getClient()` to access.
 6. **Context keys use dot-notation** -- pass `"user.email"`, not `{ user: { email: "..." } }`.

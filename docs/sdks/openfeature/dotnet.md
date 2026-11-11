@@ -33,6 +33,10 @@ await Api.Instance.SetProviderAsync(provider);
 var client = Api.Instance.GetClient();
 ```
 
+If Quonfig is unreachable at startup, initialization fails by default: the provider
+status is `ERROR` and evaluations return your defaults until the client heals. See
+[Startup failure](#startup-failure) to choose a different behavior.
+
 ## Evaluate flags
 
 ```csharp
@@ -98,9 +102,13 @@ Use `Datadir` instead of `SdkKey` to evaluate against a Quonfig workspace on dis
 var provider = new QuonfigProvider(new QuonfigProviderOptions
 {
     Datadir = "/path/to/workspace",
-    Environment = "Production",
+    Environment = "production",
 });
 ```
+
+`Environment` is required in datadir mode. It must match an environment listed in the
+workspace's `quonfig.json` exactly (matching is case-sensitive, and workspace
+environments are lowercase, such as `production`).
 
 ## Configuring the underlying client
 
@@ -115,15 +123,46 @@ var provider = new QuonfigProvider(new QuonfigProviderOptions
 });
 ```
 
+## Startup failure
+
+When Quonfig delivery is unreachable at startup, the wrapped client retries for
+`InitTimeout` (10s by default) and then applies `OnInitFailure`. Set both on the
+provider options:
+
+```csharp
+using Quonfig.Sdk;
+
+var provider = new QuonfigProvider(new QuonfigProviderOptions
+{
+    SdkKey = "qf_sk_production_...",
+    OnInitFailure = OnInitFailure.Fail, // the default; or Wait / Continue
+    InitTimeout = TimeSpan.FromSeconds(10),
+});
+```
+
+| `OnInitFailure` | `InitializeAsync` | Provider status | When delivery comes back |
+|---|---|---|---|
+| `Fail` (default) | Throws `QuonfigInitException` | `ERROR` | `PROVIDER_READY`, status `READY` |
+| `Wait` | Blocks until the first config | `NOT_READY` | `InitializeAsync` returns, status `READY` |
+| `Continue` | Returns, then emits a non-fatal `PROVIDER_ERROR` | `ERROR` | `PROVIDER_READY`, status `READY` |
+
+In every mode the provider keeps the client alive, so it keeps retrying and heals.
+Until it does, evaluations return your default with error type `PROVIDER_NOT_READY`
+and reason `ERROR`. Under `Wait`, `SetProviderAsync` holds until config arrives (or
+its `CancellationToken` fires). See
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
+
 ## Lifecycle events
 
 The provider emits standard OpenFeature provider events:
 
-- `PROVIDER_READY` after `InitializeAsync` succeeds.
-- `PROVIDER_ERROR` if initialization fails.
+- `PROVIDER_READY` after `InitializeAsync` succeeds, and again when a client that
+  started without config heals.
+- `PROVIDER_ERROR` if initialization fails, or (non-fatal) after `InitializeAsync`
+  returns under `Continue` with no config.
 - `PROVIDER_CONFIGURATION_CHANGED` on every config refresh after the provider is ready (SSE,
   fallback poll, or datadir watcher).
-- `PROVIDER_STALE` is not emitted.
+- `PROVIDER_STALE` is not emitted: `Quonfig.Sdk` keeps no config cache on servers.
 
 ```csharp
 using OpenFeature.Constant;
@@ -152,8 +191,8 @@ set on the resolution details.
 - A value of the right type that does not parse (a stored int `"twelve"`, a malformed
   duration such as `"30s"`, or an ENV_VAR that cannot be converted) returns `PARSE_ERROR`.
   An unset ENV_VAR or a decryption failure returns `GENERAL`.
-- Calls made before the provider is initialized return the default with
-  `PROVIDER_NOT_READY`.
+- Calls made before the provider is initialized, or while no config has loaded yet (see
+  [Startup failure](#startup-failure)), return the default with `PROVIDER_NOT_READY`.
 
 The rules come from the native SDK; see
 [Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).

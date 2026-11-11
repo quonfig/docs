@@ -124,20 +124,57 @@ network calls are made.
 QuonfigProvider provider = new QuonfigProvider(
     QuonfigProviderOptions.builder()
         .datadir("/path/to/workspace")
-        .environment("Production")
+        .environment("production")
         .build());
 ```
+
+The environment name must match one listed in the workspace's `quonfig.json`
+exactly (matching is case-sensitive, and workspace environments are lowercase,
+such as `production`).
+
+## Init failure
+
+`initialize()` builds the native client, which blocks until the first config loads
+and retries through blips until `initTimeout` (default 10s). What happens when
+delivery is down is set by `onInitFailure`. Both options pass straight through to
+`com.quonfig:sdk-java`:
+
+```java
+import com.quonfig.sdk.OnInitFailure;
+import java.time.Duration;
+
+QuonfigProvider provider = new QuonfigProvider(
+    QuonfigProviderOptions.builder()
+        .sdkKey("qf_sk_production_...")
+        .initTimeout(Duration.ofSeconds(5))      // default: 10s
+        .onInitFailure(OnInitFailure.CONTINUE)   // default: FAIL
+        .build());
+```
+
+| `onInitFailure` | `initialize()` | Provider status | When config arrives |
+|---|---|---|---|
+| `FAIL` (default) | Throws, so `setProviderAndWait` throws | `ERROR` | `PROVIDER_READY` |
+| `WAIT` | Blocks until the first config loads | `NOT_READY` | Returns; `READY` |
+| `CONTINUE` | Returns, then emits `PROVIDER_ERROR` | `ERROR` | `PROVIDER_READY` |
+
+Under `FAIL` and `CONTINUE` the provider keeps the client, which keeps retrying in
+the background. Evaluations return your default with `PROVIDER_NOT_READY` until a
+config arrives. `ERROR` is non-fatal: evaluations still run. Datadir mode loads
+synchronously and is unaffected. See
+[If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
 
 ## Lifecycle events
 
 The provider emits standard OpenFeature provider events:
 
-- `PROVIDER_READY` after `initialize()` succeeds.
+- `PROVIDER_READY` after `initialize()` succeeds, and again when a client that started
+  without config (`FAIL` or `CONTINUE` above) receives its first config.
 - `PROVIDER_ERROR` if initialization fails (the exception is also rethrown from
-  `initialize()`).
+  `initialize()`), and after `initialize()` returns under `CONTINUE` with no config
+  (nothing is rethrown in that case).
 - `PROVIDER_CONFIGURATION_CHANGED` when the SDK receives a config update after the provider
   is ready.
-- `PROVIDER_STALE` is not emitted.
+- `PROVIDER_STALE` is not emitted: the Java SDK is a server SDK and keeps no cached config.
 
 ```java
 OpenFeatureAPI.getInstance().onProviderReady(details ->
@@ -164,8 +201,8 @@ back, with the error code and message set on the evaluation details.
 - A value of the right type that does not parse (a stored int `"twelve"`, an ENV_VAR set to
   an unparseable string, or a malformed duration such as `"30s"` read with
   `getStringValue`) returns `PARSE_ERROR`. An unset ENV_VAR returns `GENERAL`.
-- Calls made before the provider is initialized return the default with
-  `PROVIDER_NOT_READY`.
+- Calls made before the provider is initialized, or while no config has loaded yet (see
+  [Init failure](#init-failure)), return the default with `PROVIDER_NOT_READY`.
 
 The rules come from the native SDK; see
 [Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
