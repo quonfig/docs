@@ -17,9 +17,9 @@ traffic without a deploy.
 ## The schema
 
 Copy this schema as it is. It covers the `noul`, `score` and `choice`
-questions of `@typesafe-ai/sdk` 0.6.0 and later. It doesn't cover `box`
-questions, which answer with a region of an image: a JSON config can't carry
-image assets.
+questions of `@typesafe-ai/sdk` 0.6.0 and later. It doesn't cover the `box`
+questions that later releases add, which locate a region of an image: a JSON
+config can't carry image assets.
 
 ```json title="schemas/jev-questions.json"
 {
