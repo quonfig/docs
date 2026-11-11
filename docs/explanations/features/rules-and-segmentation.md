@@ -252,16 +252,7 @@ same users whichever SDK evaluates it:
 The JavaScript, React, React Native and Swift SDKs evaluate rules on Quonfig's
 servers, so these rules need no upgrade of those SDKs.
 
-Backend SDKs evaluate rules in your process. These versions are the first to
-follow every rule above. Older versions can differ on date formats,
+Backend SDKs evaluate rules in your process. Every current major version
+follows every rule above. Early releases could differ on date formats,
 abbreviated versions, booleans and whole-number floats in string rules, and
-integer ranges:
-
-| Language | Package                     | Minimum version |
-| -------- | --------------------------- | --------------- |
-| Go       | `github.com/quonfig/sdk-go` | 1.7.0           |
-| Node     | `@quonfig/node`             | 1.7.0           |
-| Python   | `quonfig` (PyPI)            | 1.8.0           |
-| Ruby     | `quonfig` (RubyGems)        | 1.8.0           |
-| Java     | `com.quonfig:sdk-java`      | 1.7.0           |
-| .NET     | `Quonfig.Sdk`               | 1.7.0           |
+integer ranges, so upgrade if you are pinned to an old version.

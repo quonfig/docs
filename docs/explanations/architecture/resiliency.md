@@ -160,27 +160,13 @@ installs that configuration, leaves the rejected state and restarts streaming
 (or normal polling) from the start. If the key is rejected again later, the
 same rule applies again.
 
-### Minimum versions
+### SDK support
 
-Each SDK page shows that SDK's state accessor. The behavior above needs:
-
-| SDK                  | Package                     | Minimum version |
-| -------------------- | --------------------------- | --------------- |
-| Go                   | `github.com/quonfig/sdk-go` | 1.7.0           |
-| Node                 | `@quonfig/node`             | 1.7.0           |
-| Python               | `quonfig` (PyPI)            | 1.8.0           |
-| Ruby                 | `quonfig` (RubyGems)        | 1.8.0           |
-| Java                 | `com.quonfig:sdk-java`      | 1.7.0           |
-| .NET                 | `Quonfig.Sdk`               | 1.7.0           |
-| JavaScript (browser) | `@quonfig/javascript`       | 1.5.0           |
-| React                | `@quonfig/react`            | 1.5.0           |
-| Swift                | `sdk-swift` (`Quonfig`)     | 0.4.0           |
-
-Older versions keep retrying a rejected key at their normal cadence, and Ruby
-gems before 1.8.0 stop the stream for the life of the process on the first
-`401`, `403` or `404`. React Native gets the browser behavior through
-`@quonfig/javascript` 1.5.0 or later. The OpenFeature providers inherit it from
-the SDK they wrap.
+Every current major version of every SDK behaves this way, and the OpenFeature
+providers inherit it from the SDK they wrap. React Native gets the browser
+behavior through `@quonfig/javascript`. Early releases kept retrying a
+rejected key at their normal cadence, so upgrade if you are pinned to an old
+version.
 
 ## How we verify this
 
