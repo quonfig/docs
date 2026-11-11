@@ -293,7 +293,7 @@ resolves after the fetch, so `await quonfig.updateContext(newContext)` before re
 you don't want to show defaults in between.
 
 `updateContext(newContext, true)` (`skipLoad`) switches in the same way but doesn't fetch, so
-reads return the cached copy or your defaults until the next poll. Passing the context that is
+reads return the cached copy or your defaults until the next fetch (a poll tick or a `poll()` call). Passing the context that is
 already being served changes nothing; without `skipLoad` it only refetches.
 
 ### Invalid or revoked SDK key
@@ -533,7 +533,7 @@ it("shows the turbo button when the feature is enabled", () => {
 | `flush`         | `await quonfig.flush()`                         | sends the current telemetry window now without tearing the SDK down. Useful before a context swap in a long-lived SPA. After a failed POST it waits out the 30s floor and `Retry-After`. Returns a Promise that never rejects. |
 | `close`         | `await quonfig.close()`                         | stops polling and the telemetry timer, removes the `pagehide` listener, then sends the current telemetry window once with a 2s deadline and `keepalive`. Returns a Promise that never rejects. Prefer this over `stopTelemetry()` for normal teardown so the last window isn't dropped. |
 | `stopTelemetry` | `quonfig.stopTelemetry()`                       | stops telemetry aggregator timers without sending. Prefer `close()` or `flush()` — they send the current window first.                                                                   |
-| `updateContext` | `quonfig.updateContext(newContext)`             | switch to a new context and refetch. Until the fetch lands, reads return this browser's cached copy for the new context (stale) or your defaults. Pass `true` as the second argument (`skipLoad`) to switch **without** fetching; reads then return the cached copy or defaults until the next poll. Re-sending the current context keeps its values and just refetches. See [the switch](#what-reads-return-while-the-context-switches). |
+| `updateContext` | `quonfig.updateContext(newContext)`             | switch to a new context and refetch. Until the fetch lands, reads return this browser's cached copy for the new context (stale) or your defaults. Pass `true` as the second argument (`skipLoad`) to switch **without** fetching; reads then return the cached copy or defaults until the next fetch (a poll tick or `poll()` call). Re-sending the current context keeps its values and just refetches. See [the switch](#what-reads-return-while-the-context-switches). |
 
 ### `init()` Options
 
