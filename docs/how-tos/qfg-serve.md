@@ -6,11 +6,10 @@ sidebar_label: Serve to Browser SDKs (qfg serve)
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-Server-side SDKs (`@quonfig/node`, `sdk-go`, `sdk-ruby`, `sdk-python`,
-`sdk-java`) can read a [datadir](/docs/how-tos/open-source-local) directly
-from the filesystem. Browser and React Native SDKs (`@quonfig/javascript`,
-`@quonfig/react`, `@quonfig/react-native`) have no filesystem, so they
-can't consume the same checked-in workspace.
+Server-side SDKs (Node, Go, Ruby, Python, Java and .NET) can read a
+[datadir](/docs/how-tos/open-source-local) directly from the filesystem.
+Client SDKs (browser JavaScript, React, React Native and Swift) don't read
+a datadir, so they can't consume the same checked-in workspace on their own.
 
 `qfg serve` is the bridge. It reads a datadir on disk and exposes it over
 the same HTTP wire protocol the browser SDKs already speak to
@@ -35,9 +34,10 @@ qfg serve listening on http://127.0.0.1:6580
 ```
 
 Defaults you can override: `--port 6580`, `--host 127.0.0.1`,
-`--environment development`, `--datadir` (auto-discovers `./our-config`
-then `./.quonfig`, honors `QUONFIG_DIR`). `--watch` is on by default —
-edits to the datadir are picked up automatically.
+`--environment development` (or `QUONFIG_ENVIRONMENT`), and `--datadir`.
+Without `--datadir`, `qfg serve` uses `QUONFIG_DIR` if it is set, then
+`./our-config`, then `./.quonfig` in the current directory. `--watch` is on
+by default — edits to the datadir are picked up automatically.
 
 ### 2. Point your browser SDK at it
 
@@ -135,13 +135,27 @@ for server-side reads. `qfg serve` is the browser-side equivalent.
 
 ## CORS
 
-The browser SDKs intentionally send no custom headers so the GET stays a
-CORS [simple request](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#simple_requests)
-and avoids preflight. `qfg serve` defaults `Access-Control-Allow-Origin`
-to `*`, matching the delivery API in production.
+The browser SDKs send an `Authorization` header, so browsers
+[preflight](https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request)
+cross-origin requests. `qfg serve` answers `OPTIONS` with `204` and allows
+the `Authorization` and `Content-Type` headers. It defaults
+`Access-Control-Allow-Origin` to `*`, matching the delivery API in
+production.
 
-If you bind to a non-loopback host with `--allow-non-loopback`, pass one
-or more `--cors-origin <url>` flags explicitly:
+`--cors-origin` controls that header, in one of three modes:
+
+- **`*`** (the default, or `*` anywhere in the list) — always sends
+  `Access-Control-Allow-Origin: *`.
+- **One origin** — always sends that origin, whatever the request's
+  `Origin` is.
+- **Two or more origins** — echoes the request's `Origin` when it is in the
+  list and sends `Vary: Origin`. Requests from other origins still get a
+  response, but with `Access-Control-Allow-Origin` omitted, so the browser
+  blocks them.
+
+If you bind to a non-loopback host with `--allow-non-loopback`, setting
+`--cors-origin` is recommended (it isn't required — without it the server
+stays on `*`):
 
 ```bash
 qfg serve \
@@ -150,11 +164,6 @@ qfg serve \
   --cors-origin https://dev.example.test \
   --cors-origin https://dev2.example.test
 ```
-
-`qfg serve` echoes the matching origin back in
-`Access-Control-Allow-Origin`. Requests from origins outside the
-allow-list still receive a response but with `Access-Control-Allow-Origin`
-omitted — the browser will block them.
 
 ## Production positioning
 
@@ -185,17 +194,18 @@ browser-SDK-can't-read-a-datadir gap:
   needed. Server-side SDKs that *do* use SSE already have native datadir
   mode.
 - **No telemetry.** `POST /api/v1/telemetry/` returns `404`. The SDK init
-  snippets above disable client-side telemetry collection. Point
-  `telemetryUrl` at a real Quonfig telemetry endpoint
-  (`telemetry.quonfig.com`) if you want local sessions to show up there.
+  snippets above disable client-side telemetry collection. To send local
+  sessions to Quonfig instead, point `telemetryUrl` at
+  `https://telemetry.quonfig.com`. That needs a real frontend SDK key for
+  your workspace (not a placeholder) and `collectEvaluationSummaries` left on.
 - **No TLS.** Browsers carve `http://localhost:*` out of mixed-content
   rules, so HTTP is fine for local dev. For non-localhost HTTPS frontends,
   terminate TLS at a reverse proxy.
 - **No bundled Quonfig web UI.** Edit JSON files directly, then `qfg verify`.
 
-If you hit a real production use case that needs any of these, file a
-bead — `qfg serve` is designed to be small now and grow only when the
-ask is concrete.
+If you hit a real production use case that needs any of these, let us
+know — `qfg serve` is designed to be small now and grow only when the ask
+is concrete.
 
 ## Command reference
 
@@ -208,11 +218,11 @@ qfg serve [--datadir <path>] [--environment <slug>] [--port <n>]
 
 | Flag | Default | Notes |
 |------|---------|-------|
-| `--datadir <path>` | `./our-config`, then `./.quonfig`, then `QUONFIG_DIR`, then error | Same discovery `qfg pull`/`qfg push` use. |
-| `--environment <slug>` | `development` (or `QUONFIG_ENVIRONMENT`) | Required to disambiguate. |
+| `--datadir <path>` | `QUONFIG_DIR`, then `./our-config`, then `./.quonfig`, then error | Looks only in the current directory; it does not walk up to parent directories. |
+| `--environment <slug>` | `development` | Flag wins, then `QUONFIG_ENVIRONMENT`, then `development`. |
 | `--port <n>` | `6580` | Fails fast on collision — pass `--port` to retry. No auto-increment. |
 | `--host <addr>` | `127.0.0.1` | Loopback only by default. |
 | `--frontend-sdk-key <key>` | none | If set, every request must present `Authorization: Basic 1:<key>`. |
-| `--cors-origin <url>` (repeatable) | `*` | Required when binding to a non-loopback host. |
+| `--cors-origin <url>` (repeatable) | `*` | `*`, one fixed origin, or an allow-list of two or more (see [CORS](#cors)). Recommended when binding to a non-loopback host. |
 | `--watch` / `--no-watch` | `--watch` | Reload the envelope on datadir changes. |
 | `--allow-non-loopback` | off | Confirm a LAN-reachable bind when `--host` is not loopback. |

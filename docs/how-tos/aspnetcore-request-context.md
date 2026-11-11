@@ -40,7 +40,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddQuonfig(opts =>
 {
     opts.SdkKey = builder.Configuration["Quonfig:SdkKey"];
-    opts.Environment = builder.Environment.EnvironmentName.ToLowerInvariant();
+    // In delivery (SDK-key) mode the active environment comes from the SDK key —
+    // an explicit Environment pin is ignored (and logs a warning at init).
 });
 
 var app = builder.Build();
@@ -82,7 +83,8 @@ app.Run();
 
 `IBoundQuonfig` is registered with **scoped** lifetime, so each request gets a
 fresh bound view of the singleton client. The bound view is a lightweight
-wrapper — there's no data copy and no allocation in the hot path.
+wrapper over the singleton — config data is not copied; only the small
+per-request context is allocated.
 
 ## Using the bound client
 
@@ -114,7 +116,10 @@ public class CheckoutController : ControllerBase
 
 When you have information that wasn't on `HttpContext` yet, layer it on with
 `WithContext(...)`, which returns a new bound view with the extra context merged
-in — per-call values win over the existing bound context when they share a key.
+in. The merge works per named context: passing a `user` context replaces the
+bound `user` context entirely (so include `key` and any other properties you
+still need), while named contexts you don't pass (e.g. `tenant`, `device`) are
+kept.
 (`IBoundQuonfig` getters don't take a `ContextSet` argument directly; chain
 `WithContext` instead.)
 

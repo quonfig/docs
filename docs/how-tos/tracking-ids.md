@@ -5,7 +5,9 @@ sidebar_label: Tracking IDs
 
 ## An Opinionated Guide to Identifying Users
 
-If you are only concerned with logged-in users, your `user.id` will work just fine as the sticky property for roll-outs.
+If you are only concerned with logged-in users, put the user's stable ID in `user.key`. That is the default
+[sticky property](/docs/how-tos/rollouts#3-choose-the-sticky-property) for percentage rollouts, so it works with no
+extra setup.
 
 If you are working with users as they transition from anonymous to logged-in users however, we need a value that will persist across this transition.
 If we don't keep this value consistent, we will run into situations where a new user lands on our site and gets the "Control" variant of an experiment,
@@ -16,8 +18,14 @@ Quonfig's recommendation is that you create a separate tracking ID the moment yo
 to the user record upon creation.
 :::
 
-<Tabs groupId="lang">
-<TabItem value="ruby" label="Ruby">
+:::note Anonymous traffic and MTK
+Quonfig saves every context that has a `key`, and your plan is metered on Monthly Tracked Keys (MTK). Sending each
+anonymous visitor's tracking ID as `user.key` adds one tracked key per visitor. If anonymous traffic is large and you
+don't need to search for or target individual visitors, send the tracking ID under a non-key property such as
+`visitor.id` instead, and use `visitor.id` as the sticky property for experiments that span sign-up. Keep sending
+`visitor.id` after login so the bucket doesn't change. See
+[What gets saved](/docs/explanations/concepts/context#what-gets-saved--keys-example-contexts-and-your-bill).
+:::
 
 ## Adding a tracking ID to a Rails application
 
@@ -102,5 +110,29 @@ class RegistrationsController < Devise::RegistrationsController
 end
 ```
 
-</TabItem>
-</Tabs>
+Finally, pass the tracking ID to Quonfig as the context `key`. `Quonfig.with_context` without a block returns a
+client bound to that context, which you can use for the rest of the request.
+
+```ruby
+class ApplicationController < ActionController::Base
+  before_action :set_tracking_id
+  before_action :set_quonfig # runs after set_tracking_id
+
+  def set_quonfig
+    user = { key: @tracking_id }
+    user.merge!(id: current_user.id, email: current_user.email) if current_user
+    @quonfig = Quonfig.with_context(user: user)
+  end
+end
+```
+
+```ruby
+# in a controller action or view
+if @quonfig.enabled?("new-checkout")
+  # ...
+end
+```
+
+The same `@tracking_id` is sent before and after sign-up, so a percentage rollout bucketed on `user.key` gives the
+visitor the same variant on both sides of the transition. See the [Ruby SDK](/docs/sdks/ruby) and
+[Context keys](/docs/explanations/concepts/context#context-keys) for more.

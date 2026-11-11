@@ -22,40 +22,47 @@ Let's support `example.com/?features[v2-beta]=true`. If we Slack the VP of Sales
 
 This code will parse anything that looks like `?features[___]=___` and store it as a "feature request". We don't want a magic URL that can force any feature flag we like, that would be too dangerous. By treating these as a "request" we retain the ultimate ability to decide if we want to honor the request or not in the feature flag UI, which is where it should be.
 
+It reads the URL with the browser's `URLSearchParams`, so it runs once at startup, outside any React component, and doesn't need a router.
+
 ```javascript
-import { useSearchParams } from "react-router-dom";
+// matches features[v2-beta] and captures "v2-beta"
+const FEATURE_PARAM = /^features\[(.+)\]$/;
 
-// get any existing existing "featureRequests" from local storage
-let featureReqs = {};
-try {
-  featureReqs = JSON.parse(localStorage.getItem("featureRequests") ?? "{}");
-} catch (e) {
-  // localStorage can throw an error if the user has disabled via privacy settings
-  console.error(e);
-}
-
-// pass in url params eg ?features[v2-beta]=false
-const [searchParams] = useSearchParams();
-searchParams.forEach((value, key) => {
-  if (key.startsWith("feature")) {
-    const featureName = key.split("[")[1].split("]")[0]; // Extract 'v2-beta' from 'feature[v2-beta]'
-    featureReqs[featureName] = value;
+function readFeatureRequests() {
+  // get any existing "featureRequests" from local storage
+  let featureReqs = {};
+  try {
+    featureReqs = JSON.parse(localStorage.getItem("featureRequests") ?? "{}");
+  } catch (e) {
+    // localStorage can throw an error if the user has disabled via privacy settings
+    console.error(e);
   }
-});
+
+  // pass in url params eg ?features[v2-beta]=false
+  const searchParams = new URLSearchParams(window.location.search);
+  searchParams.forEach((value, key) => {
+    const match = key.match(FEATURE_PARAM);
+    if (match) {
+      featureReqs[match[1]] = value; // the string "true", "false", "variant-a", ...
+    }
+  });
+
+  return featureReqs;
+}
 ```
 
 </details>
 
 ### 2. Persist this information
 
-For today, let's imagine a React app and we'll use the browser's local storage. We'll store a JSON object with the feature names as keys and the values as booleans.
+For today, let's imagine a React app and we'll use the browser's local storage. We'll store a JSON object with the feature names as keys. The values come from the URL, so they are strings such as `"true"` and `"false"`, not booleans.
 
 <details className="">
 <summary>Code</summary>
 
 ```javascript
-// store feature overrides
-if (Object.keys(featureReqs).length !== 0) {
+function storeFeatureRequests(featureReqs) {
+  if (Object.keys(featureReqs).length === 0) return;
   try {
     localStorage.setItem("featureRequests", JSON.stringify(featureReqs));
   } catch (e) {
@@ -73,55 +80,55 @@ Now we'll just send the feature requests along with the user's tracking id to Qu
 <details className="">
 <summary>Code</summary>
 
-```javascript
-// at the top level of your app
+```jsx
+import { QuonfigProvider, useQuonfig } from "@quonfig/react";
 
-import { QuonfigProvider } from "@quonfig/react";
+// runs once, when the module loads
+const featureReqs = readFeatureRequests();
+storeFeatureRequests(featureReqs);
 
-const context = {
-  user: { key: user.tracking_id },
-  // highlight-next-line
-  featureRequests: featureReqs // we can now create a rule IF featureRequests.v2-beta = true
+// at the top level of your app; `user` is however your app loads the signed-in user
+export function App({ user }) {
+  const context = {
+    user: { key: user.trackingId },
+    // highlight-next-line
+    featureRequests: featureReqs, // we can now create a rule IF featureRequests.v2-beta is "true"
+  };
+
+  const onError = (reason) => {
+    console.error(reason);
+  };
+
+  return (
+    <QuonfigProvider
+      sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
+      contextAttributes={context}
+      onError={onError}
+    >
+      <MyComponent />
+    </QuonfigProvider>
+  );
 }
 
-const onError = (reason) => {
-  console.error(reason);
-};
-
-return (
-  <QuonfigProvider
-    sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
-    contextAttributes={context}
-    onError={onError}
-  >
-    <MyApp />
-  </QuonfigProvider>
-);
-
 // in your component that renders the feature
-
 const MyComponent = () => {
   // highlight-start
   const { isEnabled } = useQuonfig();
 
   if (isEnabled("v2-beta-flag")) {
-    return (
-      <div>New Improved V2 UI</div>
-    );
+    return <div>New Improved V2 UI</div>;
   }
   // highlight-end
 
-  return (
-    <div>Old UI</div>
-  );
-}
+  return <div>Old UI</div>;
+};
 ```
 
 </details>
 
 ### 4. Configure our flag to respect this preference
 
-Now we can create a rule that will enable the feature for anyone who has `featureRequests.v2-beta = true`.
+Now we can create a rule that will enable the feature for anyone whose `featureRequests.v2-beta` is the string `"true"`.
 
 ![UI matching our context key](/img/docs/how-tos/optin-ff.jpg)
 
@@ -133,79 +140,84 @@ The nice thing about this approach is that we shouldn't need to touch this code 
 
 Here's all of the code together.
 
-```javascript
-// at the top level of your app
-
-import { QuonfigProvider } from "@quonfig/react";
+```jsx
+import { QuonfigProvider, useQuonfig } from "@quonfig/react";
 
 // highlight-start
-import { useSearchParams } from "react-router-dom";
+// matches features[v2-beta] and captures "v2-beta"
+const FEATURE_PARAM = /^features\[(.+)\]$/;
 
-// get any existing existing "featureRequests" from local storage
-let featureReqs = {};
-try {
-  featureReqs = JSON.parse(localStorage.getItem("featureRequests") ?? "{}");
-} catch (e) {
-  // localStorage can throw an error if the user has disabled via privacy settings
-  console.error(e);
+function readFeatureRequests() {
+  // get any existing "featureRequests" from local storage
+  let featureReqs = {};
+  try {
+    featureReqs = JSON.parse(localStorage.getItem("featureRequests") ?? "{}");
+  } catch (e) {
+    // localStorage can throw an error if the user has disabled via privacy settings
+    console.error(e);
+  }
+
+  // pass in url params eg ?features[v2-beta]=false
+  const searchParams = new URLSearchParams(window.location.search);
+  searchParams.forEach((value, key) => {
+    const match = key.match(FEATURE_PARAM);
+    if (match) {
+      featureReqs[match[1]] = value; // the string "true", "false", "variant-a", ...
+    }
+  });
+
+  return featureReqs;
 }
 
-// pass in url params eg ?features[v2-beta]=false
-const [searchParams] = useSearchParams();
-searchParams.forEach((value, key) => {
-  if (key.startsWith("feature")) {
-    const featureName = key.split("[")[1].split("]")[0]; // Extract 'v2-beta' from 'feature[v2-beta]'
-    featureReqs[featureName] = value;
-  }
-});
-
-// store feature overrides
-if (Object.keys(featureReqs).length !== 0) {
+function storeFeatureRequests(featureReqs) {
+  if (Object.keys(featureReqs).length === 0) return;
   try {
     localStorage.setItem("featureRequests", JSON.stringify(featureReqs));
   } catch (e) {
     console.error(e);
   }
 }
+
+// runs once, when the module loads
+const featureReqs = readFeatureRequests();
+storeFeatureRequests(featureReqs);
 // highlight-end
 
-const context = {
-  user: { key: user.tracking_id },
-  // highlight-next-line
-  featureRequests: featureReqs // we can now create a rule IF featureRequests.v2-beta = true
+// at the top level of your app; `user` is however your app loads the signed-in user
+export function App({ user }) {
+  const context = {
+    user: { key: user.trackingId },
+    // highlight-next-line
+    featureRequests: featureReqs, // we can now create a rule IF featureRequests.v2-beta is "true"
+  };
+
+  const onError = (reason) => {
+    console.error(reason);
+  };
+
+  return (
+    <QuonfigProvider
+      sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
+      contextAttributes={context}
+      onError={onError}
+    >
+      <MyComponent />
+    </QuonfigProvider>
+  );
 }
 
-const onError = (reason) => {
-  console.error(reason);
-};
-
-return (
-  <QuonfigProvider
-    sdkKey={"QUONFIG_FRONTEND_SDK_KEY"}
-    contextAttributes={context}
-    onError={onError}
-  >
-    <MyApp />
-  </QuonfigProvider>
-);
-
 // in your component that renders the feature
-
 const MyComponent = () => {
   // highlight-start
   const { isEnabled } = useQuonfig();
 
   if (isEnabled("v2-beta-flag")) {
-    return (
-      <div>New Improved V2 UI</div>
-    );
+    return <div>New Improved V2 UI</div>;
   }
   // highlight-end
 
-  return (
-    <div>Old UI</div>
-  );
-}
+  return <div>Old UI</div>;
+};
 ```
 
 ## Note

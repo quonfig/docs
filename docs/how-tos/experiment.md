@@ -29,7 +29,7 @@ Let's walk through an example of adding experimentation to Mixpanel by bucketing
 
 First we'll create a new flag: `experiment.ex-2.bigger-button`. We'll make it type `string` rather than a boolean so that we can have nice `Control` and `Treatment` variants (and leave ourselves the option of a `Holdout` variant later).
 
-Add `Control` and `Treatment` as variants. Then, in the Production rules, choose `Percent Rollout` and check "Split evenly". Note the sticky property. This tells us which piece of [Context](/docs/explanations/concepts/context.md) to use to seed the random bucket generator. Our application sets context like `{user: {key: '123-45f', name: 'Bob Beemer'}}` so `user.key` is a natural choice here. This will ensure that any user that is bucketed into the `Treatment` stays in the treatment every time they use the application. The sticky property doesn't have to be a `key` — it can be **any** context property, so you can bucket on a high-cardinality value without it counting toward MTK. See [What gets saved](/docs/explanations/concepts/context.md).
+Add `Control` and `Treatment` as variants. Then, in the Production rules, choose `Percent Rollout` and check "Split evenly". Note the sticky property. This tells us which piece of [Context](/docs/explanations/concepts/context.md) to use to seed the random bucket generator. Our application sets context like `{user: {key: '123-45f', name: 'Bob Beemer'}}` so `user.key` is a natural choice here. This will ensure that any user that is bucketed into the `Treatment` stays in the treatment every time they use the application. The sticky property doesn't have to be a `key` — it can be **any** context property, so you can bucket on a high-cardinality value without it counting toward MTK. See [Percentage rollouts without a key](/docs/explanations/concepts/context#percentage-rollouts-without-a-key).
 
 Save and publish.
 
@@ -109,5 +109,21 @@ Quonfig's [personal overrides](/docs/explanations/features/personal-overrides) h
 While the override is in place, here's the rule you'll see at the top of the Development rules in the Quonfig UI:
 
 ![The personal-override rule: Treatment when quonfig-user.email is one of you@yourco.com](/img/docs/tools/experiment-override-rule.png)
+
+The rule matches on `quonfig-user.email`. Backend SDKs add that to the context automatically on a machine where you ran `qfg login`, but the browser SDK used on this page does not. For a development build, add it to the context yourself:
+
+```javascript
+await quonfig.init({
+  sdkKey: window.quonfig_frontend_sdk_key,
+  context: {
+    user: { key: user.tracking_id, name: user.user_name },
+    // dev builds only: lets your personal override match
+    "quonfig-user": { email: "you@yourco.com" },
+  },
+  // ...
+});
+```
+
+See [Frontends: pass the context yourself](/docs/explanations/features/personal-overrides#frontends-pass-the-context-yourself).
 
 Happy experimenting!

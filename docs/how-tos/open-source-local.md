@@ -129,7 +129,12 @@ files directly. **No login needed.** You can also be explicit with
 Every SDK supports a `datadir` option. With `datadir` set and
 no `sdkKey`, the SDK runs in fully local mode: no SSE, no telemetry, no API
 fetches. See the [Next.js + TypeScript tutorial](/docs/tutorials/nextjs-typescript-local)
-for a complete walkthrough.
+for a complete walkthrough, and [Local workspace](/docs/explanations/concepts/local-workspace)
+for how the SDK finds the directory and picks an environment.
+
+Datadir mode always needs an environment, either as an option or through the
+`QUONFIG_ENVIRONMENT` env var. Without one the SDK fails at init. The name must
+match an environment in your workspace's `quonfig.json`.
 
 ```ts
 // lib/quonfig.ts
@@ -139,8 +144,6 @@ import path from "node:path";
 export const quonfig = new Quonfig({
   datadir: path.join(process.cwd(), "my-config"),
   environment: process.env.QUONFIG_ENVIRONMENT ?? "development",
-  enableSSE: false,
-  fallbackPollEnabled: false,
 });
 
 await quonfig.init();
@@ -189,6 +192,7 @@ import { Quonfig } from "@quonfig/node";
 
 const quonfig = new Quonfig({
   datadir: "./my-config",
+  environment: "development",
   dataDirAutoReload: true,
 });
 await quonfig.init();
@@ -198,10 +202,11 @@ await quonfig.init();
 <TabItem value="go" label="Go">
 
 ```go
-import "github.com/quonfig/sdk-go/pkg/quonfig"
+import quonfig "github.com/quonfig/sdk-go/v2"
 
 client, err := quonfig.NewClient(
     quonfig.WithDataDir("./my-config"),
+    quonfig.WithEnvironment("development"),
     quonfig.WithDataDirAutoReload(true),
 )
 ```
@@ -213,6 +218,7 @@ client, err := quonfig.NewClient(
 Quonfig.init(
   Quonfig::Options.new(
     datadir: "./my-config",
+    environment: "development",
     data_dir_auto_reload: true,
   )
 )
@@ -226,6 +232,7 @@ from quonfig import Quonfig
 
 client = Quonfig(
     datadir="./my-config",
+    environment="development",
     data_dir_auto_reload=True,
 )
 client.init()
@@ -241,6 +248,7 @@ import com.quonfig.sdk.Quonfig;
 Options opts =
     Options.builder()
         .datadir("./my-config")
+        .environment("development")
         .dataDirAutoReload(true)
         .build();
 
@@ -295,8 +303,9 @@ language equivalent) is explicitly set to `true`.
 
 ### Fork-safety (Ruby)
 
-Forking servers like Puma and Unicorn need an extra hook to re-initialize the
-Quonfig client (and its file watcher) per worker. See the
+On Ruby 3.1+ the SDK re-initializes the client, and its file watcher, in each
+forked worker automatically, so Puma and Unicorn need no extra hook. On Ruby
+3.0, call `Quonfig.fork` in `on_worker_boot` / `after_fork`. See the
 [Puma & Unicorn notes in the Ruby SDK docs](/docs/sdks/ruby#forking-servers-and-forking-jobs).
 
 ## Working with AI agents
