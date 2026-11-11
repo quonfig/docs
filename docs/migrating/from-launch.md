@@ -114,14 +114,14 @@ qfg migrate --from launch --source-api-key $LAUNCH_API_KEY \
 The `--workspace` value **must be in `org/slug` form** (`acme-org/acme-prod`,
 not `acme-prod`). Bare slugs are rejected.
 
-The migrator runs the same `qfg verify` checks the server-side `qfg-verify`
-hook would run, **before** committing — so a bad migration fails locally with
+The migrator runs the same `qfg verify` checks the workspace's server-side
+validation hook would run, **before** committing — so a bad migration fails locally with
 a clear error rather than getting partway through a push and rolling back.
 
 > **Why a single command (and not `migrate --dir` followed by `migrate --push`
 > later)?** A two-step flow leaves the local directory as a `git init`'d repo
 > with no remote. The second `--push` invocation cannot adopt that repo — it
-> needs an empty path or a clone of the target Gitea repo. Running the
+> needs an empty path or a clone of the workspace's git repo. Running the
 > single-command flow above avoids that trap. If you want to inspect the
 > migrated files before pushing, run the same command without `--push` against
 > a fresh `--dir`, then re-run with `--push` against a **different fresh empty
@@ -139,8 +139,8 @@ The migrator:
 
 Clone-and-stack matters: it preserves any edits you made in the Quonfig UI
 between migrator runs. If the cloud has diverged (same file edited in both
-places), the push fails with a conflict rather than silently clobbering your UI
-changes. See [Troubleshooting](./troubleshooting.md#i-ran-it-twice-and-got-a-merge-conflict).
+places), the push is rejected rather than silently clobbering your UI
+changes. See [Troubleshooting](./troubleshooting.md#my-push-was-rejected-the-remote-has-changes-we-do-not-have-locally).
 
 The migrator also writes:
 
@@ -150,8 +150,9 @@ The migrator also writes:
 - `.qf/key-map.json` — only when the migrator had to rename keys: a
   machine-readable map of each renamed Launch key to its new Quonfig key
 
-Both live under `.qf/` inside `--dir`, not at the workspace root, and are not
-pushed to the cloud workspace.
+Both live in the hidden `.qf/` directory inside `--dir` (use `ls -a` to see it),
+not at the workspace root. With `--push`, `.qf/` is committed to the workspace's
+git repo along with your config files.
 
 **Always read `.qf/MIGRATION_REPORT.md` before you trust the output.** See
 [What to expect in the migration report](#what-to-expect-in-the-migration-report)
@@ -222,7 +223,7 @@ client, err := quonfig.NewClient(
 )
 ```
 
-That is the local-only snippet with `WithDataDir(...)` and `WithEnvironment(...)`
+That is the local-only snippet below with `WithDataDir(...)` and `WithEnvironment(...)`
 dropped. See the [Go SDK docs](../sdks/go.md).
 
 For other SDKs, see [Python](../sdks/python/python.md), [Ruby](../sdks/ruby.md),
@@ -231,8 +232,8 @@ For other SDKs, see [Python](../sdks/python/python.md), [Ruby](../sdks/ruby.md),
 > **On staging or a custom domain?** Production customers on `quonfig.com` are
 > the default and need nothing extra. Staging or self-hosted customers must point
 > the SDK at their domain: set `QUONFIG_DOMAIN=your-domain.com` in the
-> environment (backend SDKs), or pass the `domain: "your-domain.com"` init option
-> where the SDK has one (Node, browser JavaScript). The SDK derives its API,
+> environment (backend SDKs), or pass a `domain` option where the SDK has one
+> (for example `domain: "your-domain.com"` in Node and browser JavaScript). The SDK derives its API,
 > stream and telemetry URLs from that domain. Without it, the SDK will try to
 > reach `quonfig.com` and you will see connection failures.
 
@@ -367,7 +368,7 @@ qfg migrate --from <source> [flags]
 | `--reset` | Ignore the cursor and do a full re-import. |
 | `--recent <N>` | Import only the last N changes (useful for smoke tests). |
 | `--strict-keys` | Refuse to migrate if any Launch key would need renaming to meet Quonfig key rules, instead of renaming it. Use when you need byte-identical keys. |
-| `--full-summary` | Turn the full Launch audit log into one git commit per change (original author, timestamp and summary). First-run imports only; combine with `--reset` into a fresh directory to redo an existing import. |
+| `--full-summary` | Turn the full Launch audit log into one git commit per change (original author, timestamp and summary). First-run imports only; combine with `--reset` into a fresh directory to redo an existing import. Can't be combined with `--recent`. |
 
 > `--dir` and `--workspace` are mutually exclusive **unless `--push` is also
 > passed**. Use `--dir` alone for the local-only alternative, `--workspace`
