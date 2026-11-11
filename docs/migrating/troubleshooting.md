@@ -15,10 +15,13 @@ directory (not the directory root). `.qf/` is a hidden directory, so use
 `ls -a` to see it. Re-running the migrator overwrites the report with the
 results of that run.
 
-If you hit something not listed here, file an issue on the `cli` repo with the
+If you hit something not listed here, file an issue on the
+[`cli` repo](https://github.com/quonfig/cli/issues) with the
 output of `qfg migrate status` and your `.qf/MIGRATION_REPORT.md`.
 
 ---
+
+<a id="i-ran-it-twice-and-got-a-merge-conflict"></a>
 
 ## "My push was rejected: the remote has changes we do not have locally"
 
@@ -47,8 +50,8 @@ This is working as intended. A silent clobber would destroy your UI changes.
 
 1. Re-run the exact command the error suggests. The migrator fetches the
    latest workspace, re-applies its changes on top, and pushes again.
-2. To see what changed on the remote, run `git log` and `git diff` against
-   `origin/main` in the migration directory.
+2. To see what changed on the remote first, run `git fetch origin` and then
+   `git log -p HEAD..origin/main` in the migration directory.
 3. Decide which version wins for any flag that was edited in both places:
    - **UI edit wins:** run with `--since` set to just after the UI edit, so
      the migrator does not re-process older source changes:
@@ -86,6 +89,10 @@ output under "Original git error" names the file and the problem.
 (then re-run the migrator) or by editing the local files in the migration
 directory. Run `qfg verify <dir>` locally to confirm the fixes, then re-run
 with `--push`.
+
+The migrator also runs the same checks locally before it pushes. When those
+fail, the run stops with `Migrator output failed qfg verify: ...` and
+`Refusing to push`, nothing is pushed, and the same fix applies.
 
 ---
 
@@ -201,8 +208,8 @@ written to the workspace. Fix each in the source system and re-run:
 Warning:   <key>: <reason>
 ```
 
-There is one `<key>: <reason>` line per skipped config. For a Reforge Launch
-migration, common reasons start with:
+There is one `<key>: <reason>` line per skipped config. For a Launch
+(`--from launch`) migration, common reasons start with:
 
 - `Variant type mismatch for "<key>" ...`
 - `Schema conversion failed for "<key>": ...`, followed by the Zod source
@@ -210,7 +217,7 @@ migration, common reasons start with:
 - `Unsupported operator(s) for "<key>": ...`
 
 **Why this happens.** A source config is structurally invalid in a way
-that the migrator refuses to translate. For Reforge Launch:
+that the migrator refuses to translate. For Launch:
 
 - **Variant/valueType mismatch.** A variant whose `value.type` does not
   match the config's `valueType` (for example, `valueType: "double"` but
@@ -273,8 +280,8 @@ happened to linger), no action is needed.
 
 ## Schema-typed configs are auto-converted to JSON Schema
 
-This applies to Reforge Launch migrations. Configs whose `valueType` is
-`schema` (Reforge's Zod-schema storage) are converted to
+This applies to Launch (`--from launch`) migrations. Configs whose
+`valueType` is `schema` (Launch's Zod-schema storage) are converted to
 [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12)
 automatically during `qfg migrate`. You do not need to do anything
 special; schema configs migrate like any other config.
@@ -305,8 +312,9 @@ If your schemas reach for the exotic end of Zod (`z.function()`,
 JSON Schema constraints), the migrator skips that config and prints the
 offending Zod source in the
 [skipped invalid configs](#i-got-a-warning-about-skipped-invalid-configs)
-warning. File an issue on the `cli` repo (or contact support@quonfig.com)
-with that Zod source so we can either add the surface or document a
+warning. File an issue on the
+[`cli` repo](https://github.com/quonfig/cli/issues) (or
+[contact us](mailto:hello@quonfig.com)) with that Zod source so we can either add the surface or document a
 workaround.
 
 ---
@@ -325,7 +333,7 @@ Manual spot checks are the supported verification path today.
 
 ## Still stuck?
 
-- `qfg migrate doctor` (Reforge Launch only today) runs preflight checks: the
+- `qfg migrate doctor` (`--from launch` only today) runs preflight checks: the
   source API key (pass it with `--api-key`), `qfg login`, workspace
   provisioning, SDK datadir support, a clean git working tree, and identifier
   collisions. Add `--json` for machine-readable output.
