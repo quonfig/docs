@@ -318,8 +318,8 @@ Given the context:
 {
   user: {
     key: "1234",
-    name: "Ricken Hale",
-    email: "rhale@theyou.com",
+    name: "Alice Smith",
+    email: "alice@acme.dev",
   },
 
   device: {

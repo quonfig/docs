@@ -158,7 +158,7 @@ Flag and config rows — on both the list and the detail responses — and
 [log-level](#log-levels) rows carry `lastModified`:
 
 ```json
-{ "date": "2026-07-07T17:07:41-04:00", "author": "Jeff Dwyer" }
+{ "date": "2026-07-07T17:07:41-04:00", "author": "Alice Smith" }
 ```
 
 It describes the same commit `commitSha` names: `date` is the ISO 8601
@@ -425,7 +425,7 @@ curl -H "Authorization: Bearer $QUONFIG_API_KEY" \
       "kind": "config",
       "valueType": "int",
       "readyForCleanup": false,
-      "lastModified": { "date": "2026-03-14T10:02:11-04:00", "author": "Jeff Dwyer" },
+      "lastModified": { "date": "2026-03-14T10:02:11-04:00", "author": "Alice Smith" },
       "lastEval": "2026-08-20",
       "evals": { "last24h": 0, "last2d": 0, "last7d": 0, "last30d": 0 },
       "environments": [
@@ -994,7 +994,7 @@ the `default` block first, then each environment with an entry of its own
         { "scope": "production", "fallbackLevel": "WARN", "targets": [], "otherRuleCount": 0 }
       ],
       "commitSha": "a1b2c3d...",
-      "lastModified": { "date": "2026-09-08T14:37:00-04:00", "author": "Jeff Dwyer" }
+      "lastModified": { "date": "2026-09-08T14:37:00-04:00", "author": "Alice Smith" }
     }
   ]
 }

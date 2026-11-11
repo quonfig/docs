@@ -633,9 +633,9 @@ Every config file starts with a `$schema` field pointing at `https://api.quonfig
 To turn `forcerank.my.flag` on for one user and off for everyone else, first look up their key:
 
 ```bash
-qfg contexts search user jdwyah@gmail.com
-# KEY       NAME        EMAIL
-# u_41d9a2  Jeff Dwyer  jdwyah@gmail.com
+qfg contexts search user alice@acme.dev
+# KEY       NAME         EMAIL
+# u_41d9a2  Alice Smith  alice@acme.dev
 ```
 
 Then express "`user.key == u_41d9a2` → `true`, everyone else → `false`":
