@@ -7,7 +7,8 @@ sidebar_position: 1
 ## What if Quonfig goes down?
 
 Uptime matters a great deal to us, but configuration is critical infrastructure,
-so we take a belt-and-suspenders approach.
+so every SDK has two independent delivery legs and keeps a local copy of its
+config.
 
 ### Backend SDK Clients run on local copies of data
 
@@ -29,8 +30,8 @@ secondary (details below), so a booting client still gets its configuration
 within a few seconds during a full primary outage. On the startup fetch the
 secondary is asked after a 2-second hedge delay, and in server SDKs each leg is
 abandoned after 6 seconds (3 seconds in the browser SDK), so a hung primary can't consume the whole initialization
-budget and starve the secondary attempt. (Later sequential fetches, such as the
-fallback poller's, use a shorter per-URL timeout of 3 seconds.)
+budget and starve the secondary attempt. The fallback poller's fetches use the
+same hedged cycle.
 
 If neither leg can be reached at startup, what happens next is your choice.
 See [If Quonfig Is Unreachable at Startup](./startup-failure.md).
@@ -41,8 +42,7 @@ Every backend SDK ships with a **primary** and a **secondary** delivery leg and
 fails over between them automatically. You don't configure anything — it is on
 by default.
 
-1. **Primary** — a global delivery network running on [fly.io](https://fly.io/)
-   with servers around the world.
+1. **Primary** — the delivery service running on [Fly.io](https://fly.io/).
 2. **Secondary** — an identical delivery surface running on **completely
    separate infrastructure**, so an outage of the primary's platform does not
    take the secondary with it.
@@ -61,10 +61,10 @@ Two mechanisms use these legs:
 Live updates over SSE stay pinned to the primary's stream (`stream.primary.…`)
 with retry-forever reconnect; the secondary is the fetch/failover leg, not a
 second stream herd. If the stream can't be established or has been down for two
-minutes, backend SDKs fall back to HTTP polling (every 60 seconds, walking the
-URL list primary-first) and stop polling once the stream recovers.
+minutes, backend SDKs fall back to HTTP polling (every 60 seconds, with the same
+hedged primary/secondary fetch) and stop polling once the stream recovers.
 
-### Browsers keep a last-known-good copy
+### Browsers and the Swift SDK keep a last-known-good copy
 
 The browser SDK (`@quonfig/javascript`, and the React bindings built on it)
 additionally persists the last successfully fetched configuration in
@@ -80,6 +80,10 @@ neither leg, the SDK's `onInitFailure` setting decides what happens (see
 client keeps retrying in the background either way. Where `localStorage` is
 unavailable (server-side rendering, some private browsing modes, and React
 Native, which has no `localStorage`), the cache is simply skipped.
+
+The Swift SDK keeps the same kind of copy on disk, per SDK key and context. It
+loads that copy at startup and also serves it when a fetch fails, so an app
+that has fetched config once keeps its last values through an outage.
 
 ## What still degrades during a full primary outage
 
@@ -203,7 +207,7 @@ We take reliability seriously and invite you to check
 
 ## How URLs derive from `QUONFIG_DOMAIN`
 
-Rather than configure four hostnames by hand, backend SDKs derive them all from
+Rather than configure each hostname by hand, backend SDKs derive them all from
 a single `QUONFIG_DOMAIN` (default `quonfig.com`):
 
 ```
@@ -211,7 +215,6 @@ QUONFIG_DOMAIN=quonfig.com
   ->  https://primary.quonfig.com            (config fetch — primary)
   ->  https://stream.primary.quonfig.com     (SSE stream — primary)
   ->  https://secondary.quonfig.com          (config fetch — secondary / failover)
-  ->  https://stream.secondary.quonfig.com   (SSE stream — secondary)
   ->  https://telemetry.quonfig.com          (telemetry ingestion)
 ```
 
@@ -234,8 +237,7 @@ secondary URL:**
 apiUrls = [ "https://primary.your-proxy.example", "https://secondary.your-proxy.example" ]
 ```
 
-Every SDK — backend and browser — logs a one-line warning at client init when
-an explicit URL override collapses the list to a single leg.
+Every backend SDK and the browser SDK log a one-line warning at client init
+when an explicit URL override collapses the list to a single leg.
 :::
 
-<!-- There's more discussion of these bootstrapping files in [bootstrapping](/docs/explanations/architecture/bootstrapping.md). -->

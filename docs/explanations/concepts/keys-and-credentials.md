@@ -6,7 +6,8 @@ sidebar_position: 2
 
 # Keys & Credentials
 
-Quonfig has three kinds of credential, and they are not interchangeable.
+Quonfig has three kinds of credential: SDK keys, API keys (personal or
+service-account), and your `qfg login` session. They are not interchangeable.
 
 **If you just want your app to read flags and configs, you want an
 [SDK key](#sdk-keys--your-app-reading-config).** That's the only credential most
@@ -41,7 +42,7 @@ flowchart LR
 
   App -- "SDK key<br/>qf_sk_… / qf_pk_…<br/>(HTTP Basic)" --> AD
   CLI -- "qfg login<br/>(JWT)" --> AQ
-  CI  -- "API key<br/>qf_uk_…<br/>(Bearer)" --> AQ
+  CI  -- "API key<br/>qf_uk_… / qf_sa_…<br/>(Bearer)" --> AQ
 ```
 
 Identity lives on the control plane and is deliberately kept *off* the data
@@ -57,8 +58,9 @@ for you.
 | Read flags/config from my **server** app | Backend SDK key (`qf_sk_…`) |
 | Read flags from my **browser / mobile** app | Frontend SDK key (`qf_pk_…`) |
 | Manage config from my **laptop** (CLI) | `qfg login` |
-| Manage config from **CI / a script** | API key (`qf_uk_…`) |
-| Resolve config into env vars at build/deploy time | [`qfg run`](/docs/tools/qfg-run) with a backend SDK key **or** `qfg login` |
+| Manage config from **shared CI** or an integration | Service-account key (`qf_sa_…`) |
+| Manage config from **my own script** | Personal API key (`qf_uk_…`) |
+| Resolve config into env vars at build/deploy time | [`qfg run`](/docs/tools/qfg-run) with a backend SDK key, `qfg login`, or (in CI) an API key plus `--environment` |
 | Override a flag **just for me** in local dev | An SDK key **and** `qfg login` — see [Personal Overrides](/docs/explanations/features/personal-overrides) |
 
 ## The credentials in detail
@@ -82,20 +84,37 @@ two flavors:
   receives evaluated values, never raw rules, and only configs marked "send to
   frontend SDKs."
 
+Create SDK keys on the **Environments & Keys** page in the app (the
+**Environments & SDK keys** tab), or with `qfg sdk-key create`. Each key is shown
+once, when you create it.
+
 See [Backend SDKs](/docs/explanations/concepts/backend-sdks) and
 [Frontend SDKs](/docs/explanations/concepts/frontend-sdks) for how each one
 fetches and evaluates.
 
 ### API keys — automation managing config
 
-An API key (`qf_uk_…`) is **you, as a credential**: programmatic access to the
-control plane for CI and scripts. It lets a non-interactive process do what you
-could do by hand — list flags, edit config, push changes, generate types.
+An API key gives a non-interactive process programmatic access to the control
+plane, so it can do what you could do by hand — list flags, edit config, push
+changes, generate types. Both kinds use Bearer auth and are scoped to one
+workspace. They differ in who the changes are attributed to:
 
-Reach for it only when there's no human at a browser to complete an OAuth flow:
-a CI job running `qfg generate`, a deploy step running
+- **Personal API key (`qf_uk_…`)** is **you, as a credential**: changes show up
+  under your name. Use it for your own scripts. Create it on the **Environments &
+  Keys** page, **CLI & API keys** tab.
+- **Service-account key (`qf_sa_…`)** acts as a **named bot** with its own role,
+  so the audit trail shows the bot (for example `deploy-bot`) rather than a
+  person. Use it for anything shared: CI, integrations, agents. Create it under
+  **Settings → Service accounts**. With the CLI, set `QUONFIG_WORKSPACE` to the
+  workspace's **UUID**, not `org/workspace`; see the
+  [CLI environment variables](/docs/tools/cli#environment-variables) reference.
+
+Reach for an API key only when there's no human at a browser to complete an
+OAuth flow: a CI job running `qfg generate`, a deploy step running
 [`qfg run`](/docs/tools/qfg-run), a migration script. It does **not**
 authenticate to the delivery API, so you can't use it to read config from an SDK.
+[REST API authentication](/docs/api/rest-api#authentication) has the step-by-step
+for minting both kinds.
 
 ### `qfg login` — you, at your desk
 
@@ -128,14 +147,15 @@ The full reference, for quick lookup and for agents wiring up an integration.
 |---|---|---|---|---|---|
 | Backend SDK key | `qf_sk_…` | `QUONFIG_BACKEND_SDK_KEY` | HTTP Basic (`1:<key>`) | Delivery API (reads) | No — workspace + environment |
 | Frontend SDK key | `qf_pk_…` | `QUONFIG_FRONTEND_SDK_KEY` (behind a framework prefix: `NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`) | HTTP Basic (`1:<key>`) | Delivery API (reads, evaluated server-side) | No — workspace + environment |
-| API key | `qf_uk_…` | `QUONFIG_API_KEY` (pair with `QUONFIG_WORKSPACE`) | Bearer | Quonfig app (manage) | Yes — acts as *you* |
+| Personal API key | `qf_uk_…` | `QUONFIG_API_KEY` (pair with `QUONFIG_WORKSPACE`) | Bearer | Quonfig app (manage) | Yes — acts as *you* |
+| Service-account key | `qf_sa_…` | `QUONFIG_API_KEY` (pair with `QUONFIG_WORKSPACE=<workspace UUID>`) | Bearer | Quonfig app (manage) | Yes — acts as a named bot |
 | `qfg login` | a stored token, not a string you paste | — (stored under `~/.quonfig/`) | JWT | Quonfig app (manage) | Yes — acts as *you* |
 
 Don't:
 
 - **Don't put a backend key (`qf_sk_…`) in browser or client code** — it can
   read your raw rules. Use a frontend key (`qf_pk_…`).
-- **Don't use an API key (`qf_uk_…`) to read flags from your app** — it doesn't
+- **Don't use an API key (`qf_uk_…` or `qf_sa_…`) to read flags from your app** — it doesn't
   authenticate to the delivery API. Use an SDK key.
 - **Don't use an SDK key to manage config** — it can't reach the control plane.
 - **Don't commit real keys.** SDK keys are shown once at creation; rotate freely

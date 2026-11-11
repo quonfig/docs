@@ -37,7 +37,7 @@ To avoid deeply passing around awareness of the current user, request, etc., Quo
 
 When context is set, log levels and feature flags will be evaluated in that context. If you provide just-in-time context to your FF evaluations, it will be merged with the thread/request context and global context. More on merging below.
 
-The most-specific context will always win. If you set the same key in your JIT context that is present in another context, it will clobber the global context and thread/request context for the duration of the evaluation.
+The most-specific context will always win. Merging works per named context, not per attribute: if your JIT context names the same context (for example `user`) as a global or scoped context, the JIT one replaces that whole named context for the duration of the evaluation. Named contexts it doesn't mention are kept.
 
 <Tabs groupId="lang">
 <TabItem value="ruby" label="Ruby">
@@ -316,11 +316,9 @@ Given the context:
 
 You can reference `user.key` and `device.mobile` in the property field in the UI.
 
-![dot notation in UI](/img/docs/explanations/dot-notation.png)
-
 ## Advanced: Adding to and Merging Contexts
 
-If you provide a context that conflicts with an existing context, your new context values will clobber any previous value.
+If you provide a named context that already exists, the new one replaces the old one entirely. Its attributes aren't merged with the old ones.
 
 Let's use this example as our initial context. It has two contexts: "request" and "subscription".
 
@@ -344,7 +342,7 @@ If we set the "request" context to `{ key: "f1e6461a", type: "iPhone" }` then we
 {
   "request": {
     "key": "f1e6461a",
-    "device_type": "iPhone"
+    "type": "iPhone"
   },
   "subscription": {
     "key": "s_123",

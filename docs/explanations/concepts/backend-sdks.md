@@ -5,8 +5,8 @@ sidebar_position: 1
 ---
 
 Backend SDKs (Node, Go, Ruby, Python, Java, .NET, and other server runtimes)
-authenticate with a **backend SDK key** (`qf_sk_…`), generated from the
-**SDK Keys** page in the dashboard. For how it differs from the other
+authenticate with a **backend SDK key** (`qf_sk_…`), generated on the
+**Environments & Keys** page in the dashboard. For how it differs from the other
 credentials — and why it must stay server-side — see
 [Keys & Credentials](/docs/explanations/concepts/keys-and-credentials).
 
@@ -55,11 +55,15 @@ The client will also start a streaming connection to the APIs to pull down new c
 
 The delivery service is split across two hosts: short-lived HTTP fetches go to
 `primary.quonfig.com` and the long-lived SSE stream goes to
-`stream.primary.quonfig.com`. The SDK derives the stream host from the
-configured API URL (by prepending `stream.`) so you only configure one
-`apiUrls` list and routing is automatic.
+`stream.primary.quonfig.com`. You don't configure any of these URLs: the SDK
+derives the primary and secondary fetch URLs, and the `stream.` host, on its
+own. If you do override `apiUrls`, list both the primary and the secondary URL;
+a single URL turns off failover to the secondary, and the SDK logs a warning
+when that happens.
 
-Additionally, the SDK will poll for updates as a resiliency measure.
+If the stream can't be established, or has been down for about two minutes,
+the SDK falls back to polling over HTTP every 60 seconds, and stops polling once
+the stream recovers ([Reliability](/docs/explanations/architecture/resiliency)).
 
 Note that the evaluation is always happening in-process in your application.
 Feature flags and config are stored in process so are lightning fast (no API calls when you access them).
@@ -69,7 +73,8 @@ Feature flags and config are stored in process so are lightning fast (no API cal
 ## Implementation
 
 When your client boots, it creates a local thread safe hashmap which will hold the config.
-The general purpose Quonfig config system will then push & pull changes down to your clients.
-The expected latency is < 100 ms.
+When you change a flag or config, the delivery service pushes the update to every
+connected SDK over the SSE stream, and the fallback poller picks it up if the stream
+is down. Changes typically reach connected SDKs within a few seconds.
 
 Feature flags are built on top of the Quonfig config store so all reliability notes are applicable for Feature Flags as well.

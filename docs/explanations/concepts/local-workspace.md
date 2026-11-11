@@ -6,7 +6,7 @@ sidebar_position: 5
 
 Your Quonfig workspace is a git repo of JSON files: one file per flag, config, segment and log level. Any Quonfig SDK can read a local copy of that repo instead of connecting to Quonfig. That local copy is called a **datadir**.
 
-A datadir is the complete workspace, not a snapshot of one environment. When you point an SDK at it you also choose which environment to evaluate, so the same checkout serves your `test`, `development` and `production` rules.
+A datadir is the complete workspace, not a snapshot of one environment. When you point an SDK at it you also choose which environment to evaluate, so the same checkout serves your `development`, `staging` and `production` rules.
 
 Use a datadir when you want:
 
@@ -23,17 +23,27 @@ qfg pull --dir ./my-config
 # clones your workspace config files to ./my-config
 ```
 
-`./my-config` is a regular git checkout. Re-run `qfg pull` to update it. You can commit it into your app's repo (or your Docker build context) so CI uses exactly the configuration you checked in.
+`./my-config` is a regular git checkout with its own `.git` directory. Re-run `qfg pull` to update it.
+
+To give CI or a Docker build exactly the configuration you checked, either run `qfg pull` as a build step, or copy the files into your app's repo without the `.git` directory:
+
+```bash
+rsync -a --exclude .git ./my-config/ ./vendored-config/
+```
+
+Don't `git add` the checkout itself from your app's repo: git records a nested repository as a pointer (a gitlink), not as its files, so CI would check out an empty directory.
 
 ## Point an SDK at it
 
 **Backend SDKs** read the datadir straight from disk. Set the SDK's `datadir` option (`WithDataDir` in Go; see your SDK's page for the exact spelling) and choose an environment. The Ruby and Python SDKs can also read both from environment variables:
 
 ```bash
-QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=test bundle exec rspec
+QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=development bundle exec rspec
 ```
 
-In datadir mode the SDK loads everything from the local files. It doesn't contact the Quonfig servers or open a streaming connection. [Open Source / Fully Local][local] has the setup for each SDK, including auto-reload when files change.
+When the workspace's `quonfig.json` lists environments (a workspace created in the app starts with `development`, `staging` and `production`), the environment you choose must be one of them, spelled exactly the same: names are case-sensitive, and the SDK fails to start if the name isn't in the list.
+
+In datadir mode the SDK loads config from the local files. It doesn't fetch config from Quonfig or open a streaming connection. If you also set an SDK key, the SDK still sends usage telemetry to Quonfig; without a key it makes no network calls. [Open Source / Fully Local][local] has the setup for each SDK, including auto-reload when files change.
 
 **Frontend SDKs** (browser, React, React Native) have no filesystem. Run [`qfg serve`][serve] to serve the datadir over HTTP, then point the SDK's `apiUrls` at it.
 
@@ -53,6 +63,7 @@ A datadir lets build steps evaluate config without an SDK key. A common case is 
 RUN RAILS_ENV=production QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=test bundle exec rake assets:precompile
 ```
 
+This uses the `test` environment from the previous section.
 If you don't want test values in the build, create a separate environment (for example `docker-build`) and set `QUONFIG_ENVIRONMENT` to that.
 
 [offline]: ../../how-tos/offline-mode

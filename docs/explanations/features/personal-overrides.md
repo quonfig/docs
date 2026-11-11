@@ -6,16 +6,21 @@ sidebar_position: 5
 
 # Personal Overrides
 
-A personal override lets you flip a flag (or change a config value) **for just
-yourself** while you develop, without touching what anyone else sees and without
+A personal override lets you flip a flag **for just yourself** while you
+develop, without touching what anyone else sees and without
 editing the flag's real rules. You set it once with `qfg override`, and your
 local app starts seeing your value — everyone else, including production, is
 unaffected.
 
 ```bash
-qfg override my.flag true        # I now see `true` for my.flag; nobody else does
-qfg override my.flag --remove    # back to normal
+qfg override my.flag true --env=development       # I now see `true` for my.flag; nobody else does
+qfg override my.flag --remove --env=development   # back to normal
 ```
+
+Overrides work on feature flags only; a config value can't be overridden this
+way. Each override applies to one environment: the one you name with `--env`,
+which is required. Name the environment your local app evaluates (usually
+`development`).
 
 ## How it actually works
 
@@ -47,7 +52,7 @@ sequenceDiagram
   participant SDK as Your SDK (local)
   participant Eval as Evaluation
 
-  You->>AQ: qfg override my.flag true<br/>(requires qfg login)
+  You->>AQ: qfg override my.flag true --env=development<br/>(requires qfg login)
   AQ->>AQ: write top-priority rule<br/>quonfig-user.email IS_ONE_OF [you@yourco.com]
   Note over SDK: dev context enabled →<br/>read ~/.quonfig/tokens.json
   SDK->>Eval: evaluate my.flag with<br/>quonfig-user.email = you@yourco.com
@@ -109,10 +114,10 @@ Any backend SDK can also just pass `quonfig-user.email` on the context directly
 (see [Frontends: pass the context yourself](#frontends-pass-the-context-yourself)) —
 that always works regardless of the injection setting.
 
-**4. Set an override** and run your app:
+**4. Set an override** in the environment your app evaluates, and run your app:
 
 ```bash
-qfg override my.flag true
+qfg override my.flag true --env=development
 ```
 
 :::tip Why is default-on safe?
@@ -127,7 +132,7 @@ set `QUONFIG_DEV_CONTEXT=false` to opt out.
 ## Frontends: pass the context yourself
 
 Auto-injection works by reading the `qfg login` token file on disk, so it's a
-backend convenience. Frontend SDKs (browser, React, React Native) evaluate
+backend convenience. Frontend SDKs (browser, React, React Native, Swift) evaluate
 [server-side](/docs/explanations/concepts/frontend-sdks), so the way to use an
 override there is to **put `quonfig-user.email` on the evaluation context
 yourself.** You send the context up, the delivery API evaluates your override rule
@@ -138,6 +143,15 @@ against it, and you get your value back:
 const devContext = import.meta.env.DEV
   ? { "quonfig-user": { email: "you@yourco.com" } }
   : {};
+
+// Merge it into the context you already pass at init...
+await quonfig.init({
+  sdkKey: "your-frontend-sdk-key",
+  context: { user: { key: currentUser.id }, ...devContext },
+});
+
+// ...or, in React, into the provider's contextAttributes:
+// <QuonfigProvider sdkKey="..." contextAttributes={{ user: { key: currentUser.id }, ...devContext }}>
 ```
 
 This is the same context-injection you'd use to feed **any** dev or user

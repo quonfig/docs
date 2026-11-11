@@ -72,17 +72,19 @@ end
 </TabItem>
 </Tabs>
 
+For the other backend SDKs, see the testing sections for [Python](/docs/sdks/python#testing), [.NET](/docs/sdks/dotnet#testing) and [Go](/docs/sdks/go#offline-and-testing-modes).
+
 ### Frontend Libraries
 
-Rather than talking to the server, use `setConfig` or use a `Provider` manually with your test setup.
+Rather than talking to the server, use `hydrate` or use a `QuonfigTestProvider` with your test setup.
 
 <Tabs groupId="lang">
 <TabItem value="javascript" label="JavaScript">
 
-Don't call `quonfig.init`. Instead, use `setConfig` to set up your scenario.
+Don't call `quonfig.init`. Instead, use `quonfig.hydrate` to set up your scenario.
 
 ```javascript
-quonfig.setConfig({
+quonfig.hydrate({
   turbo: true,
   defaultMediaCount: 3,
 });
@@ -97,9 +99,11 @@ quonfig.setConfig({
 Don't use the `QuonfigProvider`. Instead, use the `QuonfigTestProvider` and pass in a config object.
 
 ```jsx
+import { QuonfigTestProvider } from "@quonfig/react/testing";
+
 <QuonfigTestProvider config={config}>
   <MyComponent />
-</QuonfigTestProvider>,
+</QuonfigTestProvider>
 ```
 
 [Read the full React testing docs.](/docs/sdks/react#testing)
@@ -111,6 +115,17 @@ Don't use the `QuonfigProvider`. Instead, use the `QuonfigTestProvider` and pass
 
 Mocking every Quonfig call can be tedious. Instead, run your tests against a [datadir][datadir]: a local copy of your workspace pulled with `qfg pull`.
 
-Your tests and CI could fetch the latest configuration from Quonfig, but many teams want full control over the configuration their tests run against, for consistency and reproducibility. A datadir committed to your repo gives you that.
+Your tests and CI could fetch the latest configuration from Quonfig, but many teams want full control over the configuration their tests run against, for consistency and reproducibility. A datadir checked into your repo gives you that.
+
+Pull the workspace, then run your tests with the SDK pointed at it and an environment chosen. The Ruby and Python SDKs read both from environment variables; the other backend SDKs take a `datadir` option (see your SDK's page):
+
+```bash
+qfg pull --dir ./my-config
+QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=development bundle exec rspec
+```
+
+If your workspace has [secrets](/docs/explanations/features/secret-management), CI also needs the decryption key: set the env var your `quonfig.secrets.encryption.key` config is provided by (for example `QUONFIG_SECRET_KEY_DEFAULT`) in CI's environment.
+
+See [Local Workspace (datadir)][datadir] for how to keep the copy up to date, which environments you can choose, and what the SDK does and doesn't send over the network in this mode.
 
 [datadir]: ./local-workspace

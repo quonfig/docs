@@ -4,7 +4,7 @@ sidebar_label: Secret Management
 sidebar_position: 2
 ---
 
-Quonfig has zero-knowledge support for [sharing your secrets](https://quonfig.com/features/secret-management/) between developers and between your different applications. We use simple & straightforward cryptography and Quonfig never sees anything unencrypted. This simplifies sharing secrets for local development and sharing secrets between multiple applications or languages because you only need a single encryption/decryption secret. (Multiple secrets is perfectly fine too, use as many as you require).
+Quonfig has zero-knowledge support for [sharing your secrets](https://quonfig.com/features/secrets) between developers and between your different applications. We use simple & straightforward cryptography and Quonfig never sees anything unencrypted. This simplifies sharing secrets for local development and sharing secrets between multiple applications or languages because you only need a single encryption/decryption secret. (Multiple secrets is perfectly fine too, use as many as you require).
 
 Quonfig owns:
 - CLI to locally encrypt and push to Quonfig
@@ -21,9 +21,6 @@ You own:
 3. You use our [CLI](/docs/tools/cli) to encrypt the string you want to keep secret.
 4. Quonfig will share the encrypted contents with your applications.
 5. Your applications will decrypt the contents with the `secret key`.
-
-## What Does That Look Like?
-[![YouTube](https://img.youtube.com/vi/el_IEDCfoIU/0.jpg)](https://www.youtube.com/watch?v=el_IEDCfoIU)
 
 ## Walkthrough
 
@@ -151,7 +148,7 @@ So far, we've shared the same secret for development and staging, but it's very 
 #### Generate a second secret
 ```bash
 > qfg generate-new-hex-key
-17f65155e45a42777d89091e40cddc5541ac4851c44134f86db7a408a7fea5a8
+994899132443777d89091e40cddc5541abdeff123830488a7fea173b3b1b2b38
 ```
 
 #### Put that secret into a separate env var
@@ -168,13 +165,12 @@ QUONFIG_SECRET_KEY_PRODUCTION=994899132443777d89091e40cddc5541abdeff123830488a7f
 
 #### Update the quonfig.secrets.encryption.key to look for the other ENV var in production
 ```bash
-$ qfg set-default --confidential --env-var=QUONFIG_SECRET_KEY_PRODUCTION
-
-? Which item would you like to change the default for? quonfig.secrets.encryption.key
-? Which environment would you like to change the default for? Production
-Confirm: change the default for quonfig.secrets.encryption.key in Production to be provided by `QUONFIG_SECRET_KEY_PRODUCTION`? yes/no: yes
-✔ Successfully changed default to be provided by `QUONFIG_SECRET_KEY_PRODUCTION` (confidential)
+$ qfg set-default quonfig.secrets.encryption.key --environment=production \
+    --env-var=QUONFIG_SECRET_KEY_PRODUCTION --confidential --confirm
+✔ Set production fallback to be provided by `QUONFIG_SECRET_KEY_PRODUCTION` (confidential).
 ```
+
+Without `--confirm`, the CLI asks you to confirm the change first. If production had no rules of its own, the success line also says it copied them from the default rules first.
 
 Using one key for every environment is fine too; then there's nothing to do here, and production secrets are encrypted with the same `QUONFIG_SECRET_KEY_DEFAULT`.
 
@@ -333,7 +329,7 @@ This will be the only secret you ever need to share amongst your developers goin
 
 ## How do secrets work in  CI?
 
-Because Quonfig secret management uses the regular dynamic configuration, you'll use the same techniques to run in continuous integration environments which may be offline. The full guide is available in [Testing](/docs/explanations/concepts/testing). The only thing you'll need to remember is to make `QUONFIG_SECRET_KEY_DEFAULT` available to processes in CI.
+Because Quonfig secret management uses the regular dynamic configuration, you'll use the same techniques to run in continuous integration environments which may be offline. See [Testing with a datadir](/docs/explanations/concepts/testing#testing-with-a-datadir). The only thing you'll need to remember is to make `QUONFIG_SECRET_KEY_DEFAULT` available to processes in CI.
 
 :::tip Migrations and build steps
 For tools that read secrets from `process.env` *before* the SDK can initialize — `drizzle-kit migrate`, `next build`, `next-auth`'s `AUTH_SECRET`, and similar — use [`qfg run`](/docs/tools/qfg-run) to resolve Quonfig configs into env vars and exec the child process. Avoid hand-rolling a `with-quonfig-env.ts` wrapper script; `qfg run` handles the resolve, the env merge, and the binary auth/environment rule for you.
