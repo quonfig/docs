@@ -234,7 +234,7 @@ await quonfig.init(options);
 
 `get()` and `isEnabled()` don't take a context argument. The browser SDK never receives your rules: the server [evaluates every flag for the context you passed](/docs/explanations/concepts/frontend-sdks#frontend-architecture) and returns only the values, so there is nothing to re-evaluate locally.
 
-- **The context changed** (a visitor logs in, switches organization): call `quonfig.updateContext(newContext)`. It refetches values for the new context; see [`poll()`](#poll).
+- **The context changed** (a visitor logs in, switches organization): call `quonfig.updateContext(newContext)`. It refetches values for the new context; see [`poll()`](#poll) and [what reads return during the switch](#what-reads-return-while-the-context-switches).
 - **You need a second context alongside the first:** create a separate client. Each client fetches (and polls, if you start it) on its own.
 
   ```javascript
@@ -271,12 +271,30 @@ quonfig.updateContext({
   user: { email: user.email, key: user.trackingId },
 });
 
-// updateContext will immediately load the newest from Quonfig based on the
-// new context. Future polling will use the new context as well.
+// updateContext stops serving the previous context's values right away and
+// fetches values for the new context. Future polls use the new context too.
 ```
 
 </TabItem>
 </Tabs>
+
+### What reads return while the context switches
+
+`updateContext()` stops serving the previous context's values at once, before its fetch
+completes:
+
+- If this browser has a cached last-known-good copy for the new context, the SDK serves it
+  right away, marked stale (`quonfig.stale` is `true`, `getDetails()` reports reason `STALE`).
+- Otherwise the SDK clears its values, so `get()` returns `undefined` (your code defaults apply) and
+  `isEnabled()` returns `false` until the new context's values arrive.
+
+Subscribers are notified at the switch and again when the fetch lands. The returned promise
+resolves after the fetch, so `await quonfig.updateContext(newContext)` before rendering if
+you don't want to show defaults in between.
+
+`updateContext(newContext, true)` (`skipLoad`) switches in the same way but doesn't fetch, so
+reads return the cached copy or your defaults until the next poll. Passing the context that is
+already being served changes nothing; without `skipLoad` it only refetches.
 
 ### Invalid or revoked SDK key
 
@@ -384,7 +402,7 @@ quonfig.shouldLog({
 
 ### Updating context
 
-Because evaluation is pinned to the context snapshot captured at init, flip verbosity for a specific user by calling `updateContext` — this refetches and re-evaluates:
+Because evaluation is pinned to the context snapshot captured at init, flip verbosity for a specific user by calling `updateContext`. It refetches values for the new context; until that fetch lands, `shouldLog` uses `defaultLevel` (`WARN` if you omit it) or this browser's cached copy for the new context, so `await` it:
 
 ```javascript
 await quonfig.updateContext({ user: { email: "developer@example.com" } });
@@ -515,7 +533,7 @@ it("shows the turbo button when the feature is enabled", () => {
 | `flush`         | `await quonfig.flush()`                         | sends the current telemetry window now without tearing the SDK down. Useful before a context swap in a long-lived SPA. After a failed POST it waits out the 30s floor and `Retry-After`. Returns a Promise that never rejects. |
 | `close`         | `await quonfig.close()`                         | stops polling and the telemetry timer, removes the `pagehide` listener, then sends the current telemetry window once with a 2s deadline and `keepalive`. Returns a Promise that never rejects. Prefer this over `stopTelemetry()` for normal teardown so the last window isn't dropped. |
 | `stopTelemetry` | `quonfig.stopTelemetry()`                       | stops telemetry aggregator timers without sending. Prefer `close()` or `flush()` — they send the current window first.                                                                   |
-| `updateContext` | `quonfig.updateContext(newContext)`             | update the context and refetch. Pass `true` as the second argument (`skipLoad`) to update the context **without** refetching; the default (`false`) refetches immediately.               |
+| `updateContext` | `quonfig.updateContext(newContext)`             | switch to a new context and refetch. Until the fetch lands, reads return this browser's cached copy for the new context (stale) or your defaults. Pass `true` as the second argument (`skipLoad`) to switch **without** fetching; reads then return the cached copy or defaults until the next poll. Re-sending the current context keeps its values and just refetches. See [the switch](#what-reads-return-while-the-context-switches). |
 
 ### `init()` Options
 
