@@ -206,11 +206,11 @@ We'll create these as a Config with a`JSON` datatype. If your callout is Javascr
 
 ![configuring a firealarm callout](/img/docs/how-tos/best-practices/callouts-firealarm-config.jpg)
 
-Then a bit of code to set the callout's class based on the `type` and we'll check whether the JSON is empty.
+Then a bit of code to set the callout's class based on the `type` and we'll check whether the JSON is empty. As before, the `{}` default keeps the page rendering when the config doesn't exist.
 ```erb
-<% if !Quonfig.get("callouts.firealarm").empty? %>
-  <div class="callout radius <%= Quonfig.get("callouts.firealarm")["type"] %>">
-    <%= Quonfig.get("callouts.firealarm")["message"] %>
+<% if (alarm = Quonfig.get("callouts.firealarm", {})).present? %>
+  <div class="callout radius <%= alarm["type"] %>">
+    <%= alarm["message"] %>
   </div>
 <% end %>
 ```

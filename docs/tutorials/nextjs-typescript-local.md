@@ -305,6 +305,9 @@ loop.
   While the list is empty the SDK accepts any environment name. Once it has
   entries, every environment the app runs as must be in it, or `init()`
   throws. That includes `development`, the default in `lib/quonfig.ts`.
+  See [Local Workspace](/docs/explanations/concepts/local-workspace) for how
+  environments work in datadir mode and what (if anything) the SDK sends
+  over the network.
 - **Targeting**: use operators like `PROP_IS_ONE_OF`, `PROP_MATCHES`,
   `IN_SEG`, or `IN_INT_RANGE` to roll out to specific users. Run
   `qfg config-schema` to see the full operator list.
