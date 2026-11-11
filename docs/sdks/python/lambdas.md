@@ -41,7 +41,10 @@ def lambda_handler(event, context):
 `init_timeout_ms` (default 10s). Either way the cost is paid once per cold
 start, not on every request. If no config loads in that time, `init()` follows
 `on_init_failure`: under the default, `"fail"`, it raises `QuonfigInitError`,
-which fails the cold start so the platform retries the invocation. Keep
+which fails that invocation. Lambda doesn't retry a failed synchronous
+invocation (API Gateway, a function URL); the caller gets the error and the
+next invocation runs init again. Async and event-source invocations may be
+retried automatically. Keep
 `init_timeout_ms` well under your function timeout, and use
 `on_init_failure="continue"` only if every flag read has a safe default. See
 [If Quonfig Is Unreachable at Startup](/docs/explanations/architecture/startup-failure).
@@ -133,9 +136,12 @@ If you keep telemetry on, call `client.flush()` before returning. Evaluation
 summaries and context shapes are batched in memory and POSTed by a background
 timer, and that timer does not fire while the environment is frozen — so
 telemetry recorded during an invocation waits for the next thaw and is lost
-when the environment is recycled. `flush()` drains and delivers it
-synchronously (it does add a POST to the request path), is a no-op when
-telemetry is disabled, and never raises.
+when the environment is recycled. `flush()` drains it and POSTs it
+synchronously (so it adds a POST to the request path), is a no-op when
+telemetry is disabled, and never raises. Delivery is best-effort: if a POST is
+already in flight, `flush()` waits for it first (bounded by the request
+timeout), and after a failed POST it respects the 30-second resend floor and
+any `Retry-After`, so that call may send nothing.
 
 ```python
 def lambda_handler(event, context):

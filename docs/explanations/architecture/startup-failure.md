@@ -249,7 +249,7 @@ blocks for up to `initTimeout` (10 seconds by default), then:
 
 | `onInitFailure` | Python | Ruby |
 |---|---|---|
-| `fail` (default) | From Python 2.1.0, that read raises `QuonfigInitError`, and every later read raises the same error, without fetching again, until Quonfig is reachable (Python 2.0.0 logged the failure and served your code's defaults instead). | That read raises `Quonfig::Errors::InitializationError`, and every later read raises the same error, without fetching again, until Quonfig is reachable. |
+| `fail` (default) | Flag checks don't raise: `is_feature_enabled` logs a warning and returns its default (`False` unless you pass one). Every other read (`get`, `get_string`, and the other typed getters) raises `QuonfigInitError`, without fetching again, until Quonfig is reachable. | That read raises `Quonfig::Errors::InitializationError`, and every later read raises the same error, without fetching again, until Quonfig is reachable. |
 | `wait` | The first read blocks until Quonfig is reachable. The request that triggered it hangs. | Same as Python. |
 | `continue` | The first read returns your in-code default after the timeout. Later reads return defaults until Quonfig is reachable. | Same as Python. |
 
@@ -267,7 +267,9 @@ What to do about it:
   restarts, a fork per job), consider `onInitFailure` set to `continue`
   (Python `on_init_failure="continue"`, Ruby `on_init_failure: :continue`),
   and make sure your in-code defaults are safe to serve. Under `fail`,
-  recycled workers raise on every flag read for the length of the outage.
+  recycled Ruby workers raise on every read, flag checks included, for the
+  length of the outage. Recycled Python workers return defaults from
+  `is_feature_enabled` but raise on every other read.
 - **Avoid `wait` in request-serving workers.** A recycled worker's first
   request blocks until Quonfig is back. `wait` suits a worker that has
   nothing waiting on it.

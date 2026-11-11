@@ -23,7 +23,7 @@ This progression allows the people who are closest to the feature to dogfood it 
 
 You'll only need to set up the feature flag check once in your code and then you can modify the rules in the Quonfig app.
 
-A feature flag check will always return false until it is fully enabled or a rule returns true. This means you can ship your code at any time before a feature flag is created on Quonfig and trust people are going down the `false` code path.
+A flag check returns false unless the flag resolves to true, through a matching rule or the flag's fallback value. It also returns false when the flag doesn't exist yet, so you can ship your code before you create the flag in Quonfig and trust that everyone goes down the `false` code path.
 
 <Tabs groupId="lang">
 <TabItem value="ruby" label="Ruby">
