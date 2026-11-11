@@ -688,7 +688,7 @@ git -C ./my-config push
 Options:
 - `--get` - Print the schema document
 - `--set-json-schema <schema>` - Create or replace the schema. Pass the JSON inline, or `@path/to/file.json` to read it from a file.
-- `--protected` - Store the schema as protected
+- `--protected` - Store the schema as protected. Pass it on every update of a protected schema: without it, the schema is saved as unprotected.
 - `--set-zod <schema>` - Deprecated alias for `--set-json-schema`. It takes JSON Schema, not a Zod expression.
 
 Examples:
