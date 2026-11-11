@@ -14,7 +14,7 @@ We use [Context](/docs/explanations/concepts/context) to tell Quonfig the curren
 ### Use PermanentKeys, Not Anonymous
 <Tabs groupId="lang">
 <TabItem value="simple" label="Barebones">
-```json
+```javascript
  {
   user: {id: 123}
  }
@@ -25,7 +25,7 @@ We use [Context](/docs/explanations/concepts/context) to tell Quonfig the curren
 ```
 </TabItem>
 <TabItem value="better" label="Prefer: Use the 'key' attribute">
-```json
+```javascript
  {
   user: {key: "4f4b2b2b-2b2b-2b2b-2b2b-2b2b2b2b2b2b", 
          id: 123,
@@ -44,14 +44,14 @@ We use [Context](/docs/explanations/concepts/context) to tell Quonfig the curren
 
 <Tabs groupId="lang">
 <TabItem value="simple" label="Barebones">
-```json
+```javascript
  {
   user: {key: "2e2b2b2b-2b2b-2b2b-2b2b-2b2b2b2b2b2b"}
  }
 ```
 </TabItem>
 <TabItem value="better" label="Prefer: Add a name">
-```json
+```javascript
  {
   user: {key: "2e2b2b2b-2b2b-2b2b-2b2b-2b2b2b2b2b2b", 
          name: "John Doe" // UI will use this name in the Context & Debugger UIs
@@ -65,7 +65,7 @@ We use [Context](/docs/explanations/concepts/context) to tell Quonfig the curren
 Some feature flag tools only allow a single set of attributes / properties to be set for a context. Quonfig allows you to set multiple contexts for a single request. This is great for things like user context and team context, and helps when you want to target other things like a `deployment` or `request`. If you set a `key` we'll use that as the canonical identifier for the context. If you don't want the context to be indexed, just don't set the `key`.
 <Tabs groupId="lang">
 <TabItem value="simple" label="Team jammed into the user context">
-```json
+```javascript
  {
   user: {key: 123, 
          name: "John Doe",
@@ -75,13 +75,13 @@ Some feature flag tools only allow a single set of attributes / properties to be
 ```
 </TabItem>
 <TabItem value="better" label="Prefer: Separate out the team so it can have it's own Name">
-```json
+```javascript
  {
   user: {key: 123,
          name: "John Doe",
   },
-  team: {key: 456, 
-         name: "Foo Corp"} 
+  team: {key: 456,
+         name: "Foo Corp",
   },
   request: {
     path: "/dashboard/profile"
@@ -169,6 +169,7 @@ class CronJob
       end
     end
   end
+end
 ```
 With this example, we'll get 2 big benefits:
 
@@ -182,14 +183,14 @@ With this example, we'll get 2 big benefits:
 You know the feeling when something is wrong and you'd like to let users know that you're aware of the issue? A quick and easy way to do this is to setup a Firealarm. In it's simplest form, it's just a Quonfig Config that you can use to display a message to users. Add something like this:
 
 
-```ruby
-<%= if Quonfig.get("callouts.firealarm") %>
+```erb
+<% if (msg = Quonfig.get("callouts.firealarm", "")).present? %>
   <div class="firealarm">
-    <%= Quonfig.get("callouts.firealarm") %>
+    <%= msg %>
   </div>
 <% end %>
 ```
-Now you can set the `callouts.firealarm` string to `We're currently performing routine system maintenance. Some reports may not populate or update immediately during this time.` to display the message to users.
+The `""` default keeps the page rendering when the config doesn't exist, and `.present?` hides the banner when the value is blank. Now you can set the `callouts.firealarm` string to `We're currently performing routine system maintenance. Some reports may not populate or update immediately during this time.` to display the message to users.
 
 :::info
 
@@ -206,7 +207,7 @@ We'll create these as a Config with a`JSON` datatype. If your callout is Javascr
 ![configuring a firealarm callout](/img/docs/how-tos/best-practices/callouts-firealarm-config.jpg)
 
 Then a bit of code to set the callout's class based on the `type` and we'll check whether the JSON is empty.
-```ruby
+```erb
 <% if !Quonfig.get("callouts.firealarm").empty? %>
   <div class="callout radius <%= Quonfig.get("callouts.firealarm")["type"] %>">
     <%= Quonfig.get("callouts.firealarm")["message"] %>

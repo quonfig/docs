@@ -1,7 +1,7 @@
 ---
 title: Next.js + TypeScript (Fully Local)
 sidebar_label: Next.js (Local, No Account)
-sidebar_position: 3
+sidebar_position: 2
 ---
 
 This tutorial gets you to a working Next.js + TypeScript app with type-safe
@@ -21,7 +21,7 @@ If you'd rather see the bigger picture first, read the
 
 ## Prerequisites
 
-- Node.js 20 or newer
+- Node.js 20.9 or newer (the CLI requires it)
 - A fresh terminal
 
 ## 1. Scaffold a Next.js app
@@ -54,6 +54,9 @@ cd ..
 ```
 quonfig/
 ├── quonfig.json
+├── README.md
+├── CLAUDE.md
+├── AGENTS.md
 ├── feature-flags/
 │   └── example.dark-mode.json
 ├── configs/
@@ -62,6 +65,7 @@ quonfig/
 │   └── example.beta-users.json
 ├── schemas/
 ├── log-levels/
+│   └── log-level.example.app.json
 └── .git/                    # yes, the workspace gets its own git repo
 ```
 
@@ -215,12 +219,15 @@ Visit [http://localhost:3000](http://localhost:3000). The page renders
 using the value of `example.dark-mode` from your local JSON file.
 
 :::note Editing flags in dev
-The SDK loads the workspace once per Node module instance, so editing
-`quonfig/feature-flags/example.dark-mode.json` while the dev server is
-running won't be reflected on reload. **Restart the dev server**
-(`Ctrl-C` then `npm run dev`) to pick up the change. The values DO
-re-evaluate per-request, so changes to context-based targeting take
-effect immediately — only the JSON file contents are cached.
+By default the SDK loads the workspace once per Node module instance, so
+editing `quonfig/feature-flags/example.dark-mode.json` while the dev server
+is running won't be reflected on reload. Either **restart the dev server**
+(`Ctrl-C` then `npm run dev`), or add `dataDirAutoReload: true` to the
+options in `lib/quonfig.ts` so the SDK watches the directory and reloads
+when you save. For example, `dataDirAutoReload: process.env.NODE_ENV !==
+"production"` turns it on only in development. See the
+[Open Source / Fully Local how-to](/docs/how-tos/open-source-local) for
+details.
 
 If port 3000 is busy, Next.js falls back to 3001 (or higher) — watch the
 boot log for the actual URL.
@@ -281,21 +288,26 @@ loop.
 
 ## Where to go from here
 
-- **Editor support**: the `$schema` URL in each JSON file gives you
-  autocomplete in VS Code / Cursor / Zed. Confirm by typing `"operator":
-  "PROP_` inside a rule's `criteria` array.
+- **Editor support**: add
+  `"$schema": "https://api.quonfig.com/schemas/v1/stored-config.json"` at
+  the top of each JSON file to get autocomplete and validation in VS Code /
+  Cursor / Zed. The sample files from `qfg init --samples` don't include
+  it. Confirm it works by typing `"operator": "PROP_` inside a rule's
+  `criteria` array.
 - **AI agents**: `qfg init` writes a `CLAUDE.md` and `AGENTS.md` inside
   `quonfig/`. Point your agent at the workspace directory and it knows to
   edit JSON directly, run `qfg verify`, and use `qfg config-schema` to look
   up valid shapes. It will **not** try to call hosted-only commands like
   `qfg create` or `qfg push`.
-- **More environments**: add `staging` and `production` entries to
-  `quonfig/quonfig.json` and add per-environment overrides inside each flag's
-  `environments` array.
+- **More environments**: list your environments in `quonfig/quonfig.json`,
+  for example `"environments": ["development", "staging", "production"]`,
+  and add per-environment overrides inside each flag's `environments` array.
+  While the list is empty the SDK accepts any environment name. Once it has
+  entries, every environment the app runs as must be in it, or `init()`
+  throws. That includes `development`, the default in `lib/quonfig.ts`.
 - **Targeting**: use operators like `PROP_IS_ONE_OF`, `PROP_MATCHES`,
   `IN_SEG`, or `IN_INT_RANGE` to roll out to specific users. Run
-  `qfg config-schema | jq '.definitions.Criterion'` to see the full operator
-  list.
+  `qfg config-schema` to see the full operator list.
 - **Upgrade later**: if you want a UI, real-time SSE delivery, telemetry, or
   audit history, sign up for a Quonfig account and run `qfg push` from the
   same repo. The file format is identical.

@@ -12,12 +12,12 @@ Getting setup with Quonfig should take you 5 minutes, but only if we start right
 
 ## Environments
 
-Click on environments to view environments. We've added `Development`, `Staging` and `Production` for you.
+Click **Environments & Keys** in the sidebar to view your environments. We've added `Development`, `Staging` and `Production` for you.
 
 ## Get your SDK key
 
-Your app connects to Quonfig with an **SDK key**, found on the **SDK Keys**
-page. A workspace shares **one development SDK key** across the whole team —
+Your app connects to Quonfig with an **SDK key**, found on the **Environments
+& Keys** page. A workspace shares **one development SDK key** across the whole team —
 SDK keys carry no identity, so there's no such thing as a personal one. Grab
 your workspace's development key (or create it if the workspace doesn't have one
 yet).
@@ -39,40 +39,30 @@ it, just create another; making new keys is how you rotate them.
 
 ## Adding a Feature Flag
 
-Now that we have an SDK key, we're ready to go. Select Flags from the navigation and then choose "Add Flag".
+Now that we have an SDK key, we're ready to go. Select **Feature Flags** from the navigation and then choose **+ Add Feature Flag** (or **Create Your First Flag** if the workspace has no flags yet).
 
 Let's name our flag `features.example-flag` and use the default type (`bool`).
 
 Quonfig suggests that you name things all in lowercase, with `.` as a logical separator and `-` between words.
 
-![image](/img/docs/getting-started/new-feature-add-flag.jpg)
+Click **Next: Configure rules**. The flag is created and you land on its page, ready to edit its rules. A few areas to note:
 
-Click Save and now we can take a look at our new feature flag. There are 4 elements to call your attention to.
-
-![image](/img/docs/getting-started/new-feature-flag-variants.jpg)
-
-There are 5 areas to note:
-
-1. **Variants** The app has automatically created two boolean variants for us. Feature flags can return strings or numbers as well, but booleans are most common.
-2. **Rules** Each environment gets a tab for its own rules.
-3. **Save** Once we save the default value rule, we can publish our flag. Publishing makes the flag available to our clients.
-   ![image](/img/docs/getting-started/new-feature-flag-publish.jpg)
-4. **Code Samples** snippets live here, making it easy to copy out the correct code into your application.
-5. **Evaluations** once we start running the client, we'll be able to see evaluation charts here.
+1. **Rules** The **Default** tab holds the rules that every environment inherits. Each environment also gets its own tab, where you can override the default rules.
+2. **Save** Changes go live as soon as you click **Save**. There is no separate publish step.
+3. **Code Samples** This tab has snippets you can copy straight into your application.
+4. **Evaluations** Once you start running the client, this tab charts how the flag is being evaluated.
 
 ## Configuring our Feature Flag
 
 Time for some fun. Let's set up a feature flag that will show us a bit of the power of Quonfig.
-For this example, let's say that we have a new thing we're ready to ship. We want to get ship to everyone in our Beta group.
-Additionally, since the beta group might not reflect our whole user base, so we also want to rollout to 5% of all traffic.
+For this example, let's say that we have a new thing we're ready to ship. We want to ship it to everyone in our Beta group.
+Additionally, since the beta group might not reflect our whole user base, we also want to roll out to 5% of all traffic.
 
-For the rollout, click the false dropdown and pick "Rollout". Now enter `95` as your percent for `false` and `5` for `true`.
+Stay on the **Default** tab. For the rollout, open the default value dropdown at the bottom (the `else` row) and pick **Percent Rollout**. Now enter `5` as your percent for `true` and `95` for `false`.
 
-Now click "Add Rule" to add our customer group rule. Select `true` then enter `user.group` for the when, `is one of` for the operator and `beta` for the values field.
+Now click **Add Rule** to add our beta group rule. Select `true`, then enter `user.group` for the property after "when", `is one of` for the operator and `beta` for the values field.
 
-![image](/img/docs/getting-started/new-feature-edit-form.jpg)
-
-Save and publish.
+Click **Save**. The flag is now live in every environment that uses the default rules. A guide at the top of the page tracks your setup; **Finish setup** just hides it, because your changes are already saved.
 
 :::tip
 The order of the rules matters. Rules are evaluated from top to bottom and the value of the first matching rule is used.
@@ -82,7 +72,7 @@ You can drag the rules to re-order them but the default rule sticks to the botto
 
 ## Use in Code
 
-To use the flag, all we need to do is initialize a client with the backend key we created and
+To use the flag, all we need to do is initialize a client with the SDK key we created and pass a context when checking the flag.
 
 <Tabs groupId="lang">
 <TabItem value="ruby" label="Ruby">
@@ -169,11 +159,52 @@ And that's it! A nice feature flag with a complex rule and a partial rollout in 
 
 For this example, we used "Just in Time" context, passing the context straight into each flag check. In general, you'll bind the context once at the beginning of the request and then check flags without passing it again. Read more about context [here](/docs/explanations/concepts/context).
 
+## Add a Config
+
+Configs work the same way as flags, but return a value instead of on/off. Read
+one in code with a **code default**, which you get back until the config exists:
+
+<Tabs groupId="lang">
+<TabItem value="ruby" label="Ruby">
+
+```ruby
+puts Quonfig.get("my-first-int-config", 30) # 30 is the code default
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+Long value = quonfig.getLong("my-first-int-config", 30L); // 30 is the code default
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```javascript
+const value = quonfig.getInt("my-first-int-config", undefined, 30); // 30 is the code default
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+print(quonfig.get_int("my-first-int-config", default=30))  # 30 is the code default
+```
+
+</TabItem>
+</Tabs>
+
+Run it and you get `30`. Now select **Configs** from the navigation, click
+**+ Add Config**, enter `my-first-int-config` as the key, pick the `int` type and
+click **Create config**. Set the default value to `50` and click **Save**. Run
+your code again and you get `50`.
+
 ## TypeScript Type Generation (Optional)
 
 If you are using Node.js or React with TypeScript, the Quonfig CLI can generate type-safe definitions for all your flags and configs. This gives you autocomplete and compile-time safety in your IDE.
 
-Install the CLI globally (requires Node 18+):
+Install the CLI globally (requires Node 20.9+):
 
 ```bash
 npm install -g @quonfig/cli
