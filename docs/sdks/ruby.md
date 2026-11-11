@@ -344,7 +344,7 @@ client.get_json("pricing-table", default: {})
 
 They follow the shared [typed-getter contract](/docs/explanations/concepts/typed-getters):
 
-- A read that can't return a value of the getter's type (a missing key, another type, a malformed value, an unset ENV_VAR, a decryption failure) returns your `default:`, and logs one WARN per key.
+- A missing key returns your `default:`. A read that fails (a value of another type, a malformed value, an unset ENV_VAR, a decryption failure) also returns your `default:`, and logs one WARN per key.
 - There is no string coercion: a stored string `"false"` is not a bool, and `"3"` is not a number.
 - With no `default:`, `on_no_default` decides: `:raise` (the default) raises, `:return_nil` returns `nil`.
 - `get_or_raise(key, default: ...)` raises on an unset ENV_VAR, a malformed value or a decryption failure even when you pass a `default:`. Use it for reads that must be fatal.

@@ -49,7 +49,7 @@ In datadir mode the SDK loads config from the local files. It doesn't fetch conf
 
 ## Testing with a datadir
 
-1. Pick the environment your tests evaluate. `development` exists in every new workspace; if you want test-only values, create a dedicated environment (for example `test`) in Quonfig first and set the values your tests expect.
+1. Pick the environment your tests evaluate. A workspace created in the app already has `development`; if you want test-only values, create a dedicated environment (for example `test`) in Quonfig first and set the values your tests expect.
 2. Pull the workspace: `qfg pull --dir ./my-config`.
 3. Point your test setup at `./my-config` and evaluate that environment, for example `QUONFIG_ENVIRONMENT=development`.
 

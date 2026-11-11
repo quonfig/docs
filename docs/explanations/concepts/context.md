@@ -33,7 +33,7 @@ For usage examples, see your relevant SDK client documentation.
 
 ## Global and scoped context
 
-To avoid deeply passing around awareness of the current user, request, etc., Quonfig allows you to set context globally and also for a request or block. The mechanism varies by SDK: Python has an ambient, thread-local scope; Ruby and Java bind the context to a client object (`with_context` / `withContext`) that you evaluate through, and nothing outside that bound client sees it. (Micronaut adds a request-scoped store; see its tab below.)
+To avoid deeply passing around awareness of the current user, request, etc., Quonfig allows you to set context globally and also for a request or block. The mechanism varies by SDK: Python has an ambient scope (`scoped_context`, which follows the current thread or asyncio task); Ruby and Java bind the context to a client object (`with_context` / `withContext`) that you evaluate through, and nothing outside that bound client sees it. (Micronaut adds a request-scoped store; see its tab below.)
 
 When context is set, feature flags and configs evaluated in that scope (or through that bound client) use it. If you provide just-in-time context to your FF evaluations, it will be merged with the scoped or bound context and the global context. More on merging below.
 
@@ -216,7 +216,7 @@ const WrappedApp = () => {
 
 <TabItem value="python" label="Python">
 
-Python supports global context set in options, thread-local context with `scoped_context`, and JIT context.
+Python supports global context set in options, scoped context with `scoped_context` (it follows the current thread or asyncio task), and JIT context.
 
 ```python
 from quonfig import Quonfig
@@ -245,7 +245,7 @@ context = {
     },
 }
 
-# set thread-local context for the duration of the block
+# set scoped context for the duration of the block
 with client.scoped_context(context):
     client.is_feature_enabled("my-first-feature-flag")
 
