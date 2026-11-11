@@ -187,6 +187,23 @@ entirely — there's no workspace to attribute it to and nowhere to POST it.
 If you have an `sdkKey`, telemetry still runs in datadir mode so dogfood
 deployments can self-report.
 
+The SDK reads the directory once, at `init()`. To pick up edits without a
+restart (an editor save, a `git pull`, a build step), opt in to file watching:
+
+```typescript
+const quonfig = new Quonfig({
+  datadir: path.join(process.cwd(), "quonfig"),
+  environment: "development",
+  dataDirAutoReload: true, // off by default
+  // dataDirAutoReloadDebounceMs: 200, // wait this long after the last change
+});
+```
+
+Each successful reload fires `onConfigUpdate`. If the new files don't parse,
+the SDK logs the error and keeps serving the previous config. If the directory
+can't be watched (for example, a read-only filesystem), the SDK logs it and
+carries on without watching.
+
 See the [Next.js + TypeScript (Fully Local) tutorial](/docs/tutorials/nextjs-typescript-local)
 for a complete walkthrough, or the
 [Open Source / Fully Local how-to](/docs/how-tos/open-source-local)
@@ -1248,16 +1265,59 @@ lines, so pass a `logger` to see failed POSTs.
 
 ### Option Definitions
 
-| Name                       | Description                                                                                                                            | Default           |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| apiUrls                    | Ordered list of API base URLs (primary + secondary; failover on by default). Derived from `QUONFIG_DOMAIN` when omitted. SSE URL is derived by prepending `stream.` to the hostname | `["https://primary.quonfig.com", "https://secondary.quonfig.com"]` |
-| collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in web app                                                | true              |
-| contextUploadMode          | Upload either context "shapes" (the names and data types your app uses in quonfig contexts) or periodically send full example contexts. One of `"none"`, `"shapes_only"`, `"periodic_example"` | "periodic_example" |
-| enableSSE                  | Whether or not we should listen for live changes from Quonfig                                                                   | true              |
-| fallbackPollEnabled        | Poll for changes only when the SSE stream is unavailable (replaces the deprecated `enablePolling`, which polled in parallel with SSE) | true              |
-| fallbackPollIntervalMs     | How often to poll, in ms, when the fallback poller is active                                                                    | 60000             |
-| initTimeout                | How long `init()` retries the initial config fetch, in ms, before `onInitFailure` applies                                       | 10000             |
-| onInitFailure              | What `init()` does if no config loads within `initTimeout`: `"fail"`, `"wait"` or `"continue"` (see [startup](#if-quonfig-is-unreachable-at-startup)) | "fail"            |
-| onNoDefault                | What a getter called with no default does when there is no value: `"error"` throws, `"warn"` logs and returns `undefined`, `"ignore"` returns `undefined` (see [typed getters](#typed-getters-and-defaults)) | "error"           |
-| loggerKey                  | The `log_level` config key consulted by `shouldLog({loggerPath})`. No default — set it to enable the `loggerPath` convenience.          | `undefined`       |
-| enableQuonfigUserContext   | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into `globalContext`. Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set `false` or `QUONFIG_DEV_CONTEXT=false` to opt out. | `null` (on)       |
+All options are passed to `new Quonfig({...})`. Every option is optional, but the client needs
+either an SDK key (`sdkKey` or `QUONFIG_BACKEND_SDK_KEY`) or a local `datadir`/`datafile`;
+otherwise the constructor throws.
+
+**Connection**
+
+| Name | Description | Default |
+| ---- | ----------- | ------- |
+| sdkKey | Backend SDK key (`qf_sk_...`). Falls back to the `QUONFIG_BACKEND_SDK_KEY` env var when omitted. | `QUONFIG_BACKEND_SDK_KEY` |
+| domain | Derives the API, SSE and telemetry hostnames in one go (`primary.`, `secondary.`, `stream.` and `telemetry.` on this domain). Falls back to the `QUONFIG_DOMAIN` env var. See [API URLs](#api-urls). | `"quonfig.com"` |
+| apiUrls | Ordered list of API base URLs (primary + secondary; failover on by default). Wins over `domain`. The SSE URL is derived by prepending `stream.` to each hostname. A single URL disables failover. | `["https://primary.quonfig.com", "https://secondary.quonfig.com"]` |
+| telemetryUrl | Base URL for the telemetry service. Wins over `domain`. | `https://telemetry.quonfig.com` |
+| enableSSE | Listen for live changes from Quonfig over SSE | `true` |
+| sseReadDeadlineMs | Drop and reconnect the SSE stream if no data (including heartbeats) arrives within this many ms | `90000` |
+| fallbackPollEnabled | Poll for changes only when the SSE stream is unavailable (replaces the deprecated `enablePolling`, which polled in parallel with SSE) | `true` |
+| fallbackPollIntervalMs | How often to poll, in ms, when the fallback poller is active (replaces the deprecated `pollInterval`) | `60000` |
+| configFetchTimeoutMs | Per-URL deadline, in ms, for one config fetch, so a hung host fails over to the next one | `3000` |
+| configFetchHedgeDelayMs | How long, in ms, to wait for the primary before also asking the secondary in parallel | `2000` |
+| configFetchHedgeAbortMs | Hard deadline, in ms, for each hedged fetch. Keep it below `initTimeout`; the SDK warns at construction if it isn't. | `6000` |
+| initTimeout | How long `init()` retries the initial config fetch, in ms, before `onInitFailure` applies | `10000` |
+| onInitFailure | What `init()` does if no config loads within `initTimeout`: `"fail"`, `"wait"` or `"continue"` (see [startup](#if-quonfig-is-unreachable-at-startup)) | `"fail"` |
+
+**Local data**
+
+| Name | Description | Default |
+| ---- | ----------- | ------- |
+| datadir | Path to a local Quonfig workspace directory. The SDK loads config from it instead of the delivery service (see [Local datadir mode](#local-datadir-mode-no-account-required)). | `undefined` |
+| datafile | A config envelope to load instead of a directory: a path to a JSON file, or the parsed object. `datadir` wins if both are set. | `undefined` |
+| environment | Which environment's rules to apply in `datadir` mode. Falls back to the `QUONFIG_ENVIRONMENT` env var. Ignored, with a warning, when you use an SDK key without a `datadir`/`datafile`; the key picks the environment. | `QUONFIG_ENVIRONMENT` |
+| dataDirAutoReload | Watch `datadir` and re-read it when files change. A failed parse keeps serving the previous config. | `false` |
+| dataDirAutoReloadDebounceMs | How long, in ms, to wait after the last file change before re-reading | `200` |
+
+**Evaluation**
+
+| Name | Description | Default |
+| ---- | ----------- | ------- |
+| globalContext | Context merged into every evaluation. A context of the same name passed to a getter or `withContext` replaces it. | `{}` |
+| onNoDefault | What a getter called with no default does when there is no value: `"error"` throws, `"warn"` logs and returns `undefined`, `"ignore"` returns `undefined` (see [typed getters](#typed-getters-and-defaults)) | `"error"` |
+| enableQuonfigUserContext | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into `globalContext`. Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set `false` or `QUONFIG_DEV_CONTEXT=false` to opt out. | `null` (on) |
+
+**Callbacks and logging**
+
+| Name | Description | Default |
+| ---- | ----------- | ------- |
+| onConfigUpdate | Called after each config update (initial load, SSE push, poll or datadir reload). See [Reacting to Config Changes](#reacting-to-config-changes). | `undefined` |
+| onSSEConnectionStateChange | Called with `"connecting"`, `"connected"`, `"error"` or `"disconnected"` as the SSE connection changes. No effect when `enableSSE` is `false`. | `undefined` |
+| logger | Receives the SDK's own warnings and errors. Accepts a Pino, Winston or Bunyan logger, or `console`. | `console` |
+| loggerKey | The `log_level` config key consulted by `shouldLog({loggerPath})`. Set it to enable the `loggerPath` convenience (see [Dynamic Log Levels](#dynamic-log-levels)). | `undefined` |
+
+**Telemetry**
+
+| Name | Description | Default |
+| ---- | ----------- | ------- |
+| collectEvaluationSummaries | Send counts of config/flag evaluation results back to Quonfig to view in the web app | `true` |
+| contextUploadMode | Upload either context "shapes" (the names and data types your app uses in Quonfig contexts) or periodically send full example contexts. One of `"none"`, `"shapes_only"`, `"periodic_example"` | `"periodic_example"` |
+| telemetry\* | Flush interval, timeout and retention limits. See [Delivery options](#delivery-options). | |
