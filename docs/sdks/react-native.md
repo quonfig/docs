@@ -165,101 +165,15 @@ consider `"continue"`; see
 
 ## Dealing with Loading States
 
-The Quonfig client needs to load your feature flags from Quonfig's [delivery service](/docs/explanations/concepts/frontend-sdks) before they are available. This means there will be a brief period when the client is in a loading state. If you call the `useQuonfig` hook during loading, you will see the following behavior.
-
-```jsx
-const { get, isEnabled, loading } = useQuonfig();
-
-console.log(loading); // true
-console.log(get("my-string-flag")); // undefined for all flags
-console.log(isEnabled("my-boolean-flag")); // false for all flags
-```
-
-Here are some suggestions for how to handle the loading state.
-
-### At the top level of your application or page component
-
-For a single page application, you likely already display a spinner or skeleton component while fetching data from your own backend. In this case, we recommend checking whether Quonfig is loaded in the logic for displaying this state. That way you can ensure that Quonfig is always loaded before the rest of your component tree renders, and you will not need to check for `loading` when evaluating individual flags.
-
-```jsx
-const MyPageComponent = ({ myData, myDataIsLoading }) => {
-  // highlight-start
-  const { loading: quonfigIsLoading } = useQuonfig();
-
-  if (myDataIsLoading || quonfigIsLoading) {
-    // highlight-end
-    return <MySpinnerComponent />
-  }
-
-  return (
-    // actual page content
-  )
-}
-```
-
-If you'd rather not block the whole screen, consider one of the following options instead.
-
-### In individual components
-
-You can get a `loading` value back each time you call the `useQuonfig` hook and use it to render a spinner or other loading state only for the part of the page that is affected by your flag. This can be a good choice if you are swapping between two different UI treatments and don't want your users to see the page flicker from one to the other after the initial render.
-
-```jsx
-import { Text } from "react-native";
-
-const MyComponent = () => {
-  const { get, loading } = useQuonfig();
-
-  if (loading) {
-    return <MySpinnerComponent />
-  }
-
-  switch (get("my-feature-flag")) {
-    case "new-ui":
-      return (<Text>Render the new UI...</Text>);
-    case "old-ui":
-    default:
-      return (<Text>Render the old UI...</Text>);
-  }
-}
-```
-
-### Do nothing
-
-If your feature flag is choosing between rendering something and rendering nothing, it may be acceptable to have that content pop-in once Quonfig finishes loading. This works because `isEnabled` will always return false until the Quonfig client is loaded.
-
-```jsx
-import { View } from "react-native";
-
-const MyComponent = () => {
-  // highlight-next-line
-  const { isEnabled } = useQuonfig();
-
-  return (
-    <View>
-      // highlight-start
-      {isEnabled("my-feature-flag") && (
-        <View>
-          {/* Flag content... */}
-        </View>
-      )}
-      // highlight-end
-      <View>
-        {/* Other content... */}
-      </View>
-    </View>
-  );
-}
-```
+Until the first fetch from Quonfig's [delivery service](/docs/explanations/concepts/frontend-sdks) completes, `useQuonfig()` returns `loading: true`, `get()` returns `undefined` and `isEnabled()` returns `false`. The options for handling that (gate the whole screen, show a spinner in one component, or let content pop in) are the same as on the web; see [Dealing with Loading States](./react.md#dealing-with-loading-states) on the React page. In React Native, render `View`/`Text` instead of DOM elements.
 
 ## Tracking Experiment Exposures
 
-If you're using Quonfig for A/B testing, you can supply code for tracking experiment exposures to your data warehouse or analytics tool of choice.
+Pass an `afterEvaluationCallback` to `QuonfigProvider` to send experiment exposures to your analytics tool; it runs each time you evaluate a flag with `get` or `isEnabled`. See [Tracking Experiment Exposures](./react.md#tracking-experiment-exposures) on the React page. In React Native there is no browser `window.posthog`, so with PostHog you construct a client instance (or use the `usePostHog()` hook):
 
 ```jsx
 import PostHog from "posthog-react-native";
 
-// In React Native, PostHog is a client instance — there is no browser
-// `window.posthog`. Construct one (or use the `usePostHog()` hook).
 const posthog = new PostHog("YOUR_POSTHOG_API_KEY", {
   host: "https://us.i.posthog.com",
 });
@@ -269,21 +183,14 @@ const posthog = new PostHog("YOUR_POSTHOG_API_KEY", {
   contextAttributes={contextAttributes}
   onError={onError}
   // highlight-start
-  afterEvaluationCallback={(key, value, contexts) => {
-    // call your analytics tool here...in this example we send data to a
-    // posthog-react-native client instance
-    posthog.capture("Feature Flag Evaluation", {
-      key,
-      value,
-    });
+  afterEvaluationCallback={(key, value) => {
+    posthog.capture("Feature Flag Evaluation", { key, value });
   }}
   // highlight-end
 >
   <App />
 </QuonfigProvider>
 ```
-
-`afterEvaluationCallback` will be called each time you evaluate a feature flag using `get` or `isEnabled`.
 
 ## Telemetry
 
@@ -302,37 +209,13 @@ and the full rule on the [Reliability](../explanations/architecture/resiliency.m
 
 ## Testing
 
-Wrap the component under test in a `QuonfigTestProvider` and provide a config object to set up your test state.
+Wrap the component under test in a `QuonfigTestProvider` and pass a config object to set up your test state. The general approach is the same as on the [React page](./react.md#testing), with two React Native differences:
 
-e.g. if you wanted to test the following trivial component
+- Import `QuonfigTestProvider` from `@quonfig/react-native`, like everything else. (The React page's `@quonfig/react/testing` entry point belongs to `@quonfig/react` 2.x; `@quonfig/react-native` builds on 1.x, which exports `QuonfigTestProvider` from its main entry.)
+- Render with [React Native Testing Library][rntl] instead of React Testing Library.
 
-```jsx
-import { View, Text, Pressable } from "react-native";
-
-function MyComponent() {
-  const { get, isEnabled, loading } = useQuonfig();
-  const greeting = get("greeting") || "Greetings";
-
-  if (loading) {
-    return <Text>Loading...</Text>;
-  }
-
-  return (
-    <View>
-      <Text accessibilityRole="alert">{greeting}</Text>
-      {isEnabled("secretFeature") && (
-        <Pressable accessibilityLabel="secret-feature">
-          <Text>Secret feature</Text>
-        </Pressable>
-      )}
-    </View>
-  );
-}
-```
-
-You could do the following in [jest]/[rtl]
-
-```jsx
+```tsx
+import { render, screen } from "@testing-library/react-native";
 import { QuonfigTestProvider } from "@quonfig/react-native";
 
 const renderInTestProvider = (config: { [key: string]: any }) => {
@@ -343,23 +226,22 @@ const renderInTestProvider = (config: { [key: string]: any }) => {
   );
 };
 
-it("shows a custom greeting", async () => {
+it("shows a custom greeting", () => {
   renderInTestProvider({ greeting: "Hello" });
 
-  const alert = screen.queryByRole("alert");
-  expect(alert).toHaveTextContent("Hello");
+  expect(screen.getByRole("alert")).toHaveTextContent("Hello");
 });
 
-it("shows the secret feature when it is enabled", async () => {
+it("shows the secret feature when it is enabled", () => {
   renderInTestProvider({ secretFeature: true });
 
-  const secretFeature = screen.queryByText("Secret feature");
-  expect(secretFeature).toBeOnTheScreen();
+  expect(screen.getByText("Secret feature")).toBeOnTheScreen();
 });
 ```
 
-[jest]: https://jestjs.io/
-[rtl]: https://testing-library.com/docs/react-testing-library/intro/
+Here `MyComponent` reads `greeting` with `get` and renders a `Text` with `accessibilityRole="alert"`, and shows a "Secret feature" `Text` when `isEnabled("secretFeature")` is true.
+
+[rntl]: https://callstack.github.io/react-native-testing-library/
 [segment]: /docs/explanations/features/rules-and-segmentation
 
 ## Reference
@@ -385,7 +267,7 @@ Here's an explanation of each property
 | `quonfig`           | N/A                     | the underlying [JavaScript](./javascript.md) quonfig instance                            |
 | `keys`              | N/A                     | an array of all the flag and config names in the current configuration                   |
 
-For a single key, `useFlag(key)` subscribes to just that flag; see [`useFlag`](./react.md#useflag--per-key-selector-hook) on the React page.
+For a single key, `useFlag(key)` subscribes to just that flag; see [`useFlag`](./react.md#useflag--per-key-selector-hook) on the React page. Provider props are listed under [`QuonfigProvider` props](./react.md#quonfigprovider-props).
 
 :::tip
 

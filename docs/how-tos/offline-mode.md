@@ -10,25 +10,11 @@ Once a Quonfig SDK has loaded your configuration, your servers keep evaluating f
 
 ## Using Quonfig offline
 
-Offline mode runs the SDK from a [local copy of your workspace][datadir] (a datadir) instead of the Quonfig servers. Pull it with the Quonfig CLI:
-
-```bash
-qfg pull --dir ./my-config
-```
-
-The datadir has your complete ruleset as of the pull, for every environment. You can commit it to source control and run your app from it. Re-run `qfg pull` now and then to pick up the latest changes.
+Offline mode runs the SDK from a [local copy of your workspace][datadir] (a datadir) instead of the Quonfig servers. Pull it once with `qfg pull --dir ./my-config`; it holds your complete ruleset, for every environment, as of the pull.
 
 ### Backend SDKs
 
-Point the SDK's `datadir` option at the directory (`WithDataDir` in Go; see your SDK's page for the exact spelling) and pick the environment to evaluate. The SDK evaluates flags and configs from the local files without connecting to the Quonfig servers. Datadir mode loads synchronously from disk, so the startup-failure setting does not apply to it.
-
-If you're using Ruby on Rails, for example, the Ruby SDK reads the directory and environment from environment variables:
-
-```bash
-QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=development rails server
-```
-
-See [Open Source / Fully Local][local] for every SDK's setup and for auto-reload on file changes.
+Point the SDK at the directory and choose an environment, for example `QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=development rails server` with the Ruby SDK. Datadir mode loads synchronously from disk, so the startup-failure setting does not apply to it. [Local Workspace (datadir)][datadir] covers keeping the copy current, which environment names are valid, and what the SDK still sends over the network when an SDK key is set; [Open Source / Fully Local][local] has each SDK's setup, including auto-reload on file changes.
 
 ### Frontend SDKs
 

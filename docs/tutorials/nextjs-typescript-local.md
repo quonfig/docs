@@ -159,9 +159,6 @@ const quonfig = new Quonfig({
   datadir: path.join(process.cwd(), "quonfig"),
   // Pick which environment overrides to apply.
   environment: process.env.QUONFIG_ENVIRONMENT ?? "development",
-  // No server to stream from, no server to poll.
-  enableSSE: false,
-  fallbackPollEnabled: false,
 });
 
 let initPromise: Promise<void> | undefined;
@@ -174,8 +171,10 @@ export async function getQuonfig() {
 ```
 
 With `datadir` set and no `sdkKey` passed, the SDK runs in **fully local
-mode**: it reads from disk, evaluates in memory, and skips the telemetry
-reporter entirely. No POSTs are made to `telemetry.quonfig.com`.
+mode**: it reads from disk, evaluates in memory, and makes no network calls.
+There's no stream or poll to turn off; datadir mode never starts them. (If
+you later add an SDK key, usage telemetry is sent even in datadir mode; see
+[Local Workspace](/docs/explanations/concepts/local-workspace#point-an-sdk-at-it).)
 
 The `initPromise` lazy-initializes once per server process — Next.js reuses
 the same Node module instance across requests in production.

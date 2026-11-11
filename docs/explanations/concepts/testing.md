@@ -115,7 +115,7 @@ import { QuonfigTestProvider } from "@quonfig/react/testing";
 
 Mocking every Quonfig call can be tedious. Instead, run your tests against a [datadir][datadir]: a local copy of your workspace pulled with `qfg pull`.
 
-Your tests and CI could fetch the latest configuration from Quonfig, but many teams want full control over the configuration their tests run against, for consistency and reproducibility. A datadir checked into your repo gives you that.
+Your tests and CI could fetch the latest configuration from Quonfig, but many teams want full control over the configuration their tests run against, for consistency and reproducibility. A datadir copied into your repo, or pulled as a CI step, gives you that.
 
 Pull the workspace, then run your tests with the SDK pointed at it and an environment chosen. The Ruby and Python SDKs read both from environment variables; the other backend SDKs take a `datadir` option (see your SDK's page):
 

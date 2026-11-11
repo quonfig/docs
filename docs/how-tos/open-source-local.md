@@ -26,8 +26,8 @@ filesystem. Browser and React Native SDKs have no filesystem — use
   editor tooling
 - `qfg migrate` — import flags from LaunchDarkly, Flagsmith, etc.
 - Every server-side Quonfig SDK can be pointed at a local directory (`datadir`)
-  and will evaluate flags entirely from local files, with no SSE connection, no API
-  fetch, and no telemetry POSTs.
+  and will evaluate flags entirely from local files, with no SSE connection and
+  no API fetch. With no SDK key set, it sends no telemetry either.
 
 ## What you don't get without an account
 
@@ -126,11 +126,13 @@ files directly. **No login needed.** You can also be explicit with
 
 ### 5. Point your SDK at the directory
 
-Every SDK supports a `datadir` option. With `datadir` set and
+Every server-side SDK supports a `datadir` option. With `datadir` set and
 no `sdkKey`, the SDK runs in fully local mode: no SSE, no telemetry, no API
-fetches. See the [Next.js + TypeScript tutorial](/docs/tutorials/nextjs-typescript-local)
-for a complete walkthrough, and [Local workspace](/docs/explanations/concepts/local-workspace)
-for how the SDK finds the directory and picks an environment.
+fetches. (Setting an SDK key turns usage telemetry back on, even in datadir
+mode.) See the [Next.js + TypeScript tutorial](/docs/tutorials/nextjs-typescript-local)
+for a complete walkthrough, and [Local Workspace](/docs/explanations/concepts/local-workspace)
+for how the SDK finds the directory, which environment names are valid, and
+what it sends over the network.
 
 Datadir mode always needs an environment, either as an option or through the
 `QUONFIG_ENVIRONMENT` env var. Without one the SDK fails at init. The name must
