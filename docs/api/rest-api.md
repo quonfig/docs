@@ -54,7 +54,7 @@ to*:
 
 | Key | Looks like | Acts as | Mint it in the app |
 |---|---|---|---|
-| Personal API key | `qf_uk_...` | You — changes are attributed to your user | Workspace → **Environments** → **CLI & API keys** tab |
+| Personal API key | `qf_uk_...` | You — changes are attributed to your user | Workspace → **Environments & Keys** → **CLI & API keys** tab |
 | Service-account key | `qf_sa_...` | A bot identity with its own name and role | Workspace → **Settings** → **Service accounts** → **Mint key** |
 
 Use a personal key for your own scripts; use a service account for anything
