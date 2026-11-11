@@ -32,7 +32,7 @@ Set `QUONFIG_DIR=./my-config` to avoid repeating `--dir`.
 
 **Prerequisites**
 
-- `pull` requires authentication. Either run `npx @quonfig/cli login` once (interactive OAuth, recommended for local dev) **or** export a `QUONFIG_API_KEY` (starts with `qf_uk_…`) plus `QUONFIG_WORKSPACE=<workspace-slug>` for headless / CI use. Generate a `qf_uk_` key from **Settings → API Keys** in the dashboard. Note: this is a *user* API key, not an SDK key — the `qf_sk_…` / `qf_pk_…` SDK keys do not work with the CLI.
+- `pull` requires authentication. Either run `npx @quonfig/cli login` once (interactive OAuth, recommended for local dev) **or** export a `QUONFIG_API_KEY` (starts with `qf_uk_…`) plus `QUONFIG_WORKSPACE=<workspace-slug>` for headless / CI use. Generate a `qf_uk_` key from the **API Keys** tab on the **Environments & Keys** page in the dashboard. Note: this is a *user* API key, not an SDK key — the `qf_sk_…` / `qf_pk_…` SDK keys do not work with the CLI.
 - `generate` does **not** call the network when `--dir` (or `QUONFIG_DIR`) points at a checkout from `pull`, so it can run in any environment.
 
 **Output**
@@ -77,6 +77,8 @@ yarn add @quonfig/react @quonfig/javascript
 The React SDK is a thin wrapper around the JavaScript SDK and, in the browser, shares its module-level `quonfig` singleton with your app. Keeping `@quonfig/javascript` as a peer guarantees a single copy of the package in your bundle, so `import { quonfig }` and the provider see the same browser client. On the server, the [SSR + rehydration pattern](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration) uses a per-request `new Quonfig()` from `@quonfig/javascript` rather than the singleton, and `QuonfigProvider` gives every server render its own client.
 :::
 
+The two packages move in lockstep by major version: `@quonfig/react` 2.x needs `@quonfig/javascript` 2.x. If you are upgrading from 1.x, read the "UPGRADE to 2.0" notes in the [sdk-react CHANGELOG](https://github.com/quonfig/sdk-react/blob/main/CHANGELOG.md): `isEnabled` is `true` only for a boolean `true`, `getDuration` takes an optional default, and `QuonfigTestProvider` moved to `@quonfig/react/testing`.
+
 TypeScript types are included with the package.
 
 ## No-account / fully local React
@@ -91,9 +93,10 @@ component, evaluate the flags there, and pass the values down to the
 client. The walkthrough is in the
 [Next.js + TypeScript (Fully Local) tutorial](/docs/tutorials/nextjs-typescript-local).
 
-The React SDK described on the rest of this page targets the
-hosted/streaming use case: it connects to `app.quonfig.com` (or a local
-proxy) over SSE for real-time flag updates and requires a frontend SDK key.
+The React SDK described on the rest of this page targets the hosted use
+case and requires a frontend SDK key: it fetches evaluated values from
+Quonfig's delivery servers (`primary.quonfig.com`, with failover to the
+secondary) and polls for updates when you set `pollInterval`.
 
 ## Frontend vs. server SDK keys
 
@@ -104,7 +107,7 @@ Quonfig issues two kinds of SDK keys, and your React app should only ever ship t
 | Frontend | `qf_pk_…` | browser / React SDK    | `NEXT_PUBLIC_QUONFIG_FRONTEND_SDK_KEY`   |
 | Backend  | `qf_sk_…` | server / Node, Go, etc | `QUONFIG_BACKEND_SDK_KEY`                |
 
-`pk` = **public**, safe to expose. `sk` = **secret**, must never reach the browser. Generate both from **Settings → SDK Keys** in the Quonfig dashboard.
+`pk` = **public**, safe to expose. `sk` = **secret**, must never reach the browser. Generate both from the **Environments & Keys** page in the Quonfig dashboard.
 
 For the deeper "why two keys" explanation see [How Frontend SDKs Work](/docs/explanations/concepts/frontend-sdks) and [How Backend SDKs Work](/docs/explanations/concepts/backend-sdks).
 
@@ -676,13 +679,6 @@ const WelcomeMessage = () => {
 
 ## If Quonfig is unreachable at startup
 
-:::info Since @quonfig/react 1.6.0
-This section describes `@quonfig/react` 1.6.0 and later, which requires
-`@quonfig/javascript` 1.6.0. With earlier versions
-there are no `onInitFailure` / `initTimeout` props and no `isReady`, `error`
-or `source` fields, and a failed init recovers only through `pollInterval`.
-:::
-
 If every delivery leg is down at page load, the client retries until
 `initTimeout` (5s by default) and then applies `onInitFailure`:
 
@@ -715,14 +711,14 @@ many apps `"continue"` is the better choice; see
 
 ## Dealing with Loading States
 
-The Quonfig client needs to load your feature flags from the [Quonfig CDN](/docs/explanations/concepts/frontend-sdks) before they are available. This means there will be a brief period when the client is in a loading state. If you call the `useQuonfig` hook during loading, you will see the following behavior.
+The Quonfig client needs to load your feature flags from Quonfig's [delivery servers](/docs/explanations/concepts/frontend-sdks) before they are available. This means there will be a brief period when the client is in a loading state. If you call the `useQuonfig` hook during loading, you will see the following behavior.
 
 ```jsx
 const { get, isEnabled, getDuration, loading } = useQuonfig();
 
 console.log(loading); // true
 console.log(get("my-string-flag")); // undefined for all flags
-console.log(getDuration("my-timeframe-flag")); // undefined for all flags
+console.log(getDuration("my-timeframe-flag")); // undefined, or the default you pass as the second argument
 console.log(isEnabled("my-boolean-flag")); // false for all flags
 ```
 
@@ -928,7 +924,7 @@ Quonfig also stores the context that you pass in. The context keys are used to p
 | `NONE`                     | Stores nothing. Context will only be used for rule evaluation. |
 
 The underlying `@quonfig/javascript` client handles telemetry delivery (flush interval, timeout,
-retry and caps). `@quonfig/react` 1.3.0 requires `@quonfig/javascript` 1.3.0 or later. React apps
+retry and caps). React apps
 always get the JavaScript defaults. Apart from `collectEvaluationSummaries`, `QuonfigProvider` has
 no telemetry props: it doesn't forward the
 [JavaScript delivery options](./javascript.md#delivery-options), and a direct `quonfig.init()` call
@@ -938,14 +934,15 @@ Unmounting `QuonfigProvider` calls `close()`, which sends the last window with a
 POST. In the browser, a `pagehide` listener also sends a final flush when the page goes away.
 
 With `initialFlags` ([SSR hydration](#server-side-rendering-ssr-to-client-side-rendering-csr-rehydration)),
-the provider hydrates the client and doesn't call `init()` in the browser. No telemetry reporter
-starts, so the browser sends no evaluation summaries and no `pagehide` flush happens.
+the seed paints on the first render (`loading` is `false`, `isReady` is `true`), and the provider
+still calls `init()` in the browser. That costs one fetch for the seeded context. From then on the
+client behaves as on an unseeded boot: it sends evaluation summaries, flushes on `pagehide`, polls
+when `pollInterval` is set, and calls `onError` if init fails after `initTimeout`.
 
 ## Invalid or revoked SDK key
 
 `@quonfig/react` polls through `@quonfig/javascript`, so it follows the
-browser SDK's rule: with `@quonfig/react` 1.5.0+ (which needs
-`@quonfig/javascript` 1.5.0+), a rejected SDK key logs one `console.error`
+browser SDK's rule: a rejected SDK key logs one `console.error`
 and slows polling to once every 150-300 seconds until a poll is accepted. See
 [JavaScript: invalid or revoked SDK key](./javascript.md#invalid-or-revoked-sdk-key)
 and the full rule on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
@@ -953,6 +950,8 @@ and the full rule on the [Reliability](../explanations/architecture/resiliency.m
 ## Testing
 
 Wrap the component under test in a `QuonfigTestProvider` and provide a config object to set up your test state.
+
+`QuonfigTestProvider` has its own entry point, `@quonfig/react/testing`, so it stays out of your production bundle. Hooks still come from `@quonfig/react`. Your test runner must resolve package `exports`: Jest 28+, Vitest, or TypeScript with `moduleResolution` set to `node16`, `nodenext` or `bundler`.
 
 e.g. if you wanted to test the following trivial component
 
@@ -993,7 +992,7 @@ You could do the following in [jest]/[rtl]
 
 ```tsx
 import { render, screen } from "@testing-library/react";
-import { QuonfigTestProvider } from "@quonfig/react";
+import { QuonfigTestProvider } from "@quonfig/react/testing";
 
 // Key the config object by the RAW config keys — QuonfigTestProvider does a
 // direct key lookup with no camelCase conversion
@@ -1051,7 +1050,7 @@ You could do the following in [jest]/[rtl]
 
 ```tsx
 import { render, screen } from "@testing-library/react";
-import { QuonfigTestProvider } from "@quonfig/react";
+import { QuonfigTestProvider } from "@quonfig/react/testing";
 
 const renderInTestProvider = (config: Record<string, any>) => {
   render(
@@ -1105,7 +1104,7 @@ You could do the following in [jest]/[rtl]
 
 ```jsx
 import { render, screen } from "@testing-library/react";
-import { QuonfigTestProvider } from "@quonfig/react";
+import { QuonfigTestProvider } from "@quonfig/react/testing";
 
 const renderInTestProvider = (config) => {
   render(
@@ -1484,7 +1483,7 @@ const MyComponent = ({ initialFlags }) => {
 
 - **⚡ No loading states**: Flags are immediately available on first render
 - **🎯 Better SEO**: Server-rendered content reflects the actual flag states
-- **🚀 Improved performance**: Eliminates client-side API requests for initial flag data
+- **🚀 Improved performance**: No blocking fetch before first paint
 - **💫 Better UX**: No flickering between loading and final states
 - **🎨 Consistent rendering**: Server and client render the same content
 
@@ -1509,7 +1508,7 @@ const userContext = { user: { key: "123", email: "user@example.com" } };
 
 You should only use a **QUONFIG_FRONTEND_SDK_KEY** during this process, for both fetching flags on the server in a react context + the React provider (only receives client-enabled flags).
 
-As a result, only configs with "Send to frontend SDKs" enabled with be available on the client.
+As a result, only configs with "Send to frontend SDKs" enabled will be available on the client.
 :::
 
 ### Error Handling
@@ -1621,7 +1620,7 @@ const MyComponent = () => {
 
 :::info Custom Hook Requirements
 
-Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/main/src/QuonfigProvider.tsx#L106-L129) implementation for additional details.
+Please reference the current [`createQuonfigHook`](https://github.com/quonfig/sdk-react/blob/v2.0.0/src/QuonfigProvider.tsx#L156-L182) implementation for additional details.
 
 You must implement `get` method + expose the javascript `quonfig` property directly in custom implementations.
 :::
@@ -1687,9 +1686,9 @@ Here's an explanation of each property
 | property            | example                   | purpose                                                                                  |
 | ------------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
 | `contextAttributes` | (see above)               | this is the context attributes object you passed when setting up the provider            |
-| `getDuration`       | `getDuration("new-logo")` | returns a duration type if a flag or config is a duration type                           |
+| `getDuration`       | `getDuration("api-timeout", fallback)` | returns the duration if the flag or config is a duration type; otherwise the optional default (or `undefined`) |
 | `get`               | `get('retry-count')`      | returns the value of a flag or config                                                    |
-| `isEnabled`         | `isEnabled("new-logo")`   | returns a boolean (default `false`) if a feature is enabled based on the current context |
+| `isEnabled`         | `isEnabled("new-logo")`   | returns `true` only when the value for the current context is the boolean `true`; otherwise `false` |
 | `keys`              | N/A                       | an array of all the flag and config names in the current configuration                   |
 | `loading`           | `if (loading) { ... }`    | a boolean indicating whether quonfig content is being loaded                             |
 | `isReady`           | `if (!isReady) { ... }`   | whether the client holds live config (see [startup](#if-quonfig-is-unreachable-at-startup)) |
@@ -1699,7 +1698,7 @@ Here's an explanation of each property
 
 :::tip
 
-While `loading` is true, `isEnabled` will return `false` and `getDuration`/`get` will return `undefined`.
+While `loading` is true, `isEnabled` will return `false`, `get` will return `undefined`, and `getDuration` will return the default you pass (or `undefined` if you pass none).
 
 :::
 
@@ -1724,13 +1723,13 @@ If you have a typed config (via `@quonfig/cli generate`), `useFlag` returns the 
 | ---------------------------- | -------- | ----------------- | ----------------------------------------------------------------------------- |
 | `sdkKey`                     | yes      | `string`          | your Quonfig frontend SDK key                                                 |
 | `contextAttributes`          | no       | `Contexts`        | targeting context passed to all flag evaluations                              |
-| `initialFlags`               | no       | `Record<string, unknown>` | pre-seeded flag values for SSR hydration; disables network request  |
+| `initialFlags`               | no       | `Record<string, unknown>` | pre-seeded flag values for SSR hydration; the first render uses them with no loading state, then the client connects normally |
 | `pollInterval`               | no       | `number`          | poll for updates every N milliseconds                                         |
 | `domain`                     | no       | `string`          | single knob that flips api + telemetry URLs in lockstep, e.g. `domain="quonfig-staging.com"` resolves api to `https://primary.quonfig-staging.com` (+ secondary) and telemetry to `https://telemetry.quonfig-staging.com`. Defaults to `"quonfig.com"`. Overridden by explicit `apiUrl` / `apiUrls`. |
 | `apiUrls`                    | no       | `string[]`        | ordered list of API base URLs to try (failover order). Escape hatch when your deploy doesn't follow the `primary.${domain}` / `secondary.${domain}` convention. When set, wins over `domain`. |
 | `apiUrl`                     | no       | `string`          | convenience alias for a single API base URL — normalized to `apiUrls=[apiUrl]`. `apiUrls` wins if both are set. |
 | `timeout`                    | no       | `number`          | per-request fetch timeout in milliseconds (default 3000). Must stay above `hedgeDelay`. |
-| `hedgeDelay`                 | no       | `number`          | _(since sdk-react 1.2.0)_ ms the hedged loader waits for the primary before also firing the secondary in parallel (default 2000) |
+| `hedgeDelay`                 | no       | `number`          | ms the hedged loader waits for the primary before also firing the secondary in parallel (default 2000) |
 | `initTimeout`                | no       | `number`          | ms the client retries at startup before `onInitFailure` applies (default 5000) |
 | `onInitFailure`              | no       | `"fail" \| "wait" \| "continue"` | what happens if no config (fresh or cached) loads within `initTimeout` (default `"fail"`; see [startup](#if-quonfig-is-unreachable-at-startup)) |
 | `onError`                    | no       | `(error) => void` | callback invoked on initialization failure                                    |

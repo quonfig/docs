@@ -14,18 +14,23 @@ Use your favorite package manager to install `@quonfig/react-native` [npm](https
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig/react-native @quonfig/react @quonfig/javascript base-64 react-native-get-random-values
+npm install @quonfig/react-native @quonfig/react@^1 @quonfig/javascript@^1 base-64 react-native-get-random-values@^1
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig/react-native @quonfig/react @quonfig/javascript base-64 react-native-get-random-values
+yarn add @quonfig/react-native @quonfig/react@^1 @quonfig/javascript@^1 base-64 react-native-get-random-values@^1
 ```
 
 </TabItem>
 </Tabs>
+
+Keep the version ranges on three of the packages:
+
+- `@quonfig/react-native` currently peers on `@quonfig/react` 1.x, so pin `@quonfig/react@^1` and `@quonfig/javascript@^1`. An unpinned install picks up the 2.x majors, which fall outside that peer range.
+- `react-native-get-random-values` 2.x needs React Native 0.81+ with the New Architecture. On older React Native versions, stay on `@^1`.
 
 TypeScript types are included with the package.
 
@@ -143,11 +148,6 @@ By default configs are not sent to frontend SDKs. You must enable access for eac
 
 ## If Quonfig is unreachable at startup
 
-:::info Since @quonfig/react-native 1.3.0
-Requires `@quonfig/react-native` 1.3.0 or later, which depends on
-`@quonfig/react` 1.6.0 and `@quonfig/javascript` 1.6.0.
-:::
-
 React Native uses the React provider's startup behavior: the
 `onInitFailure` (`"fail"` by default, `"wait"` or `"continue"`) and
 `initTimeout` (5000 ms by default) props, and the `isReady`, `error` and
@@ -165,7 +165,7 @@ consider `"continue"`; see
 
 ## Dealing with Loading States
 
-The Quonfig client needs to load your feature flags from the [Quonfig CDN](/docs/explanations/concepts/frontend-sdks) before they are available. This means there will be a brief period when the client is in a loading state. If you call the `useQuonfig` hook during loading, you will see the following behavior.
+The Quonfig client needs to load your feature flags from Quonfig's [delivery service](/docs/explanations/concepts/frontend-sdks) before they are available. This means there will be a brief period when the client is in a loading state. If you call the `useQuonfig` hook during loading, you will see the following behavior.
 
 ```jsx
 const { get, isEnabled, loading } = useQuonfig();
@@ -197,7 +197,7 @@ const MyPageComponent = ({ myData, myDataIsLoading }) => {
 }
 ```
 
-However, if you have SEO concerns, such as when using a tool like Docusaurus, you may want to consider one of the following options instead.
+If you'd rather not block the whole screen, consider one of the following options instead.
 
 ### In individual components
 
@@ -289,12 +289,12 @@ const posthog = new PostHog("YOUR_POSTHOG_API_KEY", {
 
 By default, Quonfig will collect summary counts of feature flag evaluations to help you understand how your flags are being used in the real world. You can opt out of this behavior by passing `collectEvaluationSummaries={false}` when initializing `QuonfigProvider`.
 
-Telemetry delivery (flush interval, timeout, retry and caps) comes from the underlying `@quonfig/javascript` client; see [JavaScript delivery options](./javascript.md#delivery-options) for the option names and the [Telemetry](../explanations/architecture/telemetry.md) page for how it behaves when the endpoint is slow or down. React Native uses the same defaults with `@quonfig/react` 1.3.0 or later installed, with one exception: the browser's final flush on `pagehide` needs `window.addEventListener`, which React Native generally doesn't have. On React Native, the only final flush is the `close()` call that runs when `QuonfigProvider` unmounts. Evaluations recorded after the last periodic flush are lost if the app is killed before the provider unmounts.
+Telemetry delivery (flush interval, timeout, retry and caps) comes from the underlying `@quonfig/javascript` client; see [JavaScript delivery options](./javascript.md#delivery-options) for the option names and the [Telemetry](../explanations/architecture/telemetry.md) page for how it behaves when the endpoint is slow or down. React Native uses the same defaults, with one exception: the browser's final flush on `pagehide` needs `window.addEventListener`, which React Native generally doesn't have. On React Native, the only final flush is the `close()` call that runs when `QuonfigProvider` unmounts. Evaluations recorded after the last periodic flush are lost if the app is killed before the provider unmounts.
 
 ## Invalid or revoked SDK key
 
 `@quonfig/react-native` polls through `@quonfig/javascript`, so it follows the
-browser SDK's rule once `@quonfig/javascript` is at 1.5.0 or later: a rejected
+browser SDK's rule: a rejected
 SDK key logs one `console.error` and slows polling to once every 150-300
 seconds until a poll is accepted. See
 [JavaScript: invalid or revoked SDK key](./javascript.md#invalid-or-revoked-sdk-key)
@@ -378,8 +378,14 @@ Here's an explanation of each property
 | `get`               | `get('retry-count')`    | returns the value of a flag or config                                                    |
 | `contextAttributes` | (see above)             | this is the context attributes object you passed when setting up the provider            |
 | `loading`           | `if (loading) { ... }`  | a boolean indicating whether quonfig content is being loaded                             |
+| `getDuration`       | `getDuration("api-timeout")` | returns the duration if the flag or config is a duration type; otherwise `undefined` |
+| `isReady`           | `if (!isReady) { ... }` | whether the client holds live config (see [startup](#if-quonfig-is-unreachable-at-startup)) |
+| `error`             | `error?.reason`         | the init error, if `init` failed; cleared when the client heals                          |
+| `source`            | `source === "defaults"` | where current values come from: `"network"`, `"cache"` or `"defaults"` (no `"cache"` on React Native, see above) |
 | `quonfig`           | N/A                     | the underlying [JavaScript](./javascript.md) quonfig instance                            |
 | `keys`              | N/A                     | an array of all the flag and config names in the current configuration                   |
+
+For a single key, `useFlag(key)` subscribes to just that flag; see [`useFlag`](./react.md#useflag--per-key-selector-hook) on the React page.
 
 :::tip
 
