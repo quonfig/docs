@@ -506,6 +506,8 @@ Config values are accessed the same way as feature flag values using the same ca
 - you can use `quonfig.isEnabled("boolean.key.here")` as a convenience for boolean values
 - you can use `quonfig.getDuration("timeframe.key.here")` for time-frame values
 
+These reads follow the shared [typed-getter contract](/docs/explanations/concepts/typed-getters): `isEnabled` is `true` only for a boolean `true` and never throws, and a missing key or a value of the wrong type gives you your default (or `undefined`).
+
 By default configs are not sent to frontend SDKs. You must enable access for each individual config. You can do this by checking the "Send to frontend SDKs" checkbox when creating or editing a config.
 
 ## Mustache Templating

@@ -175,6 +175,8 @@ You can also use:
 </TabItem>
 </Tabs>
 
+`isEnabled` returns `true` only for a flag whose value is the boolean `true`, and never throws. These reads follow the shared [typed-getter contract](/docs/explanations/concepts/typed-getters), which also lists the error codes `getDetails` can return.
+
 ## Context
 
 Context is a plain object whose keys are context names, each mapping to attributes describing that context. You can use this to write targeting rules, e.g. [segment] your users.
@@ -376,7 +378,7 @@ The primitive shape — `shouldLog({configKey, desiredLevel, defaultLevel})` —
 
 ### Rule example
 
-Rules on a browser `log_level` config should target the context you pass to `init()`, such as user email, app version or deploy ring. For example, a `log-level.my-app` config with default `INFO` and a rule that returns `DEBUG` when `user.email` ends with `@mycompany.com` turns on debug logging for internal users only.
+Rules on a browser `log_level` config should target the context you pass to `init()`, such as user email, app version or deploy ring. For example, a `log-level.my-app` config with default `INFO` and a rule that returns `DEBUG` when `user.email` ends with `@mycompany.com` turns on debug logging for internal users only. [Dynamic Log Levels](/docs/explanations/features/dynamic-log-levels) covers rule order and the stored JSON.
 
 Do not write browser rules on `quonfig-sdk-logging.key`. The browser SDK does not send the logger path with the context, so such a rule never matches. Per-logger rules on `quonfig-sdk-logging.key` work in the server SDKs, which evaluate locally for each call.
 
