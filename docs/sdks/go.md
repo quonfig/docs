@@ -65,13 +65,6 @@ sdk, err := quonfig.NewClient(
 
 ## If Quonfig is unreachable at startup
 
-:::info Since sdk-go 1.9.0
-This section describes sdk-go 1.9.0 and later. In
-earlier versions `NewClient` does not block, the default `ReturnError`
-surfaces the failure from getters rather than from `NewClient`, and the app
-boots either way.
-:::
-
 `NewClient` blocks until the first config arrives (a healthy boot takes about
 100-300ms). While delivery is unreachable it retries with backoff for up to
 `WithInitTimeout` (default 10s), logging at WARN. What happens next is set by
@@ -123,6 +116,10 @@ enabled, ok := sdk.FeatureIsOn("my.feature.name", quonfig.NewContextSet())
 ```
 
 Flags that don't exist yet are considered off, so you can happily add `FeatureIsOn` checks to your code before the flag is created.
+
+`FeatureIsOn` never fails. It returns `(true, true)` only for a flag whose value is the bool
+`true`. A missing key, a flag with no matching rule, a non-bool value (a stored string `"true"`
+included) or any resolution error returns `(false, false)` and logs one WARN per key.
 
 <details className="alert--info">
 <summary>
@@ -204,6 +201,35 @@ value, ok, err := sdk.GetStringValue("some.string.config", quonfig.NewContextSet
 value, ok, err := sdk.GetFloatValue("some.float.config", quonfig.NewContextSet())
 ```
 
+### Typed getters
+
+Every `Get*Value(key, ctx)` returns `(value, ok, err)`. When `ok` is true, `value` is the config's
+value. When `ok` is false there is no value, so apply your default; `err` says why:
+
+| Situation | `ok` | `err` matches | Logged |
+|---|---|---|---|
+| Value of the getter's type | true | nil | no |
+| Missing key, or no rule matched | false | `quonfig.ErrNotFound`, or nil | no |
+| Value of another type (e.g. `GetBoolValue` on a string config) | false | `quonfig.ErrTypeMismatch` | once per key |
+| Malformed stored or ENV_VAR value (an int `"twelve"`, a duration `"30s"`) | false | `quonfig.ErrUnableToCoerce` | once per key |
+| ENV_VAR not set | false | `quonfig.ErrMissingEnvVar` | once per key |
+| Secret cannot be decrypted | false | `quonfig.ErrUnableToDecrypt` | once per key |
+
+The getters are `GetStringValue`, `GetBoolValue`, `GetIntValue` (`int64`), `GetFloatValue`,
+`GetStringSliceValue`, `GetDurationValue` (`time.Duration`) and `GetJSONValue`. Strings are never
+coerced: a stored `"false"` is a string, so `GetBoolValue` reports a type mismatch instead of
+`false`. The only conversions are between numbers, and only when exact: `GetFloatValue` reads an
+int config (`30` becomes `30.0`), and `GetIntValue` reads a double config holding a whole number
+within +/-(2^53-1) (`3.0` becomes `3`; `3.9` is a type mismatch, never truncated).
+
+A wrong decryption key or an unset ENV_VAR therefore degrades to your defaults with one WARN per
+key. If a broken config must stop your service, check `err` and fail on it.
+
+`EvaluateDetails(key, ctx)` returns the value with its `Reason`, `Variant` and, on failure, an
+`ErrorCode`: `quonfig.ErrorCodeFlagNotFound`, `ErrorCodeTypeMismatch`, `ErrorCodeParseError`,
+`ErrorCodeProviderNotReady` or `ErrorCodeGeneral`. The rules are the same in every Quonfig SDK; see
+[Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
+
 <details>
 <summary>
 
@@ -211,21 +237,21 @@ value, ok, err := sdk.GetFloatValue("some.float.config", quonfig.NewContextSet()
 
 </summary>
 
-The `Get*` functions return a `found` boolean alongside the value, so you can
-supply your own default when a config isn't available. Here we ask for the value
-of a config named `max-jobs-per-second`, falling back to `10` if it's missing.
+Here we ask for the value of a config named `max-jobs-per-second`, falling back to `10` when
+there is no value.
 
 ```go
-maxJobsPerSecond, found, err := sdk.GetIntValue("max-jobs-per-second", quonfig.NewContextSet())
-if err != nil {
-    // handle the error (e.g. log it) — value is unusable
-}
-if !found {
+maxJobsPerSecond, ok, err := sdk.GetIntValue("max-jobs-per-second", quonfig.NewContextSet())
+if !ok {
+    if err != nil && !errors.Is(err, quonfig.ErrNotFound) {
+        log.Printf("max-jobs-per-second: %v", err) // wrong type, malformed value, ...
+    }
     maxJobsPerSecond = 10 // default
 }
 ```
 
-If `max-jobs-per-second` is available, `found` will be `true` and `maxJobsPerSecond` will be the value of the config. If it's not available, `found` will be `false` and we fall back to `10`.
+If `max-jobs-per-second` holds an int, `ok` is `true` and `maxJobsPerSecond` is its value.
+Otherwise `ok` is `false` and we fall back to `10`.
 
 </details>
 
@@ -401,7 +427,7 @@ sdk, err := quonfig.NewClient(
 
 How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
 every SDK and is explained once on the [Telemetry](../explanations/architecture/telemetry.md) page.
-The Go option names and defaults (v1.3.0+):
+The Go option names and defaults:
 
 | Option                                 | Default               |
 | -------------------------------------- | --------------------- |
@@ -414,21 +440,19 @@ The Go option names and defaults (v1.3.0+):
 | `WithTelemetryMaxEvaluationSummaries`  | `10000`               |
 | `WithTelemetryMaxContextShapeFields`   | `10000`               |
 | `WithTelemetryMaxExampleContexts`      | `10000`               |
-| `WithTelemetryMaxExampleContextsSeen`  | `100000` (v1.4.0+)    |
+| `WithTelemetryMaxExampleContextsSeen`  | `100000`              |
 
 The timeout rides the request context, so it holds even when you pass your own client with
 `WithHTTPClient`; in that case your client's transport decides the connect timeout. Telemetry logs
 through the `*slog.Logger` from `WithLogger` (default `slog.Default()`).
 
-Changes in 1.3.0: telemetry now logs (before, failures were invisible); the timeout went from 30s
-to 15s; the immediate 5x retry is replaced by keeping the batch and resending it later; `Close()`
-returns within 5s even if the telemetry endpoint hangs.
-
-Changes in 1.4.0: with the default `periodic_example` context telemetry, each distinct context is
-sent as an example at most once per hour (before, every distinct context was re-sent in every
-60-second window); the SDK remembers up to `WithTelemetryMaxExampleContextsSeen` recently sent
-contexts, and a new context seen while that limit is full is picked up on a later evaluation once
-older entries expire. Evaluations and targeting are not affected.
+A failed POST keeps its batch and resends it later, and `Close()` returns within 5s even if the
+telemetry endpoint hangs. With the default `periodic_example` context telemetry, each distinct
+context is sent as an example at most once per hour. The SDK remembers up to
+`WithTelemetryMaxExampleContextsSeen` recently sent contexts; a new context seen while that limit
+is full is picked up on a later evaluation once older entries expire. Evaluations and targeting are
+not affected. Earlier behavior is in the
+[CHANGELOG](https://github.com/quonfig/sdk-go/blob/main/CHANGELOG.md).
 
 ## Offline and Testing Modes
 
@@ -452,7 +476,7 @@ sdk, err := quonfig.NewClient(
 
 ## Invalid or revoked SDK key
 
-If Quonfig rejects the SDK key while the client is running, sdk-go 1.7.0+
+If Quonfig rejects the SDK key while the client is running, sdk-go
 stops streaming, probes every 150-300 seconds until the key works again, and
 logs one ERROR naming the HTTP status and host (never the key). The full rule
 is on the [Reliability](../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.

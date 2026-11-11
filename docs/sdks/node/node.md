@@ -112,12 +112,6 @@ await quonfig.init();
 
 ## If Quonfig is unreachable at startup
 
-:::info Since @quonfig/node 1.9.0
-This section describes `@quonfig/node` 1.9.0 and later.
-In earlier versions there is no `onInitFailure` option: `init()` rejects after
-`initTimeout` and the client does not recover afterwards.
-:::
-
 `init()` fetches config from the primary and secondary delivery hosts and
 retries through blips (jittered backoff from 0.5s, capped at 30s) for
 `initTimeout` (10 s by default). It resolves as soon as the first config
@@ -136,7 +130,7 @@ when you construct the client.
 
 The client object keeps retrying in the background in every mode, including
 after you catch a `QuonfigInitError`, and heals on the first successful fetch.
-Until then getters return the default you pass (or follow `onNoDefault`), and
+Until then getters return the default you pass (or follow [`onNoDefault`](#typed-getters-and-defaults)), and
 `get*Details` calls return `reason: "ERROR"` with `errorCode:
 "PROVIDER_NOT_READY"`. If you catch the error and don't keep the client, call
 `close()` on it so the retry stops.
@@ -434,10 +428,10 @@ if (quonfig.isEnabled("some.feature.name")) {
   // Feature is enabled
 }
 
-// Dynamic config
-const configValue: string | undefined = quonfig.get("some.config.name"); // type inferred from usage
-const numberConfig: number | undefined = quonfig.get("api.retry.count"); // number type
-const booleanFlag: boolean | undefined = quonfig.get("feature.enabled"); // boolean type
+// Dynamic config: typed getters take (key, contexts?, default?)
+const configValue: string = quonfig.getString("some.config.name", undefined, "fallback");
+const retryCount: number = quonfig.getInt("api.retry.count", undefined, 3);
+const sampleRate: number = quonfig.getNumber("trace.sample-rate", undefined, 0.1);
 ```
 
 </TabItem>
@@ -445,25 +439,72 @@ const booleanFlag: boolean | undefined = quonfig.get("feature.enabled"); // bool
 
 After the init completes you can use:
 
-- `quonfig.isEnabled('some.feature.name')` returns true or false
-- `quonfig.get('some.config.name')` returns a raw value
+- `quonfig.isEnabled('some.feature.name')` returns true or false, and never throws
+- `quonfig.getString('some.config.name', undefined, 'fallback')` returns the string value, or
+  `'fallback'` when there is none. The other typed getters work the same way (see below).
+- `quonfig.get('some.config.name', undefined, defaultValue)` returns the value as stored, of any type
 
 </TabItem>
 </Tabs>
 
-:::note Migrating from earlier releases
+On default settings, a read with **no default** throws when there is no value, including for a
+missing key. Pass a default, or see `onNoDefault` below.
 
-`isFeatureEnabled` is still available as a deprecated alias of `isEnabled` — both behave identically.
-New code should prefer `isEnabled`, which matches `@quonfig/javascript` and `@quonfig/react`.
+### Typed getters and defaults
 
-Likewise, `inContext(...)` is a deprecated alias of `withContext(...)` — both behave identically, but
-`inContext` is slated for removal in `2.0.0`. New code should use `withContext`.
+Every typed getter takes `(key, contexts?, default?)`. Pass `undefined` for `contexts` to use only
+the global (or bound) context.
+
+| Getter | Reads |
+| --- | --- |
+| `getString` | string and log_level configs |
+| `getBool` | bool configs |
+| `getInt` | int configs, and doubles that are whole numbers |
+| `getNumber` | int and double configs |
+| `getStringList` | string_list configs |
+| `getDuration` | duration configs, in milliseconds |
+| `getJSON` | json configs (a fresh copy on every call) |
+| `get` | any config, as its stored type |
+| `isEnabled(key, contexts?)` | bool flags; `false` for anything else, and never throws |
+
+Values are never coerced: a stored string `"false"` is not a bool and `"3"` is not a number. When a
+getter has no value (a missing key, no matching rule, another type, a malformed value, an unset
+ENV_VAR or a decryption failure), it returns your default. Without a default, the `onNoDefault`
+option decides:
+
+- `"error"` (the default) throws: `QuonfigTypeMismatchError` for a wrong type, otherwise the
+  underlying error (for a missing key, `No value found for key "..."`).
+- `"warn"` logs a warning and returns `undefined`.
+- `"ignore"` returns `undefined`.
+
+```typescript
+const quonfig = new Quonfig({ sdkKey, onNoDefault: "warn" });
+```
+
+The details getters, `getBoolDetails`, `getStringDetails`, `getNumberDetails`,
+`getStringListDetails` and `getJSONDetails`, never throw. They return `{ value, reason, variant,
+flagMetadata }`, plus `errorCode` (`FLAG_NOT_FOUND`, `TYPE_MISMATCH`, `PARSE_ERROR`,
+`PROVIDER_NOT_READY` or `GENERAL`) when `reason` is `"ERROR"`. `evaluateDetails(key, contexts?)`
+returns any config's value in its stored form (a duration as its ISO 8601 text, such as `"PT90S"`)
+with a `valueType` field.
+
+The rules are the same in every Quonfig SDK; see
+[Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters). If you are
+upgrading from `@quonfig/node` 1.x, which coerced values and returned the default less often, read
+the [UPGRADE to 2.0 notes](https://github.com/quonfig/sdk-node/blob/main/CHANGELOG.md#upgrade-to-20).
+
+:::note Deprecated aliases
+
+`isFeatureEnabled` is a deprecated alias of `isEnabled`, and `inContext(...)` is a deprecated alias
+of `withContext(...)`. Both behave identically to the new names and will be removed in a future
+major release. New code should use `isEnabled` and `withContext`, which match `@quonfig/javascript`
+and `@quonfig/react`.
 
 :::
 
 ### Secrets
 
-A [secret](/docs/explanations/features/secret-management) is read like any string config: `quonfig.get("payments.stripe.key")` (or `getString`) returns the **decrypted** string. The SDK decrypts it in your process using the encryption key, so the env var that `quonfig.secrets.encryption.key` is provided by (for example `QUONFIG_SECRET_KEY_DEFAULT`) must be set in the app's environment; if it isn't, reading the secret throws. Secrets are always strings, so a JSON secret needs a parse:
+A [secret](/docs/explanations/features/secret-management) is read like any string config: `quonfig.get("payments.stripe.key")` (or `getString`) returns the **decrypted** string. The SDK decrypts it in your process using the encryption key, so the env var that `quonfig.secrets.encryption.key` is provided by (for example `QUONFIG_SECRET_KEY_DEFAULT`) must be set in the app's environment. If it isn't, a read that passes a default returns the default and logs one WARN per key; a read with no default throws (under the default `onNoDefault: "error"`). Secrets are always strings, so a JSON secret needs a parse:
 
 ```typescript
 const stripeKey = quonfig.getString("payments.stripe.key");
@@ -1147,7 +1188,7 @@ cleanup of connections and prevent memory leaks.
 
 ### Invalid or revoked SDK key
 
-If Quonfig rejects the SDK key while the client is running, `@quonfig/node` 1.7.0+
+If Quonfig rejects the SDK key while the client is running, `@quonfig/node`
 stops streaming, probes every 150-300 seconds until the key works again, and
 logs one ERROR naming the HTTP status and host (never the key). The full rule
 is on the [Reliability](../../explanations/architecture/resiliency.md#invalid-or-revoked-sdk-key) page.
@@ -1184,7 +1225,7 @@ const quonfig = new Quonfig({
 
 How the SDK delivers telemetry, and what it does when the endpoint is slow or down, is the same in
 every SDK and is explained once on the [Telemetry](../../explanations/architecture/telemetry.md)
-page. The Node option names and defaults (`@quonfig/node` 1.3.0+):
+page. The Node option names and defaults:
 
 | Option                            | Default          |
 | --------------------------------- | ---------------- |
@@ -1203,10 +1244,6 @@ connect timeout, so `telemetryTimeoutMs` also covers connect and TLS.
 Telemetry lines go to the `logger` you pass. The default console logger does not print debug
 lines, so pass a `logger` to see failed POSTs.
 
-Changes in 1.3.0: the flush interval went from 8s to 60s and the timeout from 3s to 15s; a failed
-POST now logs at debug instead of warning on every failure; `close()` sends the current window once
-with a 5s deadline instead of waiting on retries.
-
 ## Reference
 
 ### Option Definitions
@@ -1221,5 +1258,6 @@ with a 5s deadline instead of waiting on retries.
 | fallbackPollIntervalMs     | How often to poll, in ms, when the fallback poller is active                                                                    | 60000             |
 | initTimeout                | How long `init()` retries the initial config fetch, in ms, before `onInitFailure` applies                                       | 10000             |
 | onInitFailure              | What `init()` does if no config loads within `initTimeout`: `"fail"`, `"wait"` or `"continue"` (see [startup](#if-quonfig-is-unreachable-at-startup)) | "fail"            |
+| onNoDefault                | What a getter called with no default does when there is no value: `"error"` throws, `"warn"` logs and returns `undefined`, `"ignore"` returns `undefined` (see [typed getters](#typed-getters-and-defaults)) | "error"           |
 | loggerKey                  | The `log_level` config key consulted by `shouldLog({loggerPath})`. No default — set it to enable the `loggerPath` convenience.          | `undefined`       |
 | enableQuonfigUserContext   | Inject `quonfig-user.email` from `~/.quonfig/tokens.json` (written by `qfg login`) into `globalContext`. Pairs with `qfg override`. Default on, gated on the token file's presence (inert in prod). Set `false` or `QUONFIG_DEV_CONTEXT=false` to opt out. | `null` (on)       |

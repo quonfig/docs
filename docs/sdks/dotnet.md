@@ -56,7 +56,7 @@ Then reference it without a version in the consuming project:
 </TabItem>
 </Tabs>
 
-**Requirements:** `net8.0` (current LTS) or any runtime compatible with `netstandard2.0` (including .NET Framework 4.6.2+).
+**Requirements:** `net8.0` (current LTS) or any runtime compatible with `netstandard2.0` (including .NET Framework 4.6.2+). `Quonfig.Sdk.AspNetCore` targets `net8.0` only.
 
 ### Companion packages
 
@@ -65,7 +65,7 @@ The .NET SDK ships as four NuGet packages published lock-step from one tag. Add 
 | Package                            | Purpose                                                                  |
 | ---------------------------------- | ------------------------------------------------------------------------ |
 | `Quonfig.Sdk`                      | Core SDK — evaluation, transport, SSE, telemetry, datadir, datafile.     |
-| `Quonfig.Sdk.AspNetCore`           | DI + `IHostedService` + per-request `ContextSet` via `HttpContext`.      |
+| `Quonfig.Sdk.AspNetCore`           | DI + `IHostedService` + per-request `ContextSet` via `HttpContext` (`net8.0` only). |
 | `Quonfig.Sdk.Extensions.Logging`   | `ILoggerProvider` filter for dynamic log levels via `Microsoft.Extensions.Logging`. |
 | `Quonfig.Sdk.Serilog`              | Serilog `LoggingLevelSwitch` provider for dynamic log levels.            |
 
@@ -219,7 +219,7 @@ await using var client = new Quonfig.Sdk.Quonfig(new QuonfigOptions
 });
 ```
 
-For local development with the bundled Caddy reverse proxy (`scripts/local-proxy/setup.sh` in the monorepo), set `QUONFIG_DOMAIN=quonfig-localhost` in your environment — the SDK will route to `primary.quonfig-localhost`, `stream.primary.quonfig-localhost`, etc.
+To derive every service URL from one domain (for example a proxied deployment), set `QUONFIG_DOMAIN=<your-domain>` in your environment instead. The SDK then routes to `primary.<your-domain>`, `stream.primary.<your-domain>`, and so on.
 
 ## Feature Flags
 
@@ -271,7 +271,7 @@ var ctx = new ContextSet
 
 Implicit conversions on `ContextValue` let you assign primitive C# values directly — `string`, `int`, `long`, `double`, `bool`, and `string[]` all work without wrapping.
 
-Properties are looked up in rules using dotted notation: `user.email`, `team.plan`. The magic property `quonfig.current-time` (also `prefab.current-time` and `reforge.current-time`, kept for compatibility) resolves to the current wall-clock time in milliseconds since the epoch — useful for time-windowed rollouts.
+Properties are looked up in rules using dotted notation: `user.email`, `team.plan`. The magic property `quonfig.current-time` resolves to the current wall-clock time in milliseconds since the epoch — useful for time-windowed rollouts.
 
 ### Global Context
 
@@ -336,7 +336,7 @@ bool enabled = client.IsFeatureEnabled("my.feature.name", jitCtx);
 
 ## Dynamic Config
 
-Config values are read with typed getters that take a key, an optional `ContextSet`, and a default. Getters never throw on missing or wrong-type config when you pass a default — they fall back to the supplied value.
+Config values are read with typed getters that take a key, an optional `ContextSet`, and a default. Getters never throw when you pass a default: whenever there is no value of the getter's type, they return the supplied value.
 
 ```csharp
 string  backend     = client.GetString("backend.url", defaultValue: "https://api.example.com")!;
@@ -370,15 +370,27 @@ Under `OnNoDefault.Throw` a plain typed getter with no `defaultValue` throws in 
 | The value comes from an environment variable that is not set.                                             | `QuonfigEnvVarNotSetException` |
 | The environment variable is set but cannot be converted to the config's type.                             | `QuonfigCoercionException`     |
 | A confidential value cannot be decrypted (for example, a wrong or missing key).                           | `QuonfigDecryptionException`   |
-| The stored value cannot be converted by the getter, for example `GetInt` on a value above `int.MaxValue`. | `QuonfigCoercionException`     |
+| The stored value cannot be converted by the getter: a malformed stored int, double or duration (`"twelve"`, `"30s"`), or `GetInt` on a value above `int.MaxValue`. | `QuonfigCoercionException`     |
+| The stored value has another type than the getter's, for example `GetInt` on a string config.             | `QuonfigTypeMismatchException` |
 
-A config whose value type does not match the getter, such as `GetInt` on a string config, is not one of these cases: the getter returns your default (or `null`) in every `OnNoDefault` mode, without throwing or logging. Pass a `defaultValue` to get your default instead of an exception in every case above. Apart from a missing key, each case also logs one warning per config key, whatever the `OnNoDefault` setting; the warning never includes the raw value.
+Values are never coerced: a stored string `"false"` is not a bool and `"3"` is not a number. Numbers convert only when exact: `GetDouble` reads an int config, and `GetLong` / `GetInt` read a double config only when it is a whole number within ±(2^53-1). Pass a `defaultValue` to get your default instead of an exception in every case above. Apart from a missing key, each case also logs one warning per config key, whatever the `OnNoDefault` setting; the warning never includes the raw value. So a wrong decryption key degrades to your defaults; to make it fatal, read the secret with no `defaultValue` under `OnNoDefault.Throw`.
 
-In `Quonfig.Sdk` 1.4.0 and earlier, only a missing key threw; the other cases returned `null` without a log.
+:::note Changed in 2.0
 
-The `GetXDetails` getters (see [Evaluation details](#evaluation-details-reason-variant-errors)) never throw, whatever the `OnNoDefault` setting. In every case above, and for a value of a different type, they return your default (or `null`) with `Reason.Error` and an `ErrorCode`: `FlagNotFound` for a missing key, `TypeMismatch` for a value the getter cannot convert or a value of a different type, and `General` for an environment-variable or decryption failure.
+- `GetString` on a duration config returns your default (it returned the ISO 8601 text). Read durations with `GetDuration`.
+- `GetDouble` reads int configs, and `GetLong` / `GetInt` read whole doubles (both returned your default before).
+- A malformed stored int or double returns your default (or throws `QuonfigCoercionException`) instead of reading as `0`.
+- A wrong-type read with no `defaultValue` under `OnNoDefault.Throw` throws `QuonfigTypeMismatchException` instead of returning `null`, and a type mismatch now logs a warning.
 
-`IsFeatureEnabled` always returns `bool` and bypasses `OnNoDefault` — it defaults to `false` on missing.
+See the [UPGRADE to 2.0 notes](https://github.com/quonfig/sdk-net/blob/main/CHANGELOG.md#upgrade-to-20).
+
+:::
+
+The `GetXDetails` getters (see [Evaluation details](#evaluation-details-reason-variant-errors)) never throw, whatever the `OnNoDefault` setting. In every case above they return your default (or `null`) with `Reason.Error` and an `ErrorCode`: `FlagNotFound` for a missing key, `TypeMismatch` for a value of another type, `ParseError` for a value that has the right type but does not parse (a malformed ENV_VAR value or a malformed stored int, double or duration), and `General` for an unset environment variable or a decryption failure. Before the first config loads, every key reads as missing (`FlagNotFound`).
+
+`IsFeatureEnabled` always returns `bool` and bypasses `OnNoDefault`. It returns `true` only for a stored bool `true`; a missing key, no matching rule, a non-bool value or a resolution error returns `false` and logs one warning per key.
+
+The rules are the same in every Quonfig SDK; see [Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
 `ShouldLog` always returns `bool` and walks the dotted-key hierarchy before falling back to `true`.
 
 Each getter also accepts a context-bearing overload:
@@ -414,9 +426,9 @@ if (details.Reason == Reason.Error)
 | `Reason`          | `Static`, `TargetingMatch`, `Split`, `Default`, `Error`, or `Unknown` (see note on `Split` below).   |
 | `Variant`         | OpenFeature-style identifier — `"static"`, `"targeting:<n>"`, `"split:<n>"`, or `"default"`.         |
 | `VariantIndex`    | Weighted-bucket index — reserved and not yet wired, so always `null`. Read the bucket from `Metadata["weightedValueIndex"]` (or parse `Variant`). |
-| `ErrorCode`       | `FlagNotFound`, `TypeMismatch`, or `General` on `Error`; `null` otherwise.                           |
+| `ErrorCode`       | `FlagNotFound`, `TypeMismatch`, `ParseError`, or `General` on `Error`; `null` otherwise.             |
 | `ErrorMessage`    | Companion to `ErrorCode`.                                                                            |
-| `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex` (on `TargetingMatch` / `Split`) and `weightedValueIndex` (on `Split`), `environment`, and `hashPropertyMissing` (`true` only when a weighted rollout's hash property was missing from the context, so an empty value was hashed; since 1.4.0). |
+| `Metadata`        | `configId`, `configKey`, `configType`, optional `ruleIndex` (on `TargetingMatch` / `Split`) and `weightedValueIndex` (on `Split`), `environment`, and `hashPropertyMissing` (`true` only when a weighted rollout's hash property was missing from the context, so an empty value was hashed). |
 
 :::note Weighted splits report `Split`, but `VariantIndex` is still `null`
 
@@ -732,9 +744,9 @@ To start on code defaults instead of throwing, set `OnInitFailure = OnInitFailur
 
 The key isn't in the active envelope and you didn't pass a `defaultValue` while `OnNoDefault = Throw`. Either pass a default, switch `OnNoDefault` to `Warn` / `Ignore`, or check `client.Keys()` to confirm the key was loaded for the current `Environment`.
 
-### `QuonfigEnvVarNotSetException`, `QuonfigCoercionException`, or `QuonfigDecryptionException` on a typed getter
+### `QuonfigTypeMismatchException`, `QuonfigEnvVarNotSetException`, `QuonfigCoercionException`, or `QuonfigDecryptionException` on a typed getter
 
-The key exists but its value could not be resolved, and you didn't pass a `defaultValue` while `OnNoDefault = Throw`. The exception type and message give the cause: an unset environment variable, a value that cannot be converted to the getter's type, or a failed decryption. Fix the value or the environment, or pass a default. See [OnNoDefault policy](#onnodefault-policy).
+The key exists but its value could not be resolved, and you didn't pass a `defaultValue` while `OnNoDefault = Throw`. The exception type and message give the cause: a value of another type than the getter's, an unset environment variable, a value that cannot be converted to the getter's type, or a failed decryption. Fix the value or the environment, or pass a default. See [OnNoDefault policy](#onnodefault-policy).
 
 ### Datadir mode loads zero keys
 

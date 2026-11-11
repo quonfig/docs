@@ -104,18 +104,56 @@ everything.
 ## Read flags & configs
 
 Reads are **synchronous and never block** — they serve from an in-memory
-snapshot. An absent key (or a not-yet-ready store) returns your default.
+snapshot. They never throw. A typed getter returns your default for an absent
+key, a not-yet-ready store, a value of another type or a malformed value; the
+last two log one WARN per key through `logSink`.
 
 ```swift
-let on     = quonfig.isEnabled("new-checkout")                // Bool
-let color  = quonfig.string("button-color", default: "blue")  // String
-let limit  = quonfig.int("rate-limit", default: 100)          // Int
-let ratio  = quonfig.double("sample-ratio", default: 0.1)     // Double
-let pricing = quonfig.json("pricing")                         // [String: Any]?
+let on      = quonfig.isEnabled("new-checkout")                    // Bool
+let color   = quonfig.string("button-color", default: "blue")      // String
+let limit   = quonfig.int("rate-limit", default: 100)              // Int
+let ratio   = quonfig.double("sample-ratio", default: 0.1)         // Double
+let regions = quonfig.stringList("regions", default: ["us"])       // [String]
+let timeout = quonfig.duration("http-timeout", default: 30)        // TimeInterval (seconds)
+let pricing = quonfig.json("pricing")                              // [String: Any]?
 
 // Full resolution details (value + reason + variant), for experiments/telemetry.
 let details = quonfig.details("checkout-experiment")
+
+// Typed details: the value read under the typed getters' rules, plus errorCode.
+let typed = quonfig.details("rate-limit", as: .int)
+if typed.errorCode == .typeMismatch {
+    // the stored value is not an int, or is malformed
+}
 ```
+
+The getters follow the typed-getter contract shared by every Quonfig SDK:
+
+- **No string coercion.** `string` reads only string and log_level configs, so
+  a duration config returns your default; read it with `duration`. A stored
+  `"true"` is not a bool.
+- **Numbers convert only when exact.** `double` reads an int config. `int`
+  reads a double only when it is whole and within ±(2^53-1); it never
+  truncates.
+- **`json` returns `nil`** for a missing key or any config that is not a json
+  object.
+- **`isEnabled` is `true` only for a stored bool `true`.** A missing key or a
+  non-bool value returns `false` and logs one WARN per key.
+
+`details(_:as:)` takes a `QuonfigValueType` (`.bool`, `.int`, `.double`,
+`.string`, `.stringList`, `.duration`, `.json`). `EvaluationDetails.errorCode`
+is `nil` on success and otherwise `.typeMismatch` (another type, or a malformed
+value), `.flagNotFound` or `.providerNotReady` (no config loaded yet). The rules
+are the same in every Quonfig SDK; see
+[Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
+
+:::info Changed in sdk-swift 0.6.0
+`string` on a duration config used to return its ISO 8601 text (`"PT30S"`); it
+now returns your default. `int` no longer reads whole doubles beyond
+±(2^53-1), `json` returns `nil` for non-json configs, `details(_:)` on a
+malformed value now reports `.error` / `.typeMismatch`, and failed reads log one
+WARN per key.
+:::
 
 Configs (non-flag values) are read the same way. By default configs are **not**
 sent to frontend SDKs — enable "Send to frontend SDKs" on each config you want a
@@ -210,8 +248,10 @@ rules that key on stable context (user, app version, environment). Call
 
 ## Exposure-decoupled reads
 
-Every getter has a `logExposure:` variant so debug screens / pre-render probes
-can read a flag without it counting as an exposure for telemetry:
+The typed getters (`isEnabled`, `string`, `int`, `double`, `stringList`,
+`duration`) take a `logExposure:` parameter (default `true`), so debug screens
+and pre-render probes can read a flag without it counting as an exposure for
+telemetry. `json` and `details` don't take it:
 
 ```swift
 let v = quonfig.isEnabled("new-checkout", logExposure: false)
@@ -290,9 +330,12 @@ await quonfig.shutdown()   // stops polling + telemetry, sending one last window
 | --- | --- |
 | `Quonfig.initialize(context:options:onInitFailure:initTimeout:)` | create a client; resolves once the first envelope (network or cache) is available, otherwise follows `onInitFailure` |
 | `isEnabled(_:logExposure:)` | `Bool` (default `false`) for a flag in the current context |
-| `string(_:default:)` / `int(_:default:)` / `double(_:default:)` | typed value or your default |
+| `string(_:default:logExposure:)` / `int(_:default:logExposure:)` / `double(_:default:logExposure:)` | typed value or your default |
+| `stringList(_:default:logExposure:)` | `[String]` or your default |
+| `duration(_:default:logExposure:)` | `TimeInterval` in seconds, or your default |
 | `json(_:)` | `[String: Any]?` for an object config |
-| `details(_:)` | full resolution details (value + reason + variant) |
+| `details(_:)` | full resolution details (value + reason + variant + `errorCode`) |
+| `details(_:as:)` | resolution details under the typed getters' rules for a `QuonfigValueType` |
 | `subscribe(_:)` | run a closure after every change; returns a cancellation token |
 | `updateContext(_:)` | switch identity and refetch |
 | `shouldLog(_:loggerKey:)` | whether a record at a level should emit under a `log_level` config |

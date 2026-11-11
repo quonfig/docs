@@ -306,15 +306,15 @@ boolean enabled = quonfig.featureIsOn("my.feature.name", jitCtx);
 
 ## Dynamic Config
 
-Config values are read with typed getters that take a key and a default. The default is returned whenever the config is missing, unevaluable, or the wrong type — getters never throw.
+Config values are read with typed getters that take a key and a default. The default is returned whenever there is no value of the getter's type: the config is missing, no rule matches, it holds another type, its value is malformed, or an ENV_VAR or secret cannot be resolved. Getters never throw.
 
 ```java
 import java.time.Duration;
 import java.util.List;
 
 String backend       = quonfig.getString("backend.url", "https://api.example.com");
-Boolean newCheckout  = quonfig.getBoolean("checkout.v2", Boolean.FALSE);
-Long maxJobsPerSec   = quonfig.getInt("max-jobs-per-second", 10L);
+Boolean newCheckout  = quonfig.getBool("checkout.v2", Boolean.FALSE);
+Long maxJobsPerSec   = quonfig.getLong("max-jobs-per-second", 10L);
 Double sampleRate    = quonfig.getDouble("trace.sample-rate", 0.1);
 List<String> regions = quonfig.getStringList("regions", List.of("us-east"));
 Duration cacheTtl    = quonfig.getDuration("cache.ttl", Duration.ofSeconds(30));
@@ -323,15 +323,30 @@ Object slackConfig   = quonfig.getJson("slack.bot.config", Map.of());
 
 :::note Integers are returned as `Long`
 
-`getInt` returns a boxed `Long`, not `Integer`. Quonfig stores int configs as 64-bit values everywhere; widening at the SDK boundary avoids silent overflow.
+`getLong` returns a boxed `Long`, because Quonfig stores int configs as 64-bit values everywhere. `getInt` and `getBoolean` are deprecated aliases of `getLong` and `getBool`; new code should use the new names.
 
 :::
+
+The getters follow the typed-getter contract shared by every Quonfig SDK:
+
+- **No string coercion.** A stored string `"false"` is not a bool, `"3"` is not an int, and a duration config is not a string (read it with `getDuration`).
+- **Numbers convert only when exact.** `getDouble` reads an int config (`30` becomes `30.0`). `getLong` reads a double config only when it is a whole number within ±(2^53-1) (`3.0` becomes `3`); `3.9` or `1e300` is a type mismatch. Nothing is truncated.
+- **One WARN per key.** A wrong-type or malformed value, an unset ENV_VAR or a secret that cannot be decrypted returns your default and logs one WARN per key per client. The WARN names the key, never the value.
+- **`featureIsOn` never throws.** It returns `true` only for a stored bool `true`, and `false` (with one WARN per key) for anything else.
+
+A wrong decryption key therefore degrades to your defaults. When a config must fail hard, read it with the `get*OrThrow` family (`getStringOrThrow`, `getLongOrThrow`, ...). It throws `QuonfigKeyNotFoundException` for a missing key or no matching rule, `QuonfigTypeMismatchException` for another type, `QuonfigCoercionException` for a malformed value, `QuonfigEnvVarNotSetException` or `QuonfigDecryptionException`:
+
+```java
+String dbPassword = quonfig.getStringOrThrow("db.password"); // throws on a bad decryption key
+```
+
+The rules are the same in every Quonfig SDK; see [Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
 
 Each getter has a context-bearing overload:
 
 ```java
 ContextSet ctx = new ContextSet().withNamedContext("user", Map.of("plan", "pro"));
-Long maxJobs = quonfig.getInt("max-jobs-per-second", 10L, ctx);
+Long maxJobs = quonfig.getLong("max-jobs-per-second", 10L, ctx);
 ```
 
 ### Evaluation details (reason, variant, errors)
@@ -359,9 +374,25 @@ if (details.reason() == Reason.ERROR) {
 | `reason()`        | `STATIC`, `TARGETING_MATCH`, `SPLIT`, `DEFAULT`, `ERROR`, or `UNKNOWN`.                              |
 | `variant()`       | OpenFeature-style identifier — `"static"`, `"targeting:<n>"`, `"split:<n>"`, or `"default"`.         |
 | `variantIndex()`  | The selected weighted-bucket index on `SPLIT`; `null` otherwise.                                     |
-| `errorCode()`     | `FLAG_NOT_FOUND`, `TYPE_MISMATCH`, or `GENERAL` on `ERROR`; `null` otherwise.                        |
+| `errorCode()`     | On `ERROR`: `FLAG_NOT_FOUND` (missing key), `TYPE_MISMATCH` (another type), `PARSE_ERROR` (right type, but the value does not parse), `PROVIDER_NOT_READY` (no config loaded yet) or `GENERAL` (an unset ENV_VAR or a decryption failure). `null` otherwise. |
 | `errorMessage()`  | Companion to `errorCode()`.                                                                          |
-| `metadata()`      | `configId`, `configKey`, `configType`, optional `ruleIndex`, `weightedValueIndex`, `environment`, `hashPropertyMissing` (1.4.0+; `true` when a weighted rollout's hash property was missing). |
+| `metadata()`      | `configId`, `configKey`, `configType`, optional `ruleIndex`, `weightedValueIndex`, `environment`, `hashPropertyMissing` (`true` when a weighted rollout's hash property was missing). |
+
+
+The details getters are `getStringDetails`, `getBoolDetails`, `getLongDetails`, `getDoubleDetails`, `getStringListDetails`, `getDurationDetails` and `getJsonDetails` (`getIntDetails` and `getBooleanDetails` are deprecated aliases). They never throw.
+
+### Untyped details read
+
+`evaluateDetails(key)` and `evaluateDetails(key, ctx)` (also on a bound client) return an `EvaluationDetails<Object>` with the value exactly as stored: no type check and no coercion, with the same reason, variant and metadata as the typed details getters. `valueType()` names the config's stored type. A duration comes back as its ISO 8601 text (`"PT90S"`). A missing key returns a `null` value with `Reason.ERROR` and `FLAG_NOT_FOUND`. It never throws, and it is meant for adapters such as OpenFeature providers that do their own typing.
+
+```java
+import com.quonfig.sdk.eval.ValueType;
+
+EvaluationDetails<Object> d = quonfig.evaluateDetails("http.timeout");
+if (d.valueType() == ValueType.DURATION) {
+    String iso = (String) d.value(); // "PT90S"
+}
+```
 
 ## Dynamic Log Levels
 
@@ -455,9 +486,11 @@ void doWork() {
 }
 ```
 
-When Quonfig has no opinion for a logger path the filter returns `NEUTRAL`, so that logger's own threshold and any other filters still apply — installing the filter never silences loggers Quonfig doesn't configure. A reference wiring (driving every level TRACE→ERROR through the real filter and asserting the gate) lives in `test/test-java`.
+When Quonfig has no opinion for a logger path the filter returns `NEUTRAL`, so that logger's own threshold and any other filters still apply — installing the filter never silences loggers Quonfig doesn't configure.
 
-> Log4j2 users: the parallel `sdk-java-log4j2` module ships an equivalent filter.
+> Log4j2 users: the parallel `com.quonfig:sdk-java-log4j2` module ships an equivalent filter.
+>
+> Micronaut users: `com.quonfig:sdk-java-micronaut` stores a per-request `ContextSet` for Micronaut HTTP apps. Both modules ship lock-step with `sdk-java` from the same tag, so keep their versions aligned.
 
 ### Gating a single call site manually
 

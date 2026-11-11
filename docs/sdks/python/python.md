@@ -44,12 +44,6 @@ the remote CDN.
 
 ### If Quonfig is unreachable at startup
 
-:::info sdk-python 2.0.0 (October 21, 2026)
-This section describes sdk-python 2.0.0. In 1.x, `init()` returns immediately,
-the default `"raise"` raises lazily from the first getter and only on a hang,
-and a fast failure of both delivery legs does not raise at all.
-:::
-
 `init()` blocks until the first config loads, retrying (jittered backoff from
 0.5s, capped at 30s) for up to `init_timeout_ms` (default 10s). A healthy boot
 returns as soon as the config lands. If no config loads by then,
@@ -195,14 +189,14 @@ Here we ask for the value of a config named `max-jobs-per-second`, and we specif
 `10` as a default value if no value is available.
 
 ```python
-client.get("max-jobs-per-second", default=10) # => 10
+client.get_int("max-jobs-per-second", default=10) # => 10
 ```
 
 If no default is provided, the default behavior is to raise a `QuonfigKeyNotFoundError`.
 
 ```python
 # raises a `QuonfigKeyNotFoundError`
-client.get("max-jobs-per-second")
+client.get_int("max-jobs-per-second")
 ```
 
 <details>
@@ -218,10 +212,76 @@ you can set `on_no_default="warn"` (log a warning and return `None`) or
 from quonfig import Quonfig
 
 client = Quonfig(sdk_key="sdk-...", on_no_default="warn").init()
-client.get("max-jobs-per-second") # => None
+client.get_int("max-jobs-per-second") # => None
 ```
 
 </details>
+
+### Typed getters
+
+Read each config with the getter for its type. Every getter takes `default=` and
+`contexts=` keyword arguments.
+
+| Getter | Reads |
+|---|---|
+| `get_string` | string and log_level configs |
+| `get_bool` | bool configs |
+| `get_int` | int configs, and doubles that are whole numbers within +/-(2^53-1) |
+| `get_float` | double and int configs |
+| `get_string_list` | string_list configs |
+| `get_duration` | duration configs, in seconds |
+| `get_json` | json configs |
+| `get` | any config, as its stored type |
+| `is_feature_enabled` | bool flags; `False` for anything else, and never raises |
+
+Values are never coerced: a stored string `"false"` is not a bool and `"3"` is
+not a number. When a getter has no value of its type, it returns your `default`.
+That covers a missing key, a value of another type, a malformed value (an int
+config holding `"twelve"`), an unset ENV_VAR and a secret that cannot be
+decrypted. Every case except a missing key logs one WARN per key. With no
+default, `on_no_default` decides: `"error"` (the default) raises
+(`QuonfigKeyNotFoundError` for a missing key, `QuonfigTypeMismatchError` for a
+wrong type, `QuonfigEnvVarCoerceError` for a malformed value,
+`QuonfigEnvVarNotSetError` or `QuonfigDecryptionError`), and `"warn"` and
+`"ignore"` return `None`.
+
+The `*_details` getters (`get_bool_details`, `get_string_details` and so on)
+never raise. They return the value with a `reason`, and an `error_code`
+(`FLAG_NOT_FOUND`, `TYPE_MISMATCH`, `PARSE_ERROR`, `PROVIDER_NOT_READY` or
+`GENERAL`) when `reason="ERROR"`. `evaluate_details(key, contexts=None)` reads
+any config in its stored form, for example a duration as its ISO 8601 text
+(`"PT90S"`), with `value_type` naming the stored type.
+
+```python
+timeout = client.get_duration("http.timeout", default=5.0)  # seconds
+regions = client.get_string_list("allowed-regions", default=["us"])
+
+details = client.get_int_details("max-jobs-per-second")
+if details.reason == "ERROR":
+    print(details.error_code)  # e.g. "TYPE_MISMATCH"
+```
+
+The rules are the same in every Quonfig SDK; see
+[Typed Getters, Defaults, and Error Codes](/docs/explanations/concepts/typed-getters).
+The SDK README's
+[typed getters table](https://github.com/quonfig/sdk-python#typed-getters)
+lists every case.
+
+#### Upgrading from 2.x to 3.0
+
+- **No string coercion.** 2.x converted values, so `get_bool` on a stored
+  string `"false"` returned `True`. In 3.0 that is a type mismatch and returns
+  your default. Store values with the config type you read them with.
+- **A failed read returns your default.** 2.x raised for an unset ENV_VAR or a
+  decryption failure even when you passed a default. 3.0 returns the default
+  and logs one WARN per key. To make a bad secret fatal, read it without a
+  default under `on_no_default="error"`.
+- **Numbers convert only when exact.** `get_int` on `3.9` is a type mismatch;
+  2.x truncated it to `3`.
+- **`is_feature_enabled` never raises.**
+
+The full list is in the
+[CHANGELOG](https://github.com/quonfig/sdk-python/blob/main/CHANGELOG.md#upgrade-to-30).
 
 ### Getting Started
 
@@ -562,12 +622,14 @@ All parameters are keyword arguments to `Quonfig(...)`.
 
 - `sdk_key` - your quonfig.com SDK key. Falls back to the `QUONFIG_BACKEND_SDK_KEY` environment variable.
 - `api_urls` - override the API endpoints your SDK key connects to (list of base URLs).
-- `datadir` - path to a local data directory to load config from instead of the remote CDN.
+- `datadir` - path to a local data directory to load config from instead of Quonfig's delivery servers. Falls back to the `QUONFIG_DIR` environment variable.
+- `data_dir_auto_reload` / `data_dir_auto_reload_debounce_ms` - in `datadir` mode, watch the directory and reload when files change (defaults `False` / `200`).
 - `environment` - which environment to evaluate (`production`, `staging`, `development`); falls back to `QUONFIG_ENVIRONMENT`.
   Applies only in `datadir` mode, where it is required. With an SDK key the environment comes from the key, so this
   setting is ignored and the SDK logs a warning.
-- `on_no_default` - one of `"error"` (default), `"warn"`, or `"ignore"`. Controls behavior when a config has no value and
-  no default is supplied: raise `QuonfigKeyNotFoundError`, log a warning and return `None`, or silently return `None`.
+- `on_no_default` - one of `"error"` (default), `"warn"`, or `"ignore"`. Controls behavior when a getter has no value and
+  no default is supplied: raise the underlying error (`QuonfigKeyNotFoundError` for a missing key, `QuonfigTypeMismatchError`
+  for a wrong type, and so on; see [Typed getters](#typed-getters)), log a warning and return `None`, or silently return `None`.
 - `on_init_failure` - one of `"fail"` (default), `"wait"`, or `"continue"`. Controls what `init()` does if no config
   loads within `init_timeout_ms` (see [If Quonfig is unreachable at startup](#if-quonfig-is-unreachable-at-startup)).
   `"raise"`, `"return"` and `"return_zero_value"` are deprecated aliases.
@@ -581,3 +643,5 @@ All parameters are keyword arguments to `Quonfig(...)`.
 - `fallback_poll_enabled` / `fallback_poll_interval_ms` - poll the CDN when the SSE stream is unavailable (defaults `True` / `60000`).
 - `enable_sse` - keep a live SSE stream open for real-time updates (defaults to `True`). Pass `False` on serverless hosts; with `fallback_poll_enabled=True` polling becomes the primary update channel, with both `False` the client only updates via `refresh()` / `update_if_staler_than()`. Requires `quonfig >= 1.3.0`; see [Lambdas / Serverless](/docs/sdks/python/lambdas).
 - `logger_key` - the `log_level` config key consulted by `should_log(logger_path=...)`. No default — set it to enable the `logger_path` convenience (defaults to `None`).
+
+The SDK README's [Configuration table](https://github.com/quonfig/sdk-python#configuration) lists every option, including `telemetry_url` and the URLs derived from `QUONFIG_DOMAIN`.
