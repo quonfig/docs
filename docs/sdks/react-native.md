@@ -14,14 +14,14 @@ Use your favorite package manager to install `@quonfig/react-native` [npm](https
 <TabItem value="npm" label="npm">
 
 ```bash
-npm install @quonfig/react-native @quonfig/react@^1 @quonfig/javascript@^1 base-64 react-native-get-random-values@^1
+npm install @quonfig/react-native @quonfig/react@^2 @quonfig/javascript@^2 base-64 react-native-get-random-values@^1
 ```
 
 </TabItem>
 <TabItem value="yarn" label="yarn">
 
 ```bash
-yarn add @quonfig/react-native @quonfig/react@^1 @quonfig/javascript@^1 base-64 react-native-get-random-values@^1
+yarn add @quonfig/react-native @quonfig/react@^2 @quonfig/javascript@^2 base-64 react-native-get-random-values@^1
 ```
 
 </TabItem>
@@ -29,7 +29,7 @@ yarn add @quonfig/react-native @quonfig/react@^1 @quonfig/javascript@^1 base-64 
 
 Keep the version ranges on three of the packages:
 
-- `@quonfig/react-native` currently peers on `@quonfig/react` 1.x, so pin `@quonfig/react@^1` and `@quonfig/javascript@^1`. An unpinned install picks up the 2.x majors, which fall outside that peer range.
+- `@quonfig/react-native` 2.x peers on `@quonfig/react` 2.x, which needs `@quonfig/javascript` 2.x, so pin both to `^2`. If your app is still on `@quonfig/react` 1.x, stay on `@quonfig/react-native@^1`. Upgrading? Read "UPGRADE to 2.0" in the [sdk-react-native CHANGELOG](https://github.com/quonfig/sdk-react-native/blob/main/CHANGELOG.md).
 - `react-native-get-random-values` 2.x needs React Native 0.81+ with the New Architecture. On older React Native versions, stay on `@^1`.
 
 TypeScript types are included with the package.
@@ -211,13 +211,12 @@ and the full rule on the [Reliability](../explanations/architecture/resiliency.m
 
 Wrap the component under test in a `QuonfigTestProvider` and pass a config object to set up your test state. The general approach is the same as on the [React page](./react.md#testing), with two React Native differences:
 
-- Import `QuonfigTestProvider` from `@quonfig/react-native`, like everything else. (The React page's `@quonfig/react/testing` entry point belongs to `@quonfig/react` 2.x; `@quonfig/react-native` builds on 1.x, which exports `QuonfigTestProvider` from its main entry.)
-- In the 1.x `QuonfigTestProvider`, `isEnabled` returns `true` for any truthy value in the config, while the real client returns `true` only for a boolean `true`. Set feature flags to `true` or `false` in your test config so tests match production.
+- Import `QuonfigTestProvider` from `@quonfig/react-native/testing`, which also installs the React Native polyfills. Hooks still come from `@quonfig/react-native`. (On `@quonfig/react-native` 1.x, `QuonfigTestProvider` is exported from the main entry instead.)
 - Render with [React Native Testing Library][rntl] instead of React Testing Library.
 
 ```tsx
 import { render, screen } from "@testing-library/react-native";
-import { QuonfigTestProvider } from "@quonfig/react-native";
+import { QuonfigTestProvider } from "@quonfig/react-native/testing";
 
 const renderInTestProvider = (config: { [key: string]: any }) => {
   render(
@@ -261,7 +260,7 @@ Here's an explanation of each property
 | `get`               | `get('retry-count')`    | returns the value of a flag or config                                                    |
 | `contextAttributes` | (see above)             | this is the context attributes object you passed when setting up the provider            |
 | `loading`           | `if (loading) { ... }`  | a boolean indicating whether quonfig content is being loaded                             |
-| `getDuration`       | `getDuration("api-timeout")` | returns the duration if the flag or config is a duration type; otherwise `undefined` |
+| `getDuration`       | `getDuration("api-timeout", fallback)` | returns the duration if the flag or config is a duration type; otherwise the default you pass (or `undefined`) |
 | `isReady`           | `if (!isReady) { ... }` | whether the client holds live config (see [startup](#if-quonfig-is-unreachable-at-startup)) |
 | `error`             | `error?.reason`         | the init error, if `init` failed; cleared when the client heals                          |
 | `source`            | `source === "defaults"` | where current values come from: `"network"`, `"cache"` or `"defaults"` (no `"cache"` on React Native, see above) |
