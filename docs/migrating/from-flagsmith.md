@@ -102,9 +102,10 @@ https://app.flagsmith.com/project/38856/environments
                                   ^^^^^
 ```
 
-Pass it as `--project 38856`, or set `FLAGSMITH_PROJECT_ID=38856`. Always
-set one of them: without either, the migrator falls back to project ID `1`,
-which is almost certainly not your project.
+Pass it as `--project 38856`, or set `FLAGSMITH_PROJECT_ID=38856`. One of
+them is required: without either, `qfg migrate --from flagsmith` stops with an
+error. (Before qfg 0.10.0 it fell back to project ID `1`, which is almost
+certainly not your project.)
 
 ---
 
@@ -172,8 +173,10 @@ over:
    segment-level `PERCENTAGE_SPLIT` have no Quonfig equivalent in
    v1, and a `REGEX` condition whose pattern is outside
    [Quonfig regex v1](../explanations/features/rules-and-segmentation.md#quonfig-regex-v1)
-   is skipped too. Each clause is listed by feature and reason so you can
-   rebuild it by hand.
+   is skipped too. A segment containing one of these migrates matching no
+   one, rather than with that clause quietly removed (which would widen or
+   narrow it). Each one is listed by segment and reason so you can rebuild
+   it by hand.
 4. **Identity-trait references.** Every trait name used in a segment
    condition is listed. Your SDK callers
    must include those attributes on the evaluation context, or matching
@@ -223,9 +226,12 @@ grouped under its "Conversion notes" section. The short version:
   context the SDK sends — they have no server-side artifact to migrate.
   The report lists every trait referenced by a segment condition so you
   can audit your call sites.
-- **`ANY` / `NONE` segment rules.** Quonfig criteria within one rule are
-  AND-only, so segment rules of type `ANY` or `NONE` are skipped and
-  reported.
+- **`NONE` segment rules.** A segment rule of type `NONE` that has
+  conditions can't be converted yet. The whole segment is then migrated
+  matching no one and listed in the report, so you can rebuild it. `ANY`
+  rules (the kind the Flagsmith dashboard saves for each block) convert
+  since qfg 0.10.0: each OR becomes its own Quonfig segment rule, and the
+  blocks stay ANDed, as Flagsmith evaluates them.
 - **Some `:semver` comparisons.** Semver `NOT_EQUAL`,
   `GREATER_THAN_INCLUSIVE`, and `LESS_THAN_INCLUSIVE` have no Quonfig
   semver equivalent and are skipped and reported. The other semver

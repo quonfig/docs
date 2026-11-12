@@ -328,9 +328,9 @@ A few rules the app enforces when you save a schema:
 
 `--protected` stores the schema as protected, so only people with protected edit access can change it. Use it for schemas that guard sensitive configs.
 
-:::caution
+:::note
 
-Pass `--protected` every time you update a protected schema. `qfg schema` without it saves the schema as unprotected, which moves it out of protected storage if you have the access to do that, and is refused if you don't.
+Updating a protected schema without `--protected` leaves it protected. To make it unprotected, pass `--no-protected`; that needs protected edit access. Before qfg 0.10.0, an update without `--protected` made the schema unprotected, so on an older version pass it every time.
 
 :::
 

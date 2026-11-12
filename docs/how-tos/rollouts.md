@@ -142,9 +142,11 @@ This is the right setting when the unit is the request, not the person: "send
 qfg set-rollout new-checkout --environment production --true-percent 10 --hash-by organization.key
 ```
 
-It defaults to `user.key`, and it writes that default every time you run it
-without `--hash-by`. If you use a different sticky property, pass the same
-`--hash-by` on every step. For a non-sticky rollout, use the app.
+You only need `--hash-by` on the first step. Each later run keeps the sticky
+property the rollout already has, so ramping from 10% to 50% doesn't reshuffle
+anyone. A new rollout defaults to `user.key`. Pass `--hash-by ""` for a
+non-sticky rollout. (Before qfg 0.10.0, every run without `--hash-by` reset the
+property to `user.key`, so pass it on every step if you're on an older version.)
 
 </details>
 
