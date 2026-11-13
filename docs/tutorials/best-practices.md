@@ -368,7 +368,7 @@ The form covers strings, numbers, integers, booleans, `enum` and `const`, nested
 
 **On every write**, Quonfig validates each JSON value of the config against the schema: the default rules, every environment's rules, and variants. That covers saves in the app, the REST API and the MCP server. A bad value is rejected with a `SCHEMA_VIOLATION` error that names the path and the problem.
 
-**In git**, [`qfg verify`](/docs/tools/cli#verify) runs the same checks offline, and `qfg push` runs them before it pushes. A plain `git push` to your workspace runs them again on the server and rejects the push if anything fails:
+**In git**, [`qfg verify`](/docs/tools/cli#verify) runs the same checks offline, and `qfg push` runs them before it pushes. The server runs them again on every push to your workspace and rejects the push if anything fails:
 
 - `Value does not match schema "callout": ...` when a value breaks the schema
 - `References schema "callout" which does not exist` when `schemaKey` names a missing schema

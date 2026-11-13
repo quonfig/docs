@@ -1013,11 +1013,10 @@ This skill is for application repos. A workspace made by `qfg init` already has 
 
 ## Your workspace's `main` is append-only
 
-Every workspace is a git repo, and you can push to it with plain `git` as well as
-with `qfg push`. Whatever tool you use, every push to `main` has to
-**fast-forward** from the current tip. A force-push, deleting `main`, or creating
-`main` by push is rejected by the server with a message that says what to do
-instead. Branches other than `main` are yours to rewrite.
+Every workspace is a git repo. Clone it with `qfg pull` and publish your commits
+with `qfg push`. Every push to `main` has to **fast-forward** from the current tip.
+A force-push, deleting `main`, or creating `main` by push is rejected by the
+server with a message that says what to do instead.
 
 The reason: config delivery follows `main` forward. A rewritten `main` cannot be
 fast-forwarded by the delivery servers, and connected SDKs ignore a snapshot whose
@@ -1029,8 +1028,22 @@ If a push is rejected because someone else pushed first, pull and rebase, then p
 again:
 
 ```bash
-qfg pull --rebase && qfg push   # or: git pull --rebase origin main && git push origin main
+qfg pull --rebase && qfg push
 ```
+
+### Updating a branch other than `main`
+
+`qfg push` publishes whichever branch you have checked out. To bring a branch up
+to date with `main`, merge `main` into it and push:
+
+```bash
+git fetch origin
+git merge origin/main
+qfg push
+```
+
+Rewriting a branch that is already on the server (a rebase or a force-push) is
+not supported yet. Merge `main` in instead.
 
 If the rejection came from `qfg workspace bootstrap` on an older CLI, upgrade the
 CLI (`npm install -g @quonfig/cli@latest`); current versions never force-push.
