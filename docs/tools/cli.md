@@ -352,6 +352,105 @@ qfg push --dir ./my-config
 qfg push --dir ./my-config --workspace acme/web
 ```
 
+#### Proposing instead of going live {#propose}
+
+`qfg push --propose` pushes the branch you have checked out as a **change
+request**. Nothing goes live until someone with rights merges it (see
+[`qfg cr`](#cr)). It needs a clone of the workspace and a branch other than
+`main`. It does not ask for confirmation, so `--yes` is not needed. Walkthrough:
+[Propose a change for review](../how-tos/change-requests.md).
+
+Options:
+- `--propose` - Push this branch as a change request instead of going live
+- `--title <title>` - Change request title (with `--propose`). Without it, the title is the commit message for a one-commit branch, or the branch name.
+- `--description <text>` - Change request description (with `--propose`)
+
+```bash
+git -C ./my-config switch -c turn-on-checkout
+git -C ./my-config commit -am "Turn on checkout for beta"
+qfg push --dir ./my-config --propose --title "Turn on checkout for beta"
+# Proposed change request #7 from branch turn-on-checkout.
+#   https://app.quonfig.com/workspaces/<workspace-id>/change-requests/7
+# NOT LIVE
+# It goes live only when someone with rights merges it. Check on it: qfg cr show 7
+```
+
+A later plain `qfg push` on the same branch updates the change request and
+prints `Updated change request #7 with this push.` With `--json`, a propose
+push returns
+`{"proposed": true, "applied": false, "branch", "commitSha", "changeRequest": {"number", "url", "status"}}`.
+
+### cr
+
+`qfg cr` lists, shows, merges and closes change requests. Every `cr` command
+takes `--json` and `-w <org>/<workspace>` (defaults to the workspace pin in
+`quonfig.json`, then your saved default workspace).
+
+| Command | What it does |
+|---------|--------------|
+| `qfg cr list` | List open change requests |
+| `qfg cr show <ref>` | Show the diff a merge would land, then status, proposer, conflicts, and whether you can merge or close |
+| `qfg cr merge <number>` | Merge into `main`. It goes live. |
+| `qfg cr close <number>` | Close without merging. Nothing goes live. |
+
+#### cr list
+
+Options:
+- `--mine` - Only change requests you proposed
+- `--status open|merged|closed|all` - Which change requests to list (default: `open`)
+- `--limit <n>` - Most rows to return (1-200; the server default is 50)
+
+```bash
+qfg cr list
+# #7  open  turn-on-checkout  Ana Lee  2026-11-13  Turn on checkout for beta
+qfg cr list --status merged --limit 10 --json
+```
+
+#### cr show
+
+`<ref>` is the number (`7` or `#7`) or the branch name. Use
+`refs/heads/<name>` for a branch whose name is a number. The diff comes first.
+The title and description are the proposer's own words and are not checked by
+Quonfig.
+
+```bash
+qfg cr show 7
+qfg cr show turn-on-checkout
+```
+
+#### cr merge
+
+Shows the change request and its diff, asks
+`Merge change request #7 into main? It goes live. [y/N]`, then merges only if
+the branch still points at the commit you were shown. The server checks your
+permissions on every changed file against `main` as it is now.
+
+Options:
+- `--yes` - Skip the confirmation. Without a terminal, `qfg cr merge` refuses to run unless you pass it.
+
+```bash
+qfg cr merge 7
+# Merged change request #7 into main as 20f4c67. It is live.
+```
+
+Agents: never merge a change request you did not author without a person
+telling you to.
+
+#### cr close
+
+The proposer can always close their own change request; anyone else needs the
+permissions that merging it would need. The branch is deleted on the server if
+it still points at the proposed commit.
+
+Options:
+- `--note <text>` - Why it was closed (shown on the change request)
+
+```bash
+qfg cr close 7 --note "superseded by #8"
+# Closed change request #7.
+# Its branch was deleted on the server.
+```
+
 ### serve
 
 `qfg serve` reads a local datadir and exposes it over the HTTP wire
