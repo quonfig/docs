@@ -33,7 +33,7 @@ Once a channel is saved, the page shows only the current channel and a **Disconn
 
 ## What gets notified
 
-Quonfig posts one message per commit to the workspace's git repo that touches a config-shaped file, so a push with several such commits produces several messages. A file is config-shaped if it is a `.json` file under any of:
+Quonfig posts one message per commit to the workspace's `main` branch that touches a config-shaped file, so a push with several such commits produces several messages. A file is config-shaped if it is a `.json` file under any of:
 
 - `configs/`
 - `feature-flags/`

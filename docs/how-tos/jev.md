@@ -176,7 +176,7 @@ What the schema enforces:
 Quonfig checks every value against the schema on every write: saves in the
 app, the [REST API](/docs/api/rest-api), the [MCP server](/docs/api/mcp-server),
 [`qfg verify`](/docs/tools/cli#verify) and `qfg push` (`@quonfig/cli` 0.2.0 or
-later), and a plain `git push` to your workspace repo. A value that doesn't
+later), and the server on every push to your workspace repo. A value that doesn't
 match is rejected with the field that is wrong.
 
 ## Set it up in the app
