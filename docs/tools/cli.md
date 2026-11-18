@@ -537,8 +537,11 @@ Limits:
   `qfg set-default --propose`.
 - `qfg set-default --secret --propose` works: the value is encrypted on your
   machine first, and the change request shows it masked.
-- With `--cr <n>`, a key that request #n already changes is revised in place.
-  If the server cannot revise it there, close the request
+- With `--cr <n>`, a key that request #n already changes is revised in place
+  when the CLI can send it as a field-level change (a plain `set-default` or
+  `set-rollout`). A secret, confidential or env-var `set-default`, and a
+  `log-level` change, replace the whole file, so the server refuses them on a
+  key the request already changes. Then close the request
   (`qfg cr close <n>`) and propose again with all of your changes.
 
 **When a live write is refused.** If your role cannot make a change, the
