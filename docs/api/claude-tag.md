@@ -44,7 +44,7 @@ In the Quonfig app, open the workspace you want the bot to act on, go to
 
    | Tier | What the bot can do |
    |---|---|
-   | Read-only | Answer questions. Cannot change anything. |
+   | Read-only | Answer questions and propose changes for a person to merge. Cannot change anything itself. |
    | Support | Read, plus edit `support`-tier configs. |
    | Engineer | Read, plus edit `support` and `standard`-tier configs everywhere — where most flags live — and `protected-env` configs in non-protected environments. |
    | Protected Engineer | Everything, including `protected-env` configs in protected environments and `protected-all-envs` configs. |
@@ -165,7 +165,8 @@ audit log tell the same story.
 
 ## What it can and can't do
 
-Twenty-two tools — sixteen reads plus six writes. The full list is on the
+Twenty-six tools — eighteen reads, six direct writes, and two that propose or
+close change requests. The full list is on the
 [MCP server](/docs/api/mcp-server#tools) page.
 
 A few things worth knowing before you turn it loose in a channel:
@@ -173,7 +174,11 @@ A few things worth knowing before you turn it loose in a channel:
 - **The bot can never exceed its tier.** Every write is permission-checked
   server-side on every call, exactly like a person clicking in the UI. A
   read-only service account is genuinely read-only, whatever anyone types in
-  Slack.
+  Slack. It can still **propose** a change (`propose_change_request`): that
+  opens a change request, which is not live until a person with the right role
+  merges it in the Quonfig app. The bot cannot merge, and it is told to say
+  the change is waiting for review, not done. See
+  [Change requests](/docs/api/mcp-server#change-requests).
 - **Targeting rules are kept.** `set_flag` and `set_config` write only a
   scope's fallback and leave its targeting rules in place. Deleting them
   takes an explicit `replaceTargeting: true`, and the bot's instructions tell

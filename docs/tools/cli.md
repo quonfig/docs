@@ -314,6 +314,13 @@ export QUONFIG_DIR=./my-config
 qfg pull
 ```
 
+`qfg pull` (and `qfg sync` and `qfg workspace bootstrap`) adds the line
+`*.json -merge` to the clone's `.git/info/attributes`. It is never committed.
+With it, a `git merge` or `git rebase` stops on every JSON file that both sides
+changed, instead of combining the two edits line by line: git's line merge can
+mix `main`'s rules with yours inside one flag file and silently undo `main`'s
+change. See [Updating a branch other than `main`](#updating-a-branch-other-than-main).
+
 #### Editing JSON for targeting rules
 
 Once you have a local copy, editing the JSON file is how you express rules that go beyond a catch-all default or a simple percentage rollout — for example "this one user gets `true`, everyone else `false`", segment membership, or custom properties. See the [Targeting rules](#targeting-rules) section below for the full workflow and a sample rule.
@@ -380,6 +387,13 @@ prints `Updated change request #7 with this push.` With `--json`, a propose
 push returns
 `{"proposed": true, "applied": false, "branch", "commitSha", "changeRequest": {"number", "url", "status"}}`.
 
+**Without a clone.** In a plain directory of workspace files (not a git
+clone), `qfg push --propose` sends the changed and deleted flag, config and
+log-level files as one change request, built on the server on a branch named
+`cr/<n>`. It prints the same lines as [`--propose` on a write command](#propose-no-clone).
+New files cannot be proposed this way: use `qfg create --propose`, or propose
+from a clone.
+
 ### cr
 
 `qfg cr` lists, shows, merges and closes change requests. Every `cr` command
@@ -392,6 +406,7 @@ takes `--json` and `-w <org>/<workspace>` (defaults to the workspace pin in
 | `qfg cr show <ref>` | Show the diff a merge would land, then status, proposer, conflicts, and whether you can merge or close |
 | `qfg cr merge <number>` | Merge into `main`. It goes live. |
 | `qfg cr close <number>` | Close without merging. Nothing goes live. |
+| `qfg cr wait <ref>` | Wait until it is merged or closed, then show it. The exit code says how it ended. |
 
 #### cr list
 
@@ -450,6 +465,97 @@ qfg cr close 7 --note "superseded by #8"
 # Closed change request #7.
 # Its branch was deleted on the server.
 ```
+
+#### cr wait
+
+Polls the change request until it settles, prints `qfg cr show` for it, and
+exits with:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Merged. It is live. |
+| `2` | Closed without merging. |
+| `4` | Blocked by a conflict with `main`. It also prints the fix. |
+| `124` | Timed out. It is still open. |
+
+While nobody has merged it, it keeps waiting. `<ref>` is the number or the
+branch name, as for `cr show`. With `--json`, the `cr show` payload gains
+`wait: {exitCode, outcome, fix?}`.
+
+Options:
+- `--timeout <duration>` - Give up after this long (default `30m`; for example `2h`)
+- `--interval <duration>` - How often to check (default `10s`)
+
+```bash
+qfg set-default checkout.new-flow --environment production --value true --propose
+qfg cr wait 7 --timeout 2h && echo "live"
+```
+
+The fix for a conflict depends on how the request was made. A request the
+server built (branch `cr/<n>`) is never updated from `main`: close it and
+propose again. For a request pushed from a clone, see
+[Updating a branch other than `main`](#updating-a-branch-other-than-main).
+
+### Proposing a change without a clone {#propose-no-clone}
+
+`set-default`, `set-rollout`, `log-level`, `create` and `delete` take
+`--propose`. The command builds the change exactly as it would for a live
+write, then opens a change request with it instead of applying it. Nothing goes
+live until someone with rights merges it, so no `--confirm` or `--yes` is
+needed. Anyone in the workspace can propose, including a read-only API key.
+The server builds the branch, named `cr/<n>`.
+
+Options (on each of those commands):
+- `--propose` - Open a change request instead of applying the change
+- `--cr <n>` - Add this change to your own open change request #n (implies `--propose`). Only the proposer can add to a request.
+- `--title <title>` - Title of the new change request (with `--propose`; defaults to a summary of the change). Not allowed with `--cr`.
+- `--description <text>` - Description of the new change request (with `--propose`). Not allowed with `--cr`.
+
+```bash
+qfg set-default checkout.new-flow --environment production --value true \
+  --propose --title "Turn on checkout for beta"
+# ✔ Opened change request #12.
+#   https://app.quonfig.com/workspaces/<workspace-id>/change-requests/12
+#   checkout.new-flow: ...
+# NOT LIVE
+# Check on it: qfg cr show 12 / Wait: qfg cr wait 12
+
+# Add a second change to the same request
+qfg set-rollout checkout.new-flow --environment staging --true-percent 50 --cr 12
+# ✔ Added to change request #12.
+```
+
+With `--json`, the result is
+`{"proposed": true, "applied": false, "changeRequest": {"number", "url", ...}}`.
+If the server answers without a change request number, the command fails: an
+older server does not know the route, and nothing was proposed.
+
+Limits:
+- `qfg create --propose` cannot carry `--secret`, `--confidential` or
+  `--env-var`, because a proposed create stores a plain value. Ask someone who
+  can create items to create it, then propose the value with
+  `qfg set-default --propose`.
+- `qfg set-default --secret --propose` works: the value is encrypted on your
+  machine first, and the change request shows it masked.
+- With `--cr <n>`, a key that request #n already changes is revised in place
+  only for a plain `set-default` (not `--secret`, `--confidential` or
+  `--env-var`), which the CLI sends as a field-level change. Every other
+  command (`set-rollout`, `log-level`, a secret, confidential or env-var
+  `set-default`) replaces the whole file, so the server refuses it on a key
+  the request already changes. Then close the request
+  (`qfg cr close <n>`) and propose again with all of your changes.
+
+**When a live write is refused.** If your role cannot make a change, the
+command fails with the server's message and then prints the same command with
+`--propose` added:
+
+```text
+You can propose this change instead; someone with rights merges it:
+  qfg set-default checkout.new-flow --environment production --value true --propose
+```
+
+With `--json`, the error carries `proposable: true` and `proposeCommand`.
+A secret's value is never echoed: it is shown as `<value>`.
 
 ### serve
 
@@ -895,6 +1001,8 @@ To set or rotate a secret, add `--secret` and pass the value with `--value-from-
 
 The deleted rules stay in git history — `previous version` names the commit to restore from. Under `--json` the same numbers come back as `previousCommitSha` + `replacedTargetingRuleCount`; a normal (surgical) write returns `keptTargetingRuleCount`. Both counts are **omitted when they are 0**, so a script should treat a missing field as "no targeting rules were involved", not as an error.
 
+To have someone else approve the change first, add `--propose`; see [Proposing a change without a clone](#propose-no-clone).
+
 ### set-rollout
 
 `qfg set-rollout NAME` makes a percentage rollout (gradual rollout / A-B test / canary) the environment's fallback:
@@ -997,6 +1105,7 @@ It asks you to type the key back to confirm. Pass `--yes` to skip that in script
 ```bash
 qfg delete my.flag            # type the key to confirm
 qfg delete my.config --yes
+qfg delete my.flag --propose  # a change request: deleted only when someone merges it
 ```
 
 ### environments
@@ -1140,6 +1249,25 @@ git fetch origin
 git merge origin/main
 qfg push
 ```
+
+Do not rely on git to combine edits inside a flag file. git merges line by line,
+and it can mix `main`'s rules with yours without reporting a conflict, silently
+undoing `main`'s change. In a clone made by `qfg pull`, the merge therefore stops
+on every JSON file that both sides changed. git writes no conflict markers in
+those files: each one holds only your branch's version. Resolve each one by hand:
+
+```bash
+git show origin/main:feature-flags/checkout.new-flow.json   # main's version
+# edit the file to the rules you want, then
+git add feature-flags/checkout.new-flow.json
+git commit
+qfg verify .
+qfg push
+```
+
+Or close the change request and propose again from current `main`. A request
+the server built (`cr/<n>`, from `--propose` without a clone, MCP, the API or
+the web app) can only be fixed that way.
 
 Rewriting a branch that is already on the server (a rebase or a force-push) is
 not supported yet. Merge `main` in instead.

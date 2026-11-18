@@ -16,6 +16,11 @@ a flag"* and it will:
 - turn the flag on in development only, and tell you the rollout command for
   production.
 
+When a change needs a person's approval, or its role cannot make it, the
+agent [proposes it as a change request](/docs/how-tos/change-requests)
+(`--propose`, or `propose_change_request` over MCP), tells you it is not live
+yet, and never merges a request it did not author unless you tell it to.
+
 The skill is one `SKILL.md` plus short reference files per SDK (Node, browser
 JavaScript, React, React Native, Go, Python, Ruby, Java, .NET, Swift), the
 `qfg` CLI (including how to handle [secrets](/docs/explanations/features/secret-management#using-secrets-with-ai-agents)

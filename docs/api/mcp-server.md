@@ -31,7 +31,8 @@ of the two [authentication methods](#authentication) below.
 
 ## Tools
 
-Twenty-two tools: sixteen reads and six writes.
+Twenty-six tools: eighteen reads, six direct writes, and two that write
+change requests.
 
 | Tool | What it does |
 |---|---|
@@ -57,13 +58,19 @@ Twenty-two tools: sixteen reads and six writes.
 | `set_config` | The same, for a config's value. |
 | `set_log_level` | Set one service's level — for a whole scope, or for one logger prefix. Creates the document on first write. |
 | `set_document` | Replace the raw stored JSON for one flag, config, or log level. The escape hatch, and the undo. |
+| `propose_change_request` | Propose changes for review instead of applying them: opens a change request (or adds to your own open one). Nothing is live until a person merges it. |
+| `get_change_request` | One change request: status, the changes it would make in plain words, whether it can be merged, and whether you could merge it. |
+| `list_change_requests` | Change requests, newest first (open by default). Filter by `status`, `mine`, or `key`. |
+| `close_change_request` | Close a change request without merging it. |
 
-The sixteen read tools are annotated `readOnlyHint`, so a client can tell at
+The eighteen read tools are annotated `readOnlyHint`, so a client can tell at
 a glance that they can't change anything. `set_flag`, `set_config`,
 `set_log_level` and `set_document` are annotated `destructiveHint` — clients
 that confirm destructive tool calls will ask before any of them runs.
 `create_flag` and `create_config` are not: a create only ever adds a
 document, and refuses a key that's taken rather than overwriting it.
+`propose_change_request` is not either, since nothing it writes is live.
+`close_change_request` is, because a closed request cannot be reopened.
 
 The writes also differ in one annotation that matters for retries.
 `set_flag`, `set_config` and `set_log_level` are `idempotentHint: true`:
@@ -74,7 +81,8 @@ replaying a call that may already have landed fails with
 `STALE_COMMIT_SHA` instead of converging; the fix is always to re-read and
 re-apply. The creates are `idempotentHint: false` too, for the same reason
 in reverse: a replayed create doesn't converge, it comes back
-`ALREADY_EXISTS`.
+`ALREADY_EXISTS`. So are the two change-request writes: calling
+`propose_change_request` twice opens two requests.
 
 `get_document` and `set_document` take a `type` argument — `flag`, `config`,
 or `log-level` — instead of being six separate tools.
@@ -127,6 +135,10 @@ Things the tools are good at, in practice:
 - **"Add a flag for the new onboarding flow."** — `create_flag` makes it,
   off in every environment; enabling it anywhere is a separate, explicit
   `set_flag`.
+- **"Propose turning the beta on in production."** — `propose_change_request`
+  opens a change request; someone with the right role merges it in the
+  Quonfig app, and only then does it go live. See
+  [Change requests](#change-requests).
 - **"That was wrong — put it back."** — `get_document` reads the flag as it
   stood before the bad write, a second `get_document` gets the current sha,
   and `set_document` writes the old version back. Three tool calls, no UI
@@ -345,6 +357,65 @@ validates — the fix is to correct the JSON forward. And the pair updates
 only: it never creates or deletes an item. Everything else is on the REST
 page: [Raw documents](/docs/api/rest-api#raw-documents).
 
+### Change requests
+
+A change request lets an agent propose a change instead of making it. It
+works for every session, including one whose role cannot edit anything:
+proposing needs no config-edit permission, because nothing it writes is live.
+The merge, in the Quonfig app, is checked against the permissions of the person
+who merges. There is no merge tool. Walkthrough and the web side:
+[Propose a change for review](/docs/how-tos/change-requests).
+
+`propose_change_request` takes:
+
+| Argument | Meaning |
+|---|---|
+| `changes` | 1 to 50 entries, applied in order: `{ "op": <create_flag \| set_flag \| create_config \| set_config \| set_log_level \| set_document>, ...that tool's own arguments }`. `environment` names the scope, as for `set_flag`. A create followed by a set on the same key works. |
+| `title`, `description` | Optional, shown as plain text. A title defaults to a description of the first change. |
+| `changeRequest` | Optional. The number of an open request this credential proposed: the changes are added to it. Leave `title` and `description` out then. |
+| `workspace` | As for every tool. |
+
+It is all or nothing: if one entry is refused, nothing is written and the
+error's `details.changeIndex` is that entry's 0-based position. The result is
+`{changeRequest, applied: false, message}`, where `changeRequest` carries its
+`number`, `url`, `status`, `branch` (`cr/<n>`), and the readable `changes`.
+
+Rules the tool enforces:
+
+- **One call per request.** Put every change that belongs together in one
+  `changes` list; a second call opens a second request.
+- **Adding** to request #n needs it open and proposed by the same principal
+  (`403` with `details.reason` = `NotProposer` otherwise; `409` when it is
+  merged, closed, or being merged). A request pushed from a clone cannot be
+  added to here: push from that clone instead. A `set_document` on a file the
+  request already changes is refused (`409`): use the field-level ops, or
+  close it and propose again.
+- **Encrypted configs.** A value written to a config that holds encrypted
+  values must itself be encrypted (`400`, `details.code` =
+  `PLAINTEXT_FOR_ENCRYPTED`). Encrypt it locally with
+  `qfg set-default --secret --propose`.
+- **50 open change requests** per workspace at most.
+
+`get_change_request` and `list_change_requests` read them (`changeRequest`
+is the number). `applied` is true only once `status` is `merged`. A request
+shows `mergeable`, `blockedBy`, `conflicts`, `callerCanMerge` and
+`requiredPermissions`. `list_change_requests` takes `status` (`open`,
+`merged`, `closed`, `all`; default `open`), `mine`, `key` (only requests that
+change that flag, config or log level), `limit` (1-100) and `cursor`. Its
+`total` counts every match.
+
+`close_change_request` takes `changeRequest` and an optional `note` shown on
+the request. The proposer can always close their own; anyone else needs the
+permissions merging it would need (`403`, `details.reason` =
+`NotAllowedToClose`).
+
+A conflict means the item changed on `main` after the request was proposed.
+The server never updates a request it built from `main`, so the fix is to
+re-read the item, close the request, and propose again.
+
+The tool descriptions tell the agent to say three things after proposing: it
+is not live, the link, and that a person with the right role has to merge it.
+
 ## Authentication
 
 Two ways in. They differ in who the change is attributed to and who does the
@@ -402,12 +473,20 @@ and `set_log_level`, per access tier for `set_document` and the creates. See
 config tiers compose.
 
 A service-account key with no config-tier role goes one step further: the
-six write tools aren't listed for it at all, so an agent sees sixteen read
-tools and nothing that could change anything. That's a courtesy, not the
-control — the permission check on every call is what actually refuses a
-write, and it refuses one just the same if a client calls a tool it wasn't
-shown. But it means a read-only bot in a Slack channel answers "I can't
-change that" instead of trying six times first.
+six direct write tools aren't listed for it at all, so an agent sees twenty
+tools: the eighteen reads, `propose_change_request` and
+`close_change_request`. That's a courtesy, not the control — the permission
+check on every call is what actually refuses a write, and it refuses one just
+the same if a client calls a tool it wasn't shown. But it means a read-only
+bot in a Slack channel proposes the change for review instead of trying six
+times first. The server instructions tell it so: it cannot change anything
+directly, it can propose, and it must say plainly that a proposal is waiting
+for review, not done.
+
+A refused direct write is a `403` with `details.code` = `PERMISSION_DENIED`,
+`details.proposable: true` and `details.propose` naming
+`propose_change_request`. The error message ends with "Nothing was changed. To
+send this for review, call propose_change_request with the same change."
 
 One useful property: keys never carry org-level permissions, so a
 service-account key can't manage service accounts or billing — even if
