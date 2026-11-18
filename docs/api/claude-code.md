@@ -80,7 +80,8 @@ A useful pattern while working in a codebase: **"find every flag this service
 reads, and tell me which ones are still off in production."** The code search
 is local, the flag state comes from Quonfig, and the answer is one message.
 
-Twenty-two tools are available — sixteen reads plus six writes. See
+Twenty-six tools are available — eighteen reads, six direct writes, and two
+that propose or close change requests. See
 [Tools](/docs/api/mcp-server#tools) for the full list and what each returns.
 
 ### Writes ask first
@@ -145,9 +146,10 @@ The key pins the workspace and the bot's roles, and changes are attributed to
 the service account. This is the same credential shape
 [Claude Tag](/docs/api/claude-tag) uses.
 
-A key whose service account has no config-tier role lists only the sixteen
-read tools; the write tools aren't registered for it. That's expected, not a
-broken setup. See [Permissions](/docs/api/mcp-server#permissions).
+A key whose service account has no config-tier role lists twenty tools: the
+eighteen reads plus `propose_change_request` and `close_change_request`. The
+six direct write tools aren't registered for it. That's expected, not a broken
+setup: such a key can propose a change for review, not make it. See [Permissions](/docs/api/mcp-server#permissions).
 
 ## Troubleshooting
 

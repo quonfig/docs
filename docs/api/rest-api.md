@@ -109,6 +109,11 @@ requests and responses are JSON.
 | GET | `/v1/activity` | Workspace-wide change feed, or one item's translated history |
 | GET | `/v1/eval-activity` | Evaluation counts and last-evaluated day for every flag and config ([see below](#evaluation-activity)) |
 | GET | `/v1/contexts` | Find a context's key from a name, to target it in a rule ([see below](#finding-a-contexts-key)) |
+| POST | `/v1/change-requests` | Propose changes for review instead of applying them ([see below](#change-requests)) |
+| POST | `/v1/change-requests/{number}/changes` | Add changes to your own open change request |
+| POST | `/v1/change-requests/{number}/close` | Close a change request without merging it |
+| GET | `/v1/change-requests` | List change requests (`?status=`, `?mine=`, `?key=`, paginated) |
+| GET | `/v1/change-requests/{number}` | One change request: its changes, whether it can merge, whether you could merge it |
 
 List responses return the whole workspace by default (hundreds of items,
 not millions). `/v1/flags` and `/v1/configs` additionally accept opt-in
@@ -1093,6 +1098,131 @@ reads any past version, PUT is a full replacement with a required
 `expectedCommitSha`, and the document endpoints update only — creating a
 service's first document is the PATCH's job.
 
+## Change requests
+
+A change request proposes changes instead of making them. Nothing in it is
+live until a person whose role could make the same change merges it in the
+Quonfig app. Merging is not available over the API. Proposing needs **no**
+config-edit permission, so a read-only key can propose; the merge is checked
+against the permissions of the person who merges. The MCP tools
+`propose_change_request`, `get_change_request`, `list_change_requests` and
+`close_change_request` wrap these routes with the same bodies. The how-to:
+[Propose a change for review](/docs/how-tos/change-requests).
+
+### Proposing
+
+`POST /v1/change-requests` takes an optional `title` (up to 200 characters)
+and `description`, and `changes`: 1 to 50 entries, each
+`{ "op": <operation>, ...that operation's own fields }`:
+
+| `op` | Fields | Same as |
+|---|---|---|
+| `set_flag` | `key`, `environment`, then the [flag PATCH](#updating-a-flag) body | `PATCH /v1/flags/{key}/environments/{env}` |
+| `set_config` | `key`, `environment`, then the [config PATCH](#updating-a-config) body | `PATCH /v1/configs/{key}/environments/{env}` |
+| `set_log_level` | the [log-level PATCH](#log-levels) fields, with `key` | `PATCH /v1/log-levels/{key}` |
+| `create_flag` | the create body | `POST /v1/flags` |
+| `create_config` | the create body | `POST /v1/configs` |
+| `set_document` | `type` (`flag`, `config`, `log-level`), `key`, `document`, `expectedCommitSha` | `PUT .../document` |
+
+`environment` is an environment name from `GET /v1/environments`, or
+`"default"`. The entries apply in order, so a create followed by a set on the
+same key works. It is all or nothing: when one entry is refused, nothing is
+written and the error's `details.changeIndex` is its 0-based position. Put
+every change that belongs together in one call. There is no delete operation
+over the API.
+
+```bash
+curl -X POST https://api.quonfig.com/v1/change-requests \
+  -H "Authorization: Bearer $QUONFIG_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Enable checkout in production",
+    "description": "Staging has been fine for a week.",
+    "changes": [
+      {"op": "set_flag", "key": "checkout", "environment": "production", "enabled": true}
+    ]
+  }'
+```
+
+The response is `201`:
+
+```json
+{
+  "changeRequest": {
+    "number": 12,
+    "url": "https://app.quonfig.com/workspaces/<workspace-id>/change-requests/12",
+    "title": "Enable checkout in production",
+    "status": "open",
+    "applied": false,
+    "branch": "cr/12",
+    "proposer": { "name": "ci-bot", "channel": "api" },
+    "changes": [
+      { "type": "flag", "key": "checkout", "environments": ["production"], "summary": ["..."] }
+    ],
+    "mergeable": true,
+    "blockedBy": null,
+    "conflicts": [],
+    "...": "..."
+  },
+  "applied": false,
+  "message": "Opened change request #12. NOT LIVE: nothing changes until someone with rights merges it."
+}
+```
+
+`applied` is always `false` here. Tell whoever asked that the change is
+waiting for review, not done.
+
+To add to an open request that the same principal proposed, send
+`{"changes": [...]}` to `POST /v1/change-requests/{number}/changes`. It is
+refused with `403` (`details.reason` = `NotProposer`) for anyone else, and
+with `409` when the request is merged, closed, being merged, or was pushed from
+a clone (push from that clone instead). A `set_document` on a file the request
+already changes is refused (`409`): use the field-level operations, or close it
+and propose again.
+
+Both proposing routes need an active subscription (`402` otherwise). A
+workspace can have at most 50 open change requests.
+
+**Encrypted configs.** A value written to a config that holds encrypted values
+must itself be encrypted (`400`, `details.code` = `PLAINTEXT_FOR_ENCRYPTED`).
+Nothing is decrypted or encrypted on the server: encrypt locally, for example
+with `qfg set-default --secret --propose`. Encrypted values are masked in every
+response.
+
+### Reading and closing
+
+`GET /v1/change-requests/{number}` returns the change request object:
+`number`, `url`, `title`, `description`, `status` (`open`, `merged`,
+`closed`), `applied` (true only when merged), `branch`, `proposer`
+(`name`, `channel`: `api`, `mcp`, `cli` or `ui`), `proposedByCaller`,
+`createdAt`, `updatedAt`, `changes` (readable lines, never raw file text),
+`mergeable`, `blockedBy` (`{reason, message}` or null), `conflicts`
+(`[{key, path, mainCommit}]`), `callerCanMerge`, `requiredPermissions`,
+`merged` and `closed`. Another workspace's number is a `404`.
+
+`GET /v1/change-requests` lists them, newest first:
+
+| Parameter | Meaning |
+|---|---|
+| `status` | `open` (default), `merged`, `closed` or `all` |
+| `mine` | `true` for only the ones the calling principal proposed |
+| `key` | Only requests that change this flag, config or log level. Check it before proposing the same change again. |
+| `limit`, `cursor` | [Pagination](#pagination): `limit` is 1-100 (default 50); pass `nextCursor` back as `cursor` with the same filters |
+
+The response is `{changeRequests, total, nextCursor?}`. List rows carry the
+stored fields only; `GET /v1/change-requests/{number}` adds the changes and
+whether it can merge.
+
+`POST /v1/change-requests/{number}/close` closes one without merging, with an
+optional `{"note": "..."}` shown on the request. The proposer can always close
+their own; anyone else needs the permissions merging it would need (`403`,
+`details.reason` = `NotAllowedToClose`). It is `409` when the request is
+already merged or closed, or a merge is in flight.
+
+A `conflict` in `blockedBy` means an item the request changes was changed on
+`main` after it was proposed. The server never updates a request it built from
+`main`: close it and propose again against the current version.
+
 ## Errors
 
 Every non-2xx response is a JSON envelope:
@@ -1117,7 +1247,7 @@ causes. Match on `error` (and `details.code`), never on `message` text.
 | 400 | `BAD_REQUEST` | `SCHEMA_VIOLATION` | A schema-bound JSON config's new value breaks its schema — `details.schemaKey` names the schema and `details.violations` the failures |
 | 401 | `UNAUTHORIZED` | — | Missing, invalid, or revoked key; disabled service account |
 | 402 | `BILLING_INACTIVE` | — | The organization's subscription is inactive |
-| 403 | `FORBIDDEN` | `PERMISSION_DENIED` | The key's principal can't edit this flag in this environment, or can't move a document between `access` tiers |
+| 403 | `FORBIDDEN` | `PERMISSION_DENIED` | The key's principal can't edit this flag in this environment, or can't move a document between `access` tiers. `details.requiredPermission` names the permission; `details.proposable: true` and `details.propose` (`{"tool": "propose_change_request", "rest": "POST /v1/change-requests"}`) say the same change can be [proposed](#change-requests) instead |
 | 404 | `NOT_FOUND` | — | Unknown flag/config/log-level key, environment, or path; a PUT to a key that doesn't exist; a key that didn't exist yet at the requested `?at` commit; a log-level PATCH with `expectedCommitSha` for a service that has no document yet |
 | 409 | `CONFLICT` | `STALE_COMMIT_SHA` | `expectedCommitSha` no longer matches |
 | 409 | `CONFLICT` | `ALREADY_EXISTS` | A create — or a log-level PATCH creating a service's first document — for a key already held by a flag, config, segment, or log level; `details.collidingType` and `details.collidingKey` say what holds it |
