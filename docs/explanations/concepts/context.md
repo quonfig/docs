@@ -438,3 +438,15 @@ The inner `user` replaced the whole outer `user` context, so `key` and `email` a
 OpenFeature has its own context tiers: API (global), transaction, client and invocation. The OpenFeature SDK merges those tiers before the Quonfig provider sees them, and, as the OpenFeature spec requires, it merges per flat key: a key set at a more specific tier overrides the same key from a less specific tier, and every other key survives. So API context `"user.email": "bob@example.com"` plus invocation context `"user.plan": "pro"` gives the provider both keys.
 
 The provider then maps the merged flat keys to named contexts with dot notation (`"user.plan"` becomes `user: { plan: ... }`) and passes the result to the native Quonfig SDK as JIT context for that one evaluation. From there the rule above applies: a named context in that JIT context replaces the same named context in any global or scoped context you set on the native SDK directly.
+
+:::caution Limits on saved example contexts
+
+Autocomplete and context search use a saved copy of each example context, and that copy has limits:
+
+- **64 properties per context.** Only the first 64 properties of each context, in the order your SDK sends them, are saved. Properties past the 64th get no autocomplete suggestions and are not searchable.
+- **256 characters per value.** Longer values are cut to their first 256 characters. Autocomplete suggests the cut value (a rule built from that suggestion won't match the full value), search can't find text after character 256, and a display name shows the cut value.
+- **Strings, numbers and booleans only.** Lists, objects and `null` values get no suggestions and are not searchable.
+
+These limits apply only to what the Quonfig app saves for autocomplete and search. Flag and config evaluation always uses the full context your SDK passes in.
+
+:::
