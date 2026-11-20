@@ -6,7 +6,7 @@ sidebar_label: Slack Integration
 
 ![image](/img/docs/tools/devtools-slack.jpg)
 
-The Slack integration sends a message to a channel of your choice every time a flag, config, segment, or log-level changes in a workspace. Each message uses the same change summaries as the in-app audit log, so what your team sees in Slack matches what they see in the UI.
+The Slack integration sends a message to a channel of your choice every time a flag, config, segment, or log-level changes in a workspace. Each message shows the same redline as the in-app audit trail, as plain text, so what your team sees in Slack matches what they see in the UI.
 
 ## Connect a workspace
 
@@ -40,15 +40,21 @@ Quonfig posts one message per commit to the workspace's `main` branch that touch
 - `segments/`
 - `log-levels/`
 
-Each message starts with the commit author and the commit subject, so you can trace the change back to the person and PR. Below that is one line per changed file, in the form `` • `key` <action> — <summary> ``, where the action is `created`, `updated`, or `deleted` and the summary is the same human-readable text the audit log shows. For example, in Slack markup (the author is bold and the subject is a quote):
+Each message starts with the commit author and the commit subject, so you can trace the change back to the person and PR. Below that, each changed file gets a line in the form `` • `key` <action> ``, where the action is `created`, `updated`, or `deleted`, then a code block with that file's redline: the same lines the audit trail shows, as plain text. Lines are grouped under the scope they change (`default:` or an environment name). For example, in Slack markup (the author is bold and the subject is a quote):
 
-```text
+````text
 *Jane Doe* updated configs:
-> Turn on the new checkout flow
-• `checkout.new-flow` updated — Changed value from false to true
+> Turn on the new checkout flow for Acme and Globex
+• `checkout.new-flow` updated
 ```
+production:
+  had no rules of its own, used the default
+  + rule 1: when organization.key is one of acme-corp, globex gets true
+  + rule 2: everyone else gets false
+```
+````
 
-Other summaries look like *"Changed rollout from … to …"* or *"Added rule 2 (…) → true"*, matching what you see in the audit log.
+In a redline line, `+` marks something added, `-` something removed, and `~` something changed, for example `~ everyone gets true -> false` or `+ everyone gets a rollout: 50% true, 50% false, split by user.key`. Rule match values (organization keys, emails) are shown in full. Encrypted values never appear: the line reads `an encrypted value` (or `an encrypted value, replaced with a new one`) instead. Confidential values show only a short fingerprint.
 
 Non-config files (READMEs, top-level `quonfig.json`, non-`.json` files, anything outside the four directories above) are skipped.
 

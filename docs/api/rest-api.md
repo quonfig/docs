@@ -106,7 +106,7 @@ requests and responses are JSON.
 | GET | `/v1/segments` | List segments — the reusable membership rule sets targeting rules point at |
 | GET | `/v1/segments/{key}` | A segment's membership rules: who it actually matches |
 | GET | `/v1/segments/{key}/history` | Git commits that changed this segment |
-| GET | `/v1/activity` | Workspace-wide change feed, or one item's translated history |
+| GET | `/v1/activity` | Workspace-wide change feed, or one item's full history, as redline lines |
 | GET | `/v1/eval-activity` | Evaluation counts and last-evaluated day for every flag and config ([see below](#evaluation-activity)) |
 | GET | `/v1/contexts` | Find a context's key from a name, to target it in a rule ([see below](#finding-a-contexts-key)) |
 
@@ -470,11 +470,23 @@ every key look quiet. Retrying is safe.
 this and when" straight from git: commit SHA, message, author, date, and
 `isServiceAccount`.
 
-`GET /v1/activity` is the workspace-wide feed with changes translated into
-human-readable messages (`"production: enabled set to false"`). Pass
-`?type=&key=` together (type is one of `feature_flag`, `config`,
-`log_level`, `segment`, `schema`) to get one item's full translated history
-instead.
+`GET /v1/activity` is the workspace-wide feed. Each change has an `action`
+(`created`, `updated`, `deleted`, or `restored`) and `messages`: one
+`{scope, message}` entry per redline line, the same lines the audit trail
+shows. `scope` is `metadata`, `default`, or an environment name. Turning a
+flag off in production reads:
+
+```json
+{
+  "action": "updated",
+  "messages": [
+    { "scope": "production", "message": "~ everyone gets true -> false" }
+  ]
+}
+```
+
+Pass `?type=&key=` together (type is one of `feature_flag`, `config`,
+`log_level`, `segment`, `schema`) to get one item's full history instead.
 
 Both are **metadata**: they tell you which commits touched an item and who
 made them, never what the item looked like at those commits. To read the
