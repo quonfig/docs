@@ -1,13 +1,12 @@
 ---
 title: Propose a Change for Review
 sidebar_label: Change Requests
-description: Push a branch of your workspace as a change request. Nothing goes live until someone with rights merges it.
+description: Propose a flag or config change from the app, the CLI or an agent. Nothing goes live until someone with rights merges it.
 ---
 
 A **change request** lets you propose a flag or config change without making it
-live. You push a branch of your workspace with `qfg push --propose`. Someone who
-could make the same change directly reviews it and merges it. Only then does it
-reach your SDKs.
+live. Someone who could make the same change directly reviews it and merges it.
+Only then does it reach your SDKs.
 
 Use it when:
 
@@ -17,12 +16,96 @@ Use it when:
 - a coding agent makes the change and a person should decide whether it goes
   live.
 
-You propose from a clone of the workspace repo, made with
-[`qfg pull`](../tools/cli.md#pull). Your CLI needs `qfg push --propose`
-(`qfg push --help` lists it). An older CLI prints `Nonexistent flag: --propose`;
-upgrade with `npm install -g @quonfig/cli@latest`.
+There are four ways to open one. Use the first that fits:
 
-## 1. Make the change on a branch
+| Where you are | How |
+|---|---|
+| In the Quonfig app | [Propose from the editor](#from-the-app) |
+| In a terminal, no clone | [Add `--propose` to a write command](#from-the-cli-without-a-clone) |
+| In an agent session | [The `propose_change_request` MCP tool](#from-an-agent) |
+| In a clone of the workspace repo | [Push a branch with `qfg push --propose`](#from-a-clone) |
+
+## From the app {#from-the-app}
+
+1. Open the flag or config and make your edit.
+2. Propose it:
+   - If your role cannot save the change, the button reads **Propose change**.
+   - If your role can save it, open the menu next to **Save** and choose
+     **Propose change instead**.
+3. In the dialog, check the title. It starts as a one-line summary of your
+   edit, and you can change it. Add a description if the reviewer needs the
+   reason. Under the fields, the dialog shows the change as the reviewer will
+   see it.
+4. Choose **Propose change**.
+
+The app opens the new change request. Nothing is live yet. The page says who can
+merge it. If you cannot merge it yourself, use **Copy link** and send the link
+to someone who can.
+
+To find it again:
+
+- **Change Requests** in the sidebar lists every request. The number next to it
+  is how many are open.
+- The dashboard lists the requests that wait for review.
+- The flag or config page shows a banner while an open request touches it.
+
+One request from the editor holds the changes of one flag or config. To change
+several items in one request, use the CLI or a clone.
+
+## From the CLI without a clone {#from-the-cli-without-a-clone}
+
+Add `--propose` to a write command. The command builds the same change that it
+would write live and opens a change request with it:
+
+```bash
+qfg set-default checkout.new-flow --environment production --value true --propose
+```
+
+```text
+✓ Opened change request #7.
+  https://app.quonfig.com/workspaces/<workspace-id>/change-requests/7
+NOT LIVE
+Check on it: qfg cr show 7 / Wait: qfg cr wait 7
+```
+
+`--propose` works on `qfg create`, `qfg set-default`, `qfg set-rollout`,
+`qfg log-level` and `qfg delete`. It needs no `--confirm`, because nothing goes
+live. `--title` and `--description` are optional. Without a title, the request
+gets a one-line summary of the change.
+
+To add another change to a request you opened, use `--cr <number>` in place of
+`--propose`:
+
+```bash
+qfg set-default checkout.new-flow --environment staging --value true --cr 7
+```
+
+```text
+✓ Added to change request #7.
+```
+
+Only the proposer can add to a request. `--cr` takes no `--title` or
+`--description`: the request keeps its own.
+
+When a live write is refused because your role does not allow it, the error
+prints the same command with `--propose` added.
+
+## From an agent {#from-an-agent}
+
+An agent that uses the [Quonfig MCP server](../api/mcp-server.md) calls
+`propose_change_request`. It can propose even when its role cannot write.
+There is no merge tool: a person merges the request in the app or with
+`qfg cr merge`.
+
+## From a clone {#from-a-clone}
+
+Use a clone when you want to edit the JSON files directly or put many changes
+in one request. Make the clone with [`qfg pull`](../tools/cli.md#pull). Your CLI
+needs `qfg push --propose` (`qfg push --help` lists it). An older CLI prints
+`Nonexistent flag: --propose`; upgrade with
+`npm install -g @quonfig/cli@latest`.
+
+### 1. Make the change on a branch
 
 ```bash
 qfg pull --dir ./my-config
@@ -37,7 +120,7 @@ qfg verify ./my-config
 git -C ./my-config commit -am "Turn on checkout for beta"
 ```
 
-## 2. Propose it
+### 2. Propose it
 
 ```bash
 qfg push --dir ./my-config --propose --title "Turn on checkout for beta"
@@ -58,17 +141,19 @@ when it has more.
 
 `qfg push --propose` does not ask for confirmation, because nothing goes live.
 
-### What "not live" means
+#### What "not live" means
 
 - `main` does not change. Your SDKs keep serving the values they served before.
-- Slack does not post a change message for it.
+- If the workspace has Slack connected, Slack posts that the request was
+  opened, with the words NOT LIVE and a link. Slack posts the change itself
+  only after the merge.
 - The change exists only on the branch and as change request #7, until someone
   merges it or it is closed.
 
 Do not tell anyone a flag "is on" because a change request is open. After it is
 merged, check the value with `qfg info <key>`.
 
-### Add more commits
+#### Add more commits
 
 All the commits on the branch are one change request. To change it, commit on
 the same branch and push again:
@@ -89,7 +174,7 @@ Only the person who proposed a change request can push to its branch. Anyone
 else is refused and told to push their commits to a new branch and propose
 their own.
 
-### If you committed on `main` by mistake
+#### If you committed on `main` by mistake
 
 `qfg push --propose` refuses to run on `main`, because commits pushed to `main`
 go live. It prints the commands that move your commits to a branch:
@@ -102,7 +187,7 @@ Move your 1 unpushed commit(s) to a branch (this CLI will not move your branches
 Then run: qfg push --propose
 ```
 
-### If a push to `main` is refused
+#### If a push to `main` is refused
 
 When your role does not allow a change and you push it to `main` from a clone
 with plain `qfg push`, the refusal ends with:
@@ -162,11 +247,19 @@ what a protected flag serves.
 
 ### The review page in the app
 
-The link that `qfg push --propose` prints opens the change request in the
-Quonfig app. The page shows what merging would change on `main` now, file by
-file, with a **Merge** button and a **Close** button. If you cannot merge, the
-Merge button is disabled and the page lists why. All the change requests of a
-workspace are listed at `/workspaces/<workspace-id>/change-requests` in the app.
+The link that a propose command prints opens the change request in the Quonfig
+app. The page shows what merging would change now, file by file, in plain words,
+with a **Raw diff** tab for the JSON. Below the changes are the
+**Merge and go live** button and the **Close without merging** button.
+
+- The change goes live as soon as you merge. If the request touches a protected
+  environment, the app asks you to confirm first.
+- If you cannot merge, the page says why and shows **Copy link** in place of
+  the merge button.
+- A closed request cannot be reopened. Propose a new one.
+
+All the change requests of a workspace are listed under **Change Requests** in
+the sidebar.
 
 ## 4. Who can merge
 
