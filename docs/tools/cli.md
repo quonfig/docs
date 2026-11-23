@@ -123,17 +123,26 @@ qfg generate --dir ./my-config --targets react-ts,node-ts
 
 ### CI/CD Integration
 
-Run both steps in your pipeline to keep generated types in sync with your workspace:
-
-```bash
-qfg pull --dir ./my-config
-qfg generate --dir ./my-config --output-directory ./src/generated
-```
-
 In CI there is no browser to `qfg login` with, so authenticate with an API
 key instead: set `QUONFIG_API_KEY` and name the workspace with
 `QUONFIG_WORKSPACE=<org>/<workspace>` or `--workspace`. See
-[Environment Variables](#environment-variables).
+[Environment Variables](#environment-variables). `generate` then fetches the
+workspace itself; no `qfg pull` step is needed:
+
+```bash
+qfg generate --targets node-ts --output-directory ./src/generated
+```
+
+What trips CI up:
+
+- `--targets` defaults to `react-ts`. A Node project must pass `--targets node-ts`.
+- `git` must be on the `PATH`: without a local workspace, `generate` clones a snapshot of it.
+- `QUONFIG_DIR`, or a `quonfig.json` in the working directory or any parent,
+  makes `generate` read that local workspace instead of fetching. Passing
+  `--workspace` skips the `quonfig.json` lookup.
+- `qfg run` without `QUONFIG_BACKEND_SDK_KEY` needs exactly one of
+  `--environment` or `QUONFIG_ENVIRONMENT`; see
+  [Auth and environment](/docs/tools/qfg-run#auth-and-environment--pick-exactly-one-mode).
 
 ### Configuration File
 
