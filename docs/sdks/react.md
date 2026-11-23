@@ -32,7 +32,7 @@ Set `QUONFIG_DIR=./my-config` to avoid repeating `--dir`.
 
 **Prerequisites**
 
-- `pull` requires authentication. Either run `npx @quonfig/cli login` once (interactive OAuth, recommended for local dev) **or** export a `QUONFIG_API_KEY` (starts with `qf_uk_…`) plus `QUONFIG_WORKSPACE=<workspace-slug>` for headless / CI use. Generate a `qf_uk_` key from the **CLI & API keys** tab on the **Environments & Keys** page in the dashboard. Note: this is a *user* API key, not an SDK key — the `qf_sk_…` / `qf_pk_…` SDK keys do not work with the CLI.
+- `pull` requires authentication. Either run `npx @quonfig/cli login` once (interactive OAuth, recommended for local dev) **or** export a `QUONFIG_API_KEY` (a personal `qf_uk_…` or service-account `qf_sa_…` key) plus `QUONFIG_WORKSPACE=<workspace-slug>` for headless / CI use; see [API keys](/docs/explanations/concepts/keys-and-credentials#api-keys--automation-managing-config) for where to create each. Note: this is an API key, not an SDK key — the `qf_sk_…` / `qf_pk_…` SDK keys do not work with the CLI.
 - `generate` does **not** call the network when `--dir` (or `QUONFIG_DIR`) points at a checkout from `pull`, so it can run in any environment.
 
 **Output**
