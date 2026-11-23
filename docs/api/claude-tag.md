@@ -34,7 +34,7 @@ have moved since this page was written. The current instructions are in
 ## 1. Create the service account
 
 In the Quonfig app, open the workspace you want the bot to act on, go to
-**Settings**, and find **Service accounts**. You need the admin role.
+**Environments & Keys**, and pick **CI, bots, agents**. You need the admin role.
 
 1. Click **New service account**.
 2. Name it `claude-bot`. This name is what shows up in flag history and the
@@ -55,16 +55,16 @@ In the Quonfig app, open the workspace you want the bot to act on, go to
 
    Start with **Read-only**. A bot that answers "what's the rollout?" is
    useful on day one and can't break anything; you can raise the tier later
-   from the account's **Access** dropdown in Settings → Service accounts once
+   from the account's **Access** dropdown (click **Manage** on its row) once
    the team trusts it. See
    [Authorization](/docs/explanations/features/authorization) for exactly what
    each tier covers, and
    [MCP permissions](/docs/api/mcp-server#permissions) for what a read-only
    bot sees.
 
-4. In the new account's panel (it opens automatically after you create it),
-   under **API keys**, click **Mint key**. Choose the workspace the key
-   is scoped to, give it a label (`claude-tag`), and optionally an expiry.
+4. The **New key** dialog opens as soon as the account is created. Choose
+   the workspace the key is scoped to, give it a label (`claude-tag`), and
+   optionally an expiry.
 
 The key — it starts with `qf_sa_` — is shown once and never stored in
 readable form. Copy it now; you'll paste it in step 3. If you lose it, revoke

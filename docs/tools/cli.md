@@ -123,10 +123,10 @@ qfg generate --dir ./my-config --targets react-ts,node-ts
 
 ### CI/CD Integration
 
-In CI there is no browser to `qfg login` with, so authenticate with an API
-key instead: set `QUONFIG_API_KEY` and name the workspace with
-`QUONFIG_WORKSPACE=<org>/<workspace>` or `--workspace`. See
-[Environment Variables](#environment-variables). `generate` then fetches the
+In CI there is no browser to `qfg login` with, so authenticate with a
+[service-account key](/docs/explanations/concepts/keys-and-credentials#api-keys--automation-managing-config):
+set `QUONFIG_API_KEY`. The key names its workspace, so `QUONFIG_WORKSPACE` is
+optional. See [Environment Variables](#environment-variables). `generate` then fetches the
 workspace itself; no `qfg pull` step is needed:
 
 ```bash
@@ -499,7 +499,7 @@ It can read from either:
 
 Options:
 - `--dir <path>` - Path to local config directory (defaults to `QUONFIG_DIR` env var). When unset, `generate` walks up from cwd looking for `quonfig.json`; if it finds one, it uses that. Otherwise it falls back to fetching from the API.
-- `--workspace <slug-or-id>` - Workspace to fetch when running without a local workspace. Required if `QUONFIG_API_KEY` is set without `QUONFIG_WORKSPACE`. Passing `--workspace` skips the cwd auto-detect and goes straight to the API path.
+- `--workspace <slug-or-id>` - Workspace to fetch when running without a local workspace. With `QUONFIG_API_KEY` set and no `QUONFIG_WORKSPACE`, defaults to the key's workspace. Passing `--workspace` skips the cwd auto-detect and goes straight to the API path.
 - `--targets <targets>` - Specify target platforms: `react-ts` (default) or `node-ts`
 - `--output-directory <dir>` - Custom output directory
 
@@ -1220,8 +1220,8 @@ echo $QUONFIG_DOMAIN $QUONFIG_API_BASE_URL_OVERRIDE
 
 ### Environment Variables
 
-- `QUONFIG_API_KEY` - Authenticate with an API key instead of a `qfg login` session — for CI and scripts. Either a personal key (`qf_uk_...`) or a service-account key (`qf_sa_...`); mint both in the app, see [REST API authentication](/docs/api/rest-api#authentication). When set, the workspace must also be named, with `QUONFIG_WORKSPACE` or `--workspace`.
-- `QUONFIG_WORKSPACE` - The workspace to act on, overriding your saved default (`--workspace` wins over it). Required when `QUONFIG_API_KEY` is set: `<org>/<workspace>` (e.g. `acme/production`) or the workspace's UUID. Either form works with both personal and service-account keys.
+- `QUONFIG_API_KEY` - Authenticate with an API key instead of a `qfg login` session — for CI and scripts. Either a personal key (`qf_uk_...`) or a service-account key (`qf_sa_...`); mint both in the app, see [REST API authentication](/docs/api/rest-api#authentication). The CLI uses the key's own workspace unless `--workspace` or `QUONFIG_WORKSPACE` names another.
+- `QUONFIG_WORKSPACE` - The workspace to act on, overriding your saved default (`--workspace` wins over it). Optional with `QUONFIG_API_KEY`, which already names its workspace. Takes `<org>/<workspace>` (e.g. `acme/production`) or the workspace's UUID.
 - `QUONFIG_DOMAIN` - The base domain the CLI derives its API host from (default `quonfig.com`, giving `https://app.quonfig.com`)
 - `QUONFIG_API_BASE_URL_OVERRIDE` - Full API base URL; wins over `QUONFIG_DOMAIN`
 - `QUONFIG_DIR` - Default local directory for `pull`, `push`, `generate` and `serve` (avoids repeating `--dir`)

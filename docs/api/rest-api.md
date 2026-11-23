@@ -54,8 +54,8 @@ to*:
 
 | Key | Looks like | Acts as | Mint it in the app |
 |---|---|---|---|
-| Personal API key | `qf_uk_...` | You — changes are attributed to your user | Workspace → **Environments & Keys** → **CLI & API keys** tab |
-| Service-account key | `qf_sa_...` | A bot identity with its own name and role | Workspace → **Settings** → **Service accounts** → **Mint key** |
+| Personal API key | `qf_uk_...` | You — changes are attributed to your user | Workspace → **Environments & Keys** → **You** tab → **New personal key** |
+| Service-account key | `qf_sa_...` | A bot identity with its own name and role | Workspace → **Environments & Keys** → **CI, bots, agents** tab (org admins) |
 
 Use a personal key for your own scripts; use a service account for anything
 shared (CI, integrations, agents), so the audit trail says

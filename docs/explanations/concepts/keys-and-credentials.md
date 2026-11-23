@@ -53,15 +53,15 @@ for you.
 
 ## Which one do I use?
 
-| I want to… | Use |
-|---|---|
-| Read flags/config from my **server** app | Backend SDK key (`qf_sk_…`) |
-| Read flags from my **browser / mobile** app | Frontend SDK key (`qf_pk_…`) |
-| Manage config from my **laptop** (CLI) | `qfg login` |
-| Manage config from **shared CI** or an integration | Service-account key (`qf_sa_…`) |
-| Manage config from **my own script** | Personal API key (`qf_uk_…`) |
-| Resolve config into env vars at build/deploy time | [`qfg run`](/docs/tools/qfg-run) with a backend SDK key, `qfg login`, or (in CI) an API key plus `--environment` |
-| Override a flag **just for me** in local dev | An SDK key **and** `qfg login` — see [Personal Overrides](/docs/explanations/features/personal-overrides) |
+| What's connecting | I want to… | Use |
+|---|---|---|
+| **Your app** | Read flags/config from my server app | Backend SDK key (`qf_sk_…`) |
+| **Your app** | Read flags from my browser / mobile app | Frontend SDK key (`qf_pk_…`) |
+| **CI, bots, agents** | Manage config from shared CI, an integration, or an agent | Service-account key (`qf_sa_…`) |
+| **CI, bots, agents** | Resolve config into env vars at build/deploy time | [`qfg run`](/docs/tools/qfg-run) with a backend SDK key, or a service-account key plus `--environment` |
+| **You** | Manage config from my laptop (CLI) | `qfg login` |
+| **You** | Manage config from my own script | Personal API key (`qf_uk_…`) |
+| **You** | Override a flag just for me in local dev | An SDK key **and** `qfg login`. See [Personal Overrides](/docs/explanations/features/personal-overrides) |
 
 ## The credentials in detail
 
@@ -85,7 +85,7 @@ two flavors:
   frontend SDKs."
 
 Create SDK keys on the **Environments & Keys** page in the app (the
-**Environments & SDK keys** tab), or with `qfg sdk-key create`. Each key is shown
+**Your app** tab), or with `qfg sdk-key create`. Each key is shown
 once, when you create it.
 
 See [Backend SDKs](/docs/explanations/concepts/backend-sdks) and
@@ -101,12 +101,11 @@ workspace. They differ in who the changes are attributed to:
 
 - **Personal API key (`qf_uk_…`)** is **you, as a credential**: changes show up
   under your name. Use it for your own scripts. Create it on the **Environments &
-  Keys** page, **CLI & API keys** tab.
+  Keys** page, **You** tab, under **Personal API keys**.
 - **Service-account key (`qf_sa_…`)** acts as a **named bot** with its own role,
   so the audit trail shows the bot (for example `deploy-bot`) rather than a
   person. Use it for anything shared: CI, integrations, agents. An org admin
-  creates it under **Settings → Service accounts** (the tab appears only for
-  admins).
+  creates it on the **Environments & Keys** page, **CI, bots, agents** tab.
 
 Reach for an API key only when there's no human at a browser to complete an
 OAuth flow: a CI job running `qfg generate`, a deploy step running
@@ -146,8 +145,8 @@ The full reference, for quick lookup and for agents wiring up an integration.
 |---|---|---|---|---|---|
 | Backend SDK key | `qf_sk_…` | `QUONFIG_BACKEND_SDK_KEY` | HTTP Basic (`1:<key>`) | Delivery API (reads) | No — workspace + environment |
 | Frontend SDK key | `qf_pk_…` | `QUONFIG_FRONTEND_SDK_KEY` (behind a framework prefix: `NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`) | HTTP Basic (`1:<key>`) | Delivery API (reads, evaluated server-side) | No — workspace + environment |
-| Personal API key | `qf_uk_…` | `QUONFIG_API_KEY` (pair with `QUONFIG_WORKSPACE`) | Bearer | Quonfig app (manage) | Yes — acts as *you* |
-| Service-account key | `qf_sa_…` | `QUONFIG_API_KEY` (pair with `QUONFIG_WORKSPACE`) | Bearer | Quonfig app (manage) | Yes — acts as a named bot |
+| Personal API key | `qf_uk_…` | `QUONFIG_API_KEY` (`QUONFIG_WORKSPACE` optional) | Bearer | Quonfig app (manage) | Yes — acts as *you* |
+| Service-account key | `qf_sa_…` | `QUONFIG_API_KEY` (`QUONFIG_WORKSPACE` optional) | Bearer | Quonfig app (manage) | Yes — acts as a named bot |
 | `qfg login` | a stored token, not a string you paste | — (stored under `~/.quonfig/`) | JWT | Quonfig app (manage) | Yes — acts as *you* |
 
 Don't:
