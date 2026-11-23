@@ -106,9 +106,7 @@ workspace. They differ in who the changes are attributed to:
   so the audit trail shows the bot (for example `deploy-bot`) rather than a
   person. Use it for anything shared: CI, integrations, agents. An org admin
   creates it under **Settings → Service accounts** (the tab appears only for
-  admins). With the CLI, set `QUONFIG_WORKSPACE` to the
-  workspace's **UUID**, not `org/workspace`; see the
-  [CLI environment variables](/docs/tools/cli#environment-variables) reference.
+  admins).
 
 Reach for an API key only when there's no human at a browser to complete an
 OAuth flow: a CI job running `qfg generate`, a deploy step running
@@ -149,7 +147,7 @@ The full reference, for quick lookup and for agents wiring up an integration.
 | Backend SDK key | `qf_sk_…` | `QUONFIG_BACKEND_SDK_KEY` | HTTP Basic (`1:<key>`) | Delivery API (reads) | No — workspace + environment |
 | Frontend SDK key | `qf_pk_…` | `QUONFIG_FRONTEND_SDK_KEY` (behind a framework prefix: `NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`) | HTTP Basic (`1:<key>`) | Delivery API (reads, evaluated server-side) | No — workspace + environment |
 | Personal API key | `qf_uk_…` | `QUONFIG_API_KEY` (pair with `QUONFIG_WORKSPACE`) | Bearer | Quonfig app (manage) | Yes — acts as *you* |
-| Service-account key | `qf_sa_…` | `QUONFIG_API_KEY` (pair with `QUONFIG_WORKSPACE=<workspace UUID>`) | Bearer | Quonfig app (manage) | Yes — acts as a named bot |
+| Service-account key | `qf_sa_…` | `QUONFIG_API_KEY` (pair with `QUONFIG_WORKSPACE`) | Bearer | Quonfig app (manage) | Yes — acts as a named bot |
 | `qfg login` | a stored token, not a string you paste | — (stored under `~/.quonfig/`) | JWT | Quonfig app (manage) | Yes — acts as *you* |
 
 Don't:

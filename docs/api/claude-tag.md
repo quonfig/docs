@@ -173,7 +173,7 @@ A few things worth knowing before you turn it loose in a channel:
 - **The bot can never exceed its tier.** Every write is permission-checked
   server-side on every call, exactly like a person clicking in the UI. A
   read-only service account is genuinely read-only, whatever anyone types in
-  Slack.
+  Slack, though it can still open change requests for a person to review.
 - **Targeting rules are kept.** `set_flag` and `set_config` write only a
   scope's fallback and leave its targeting rules in place. Deleting them
   takes an explicit `replaceTargeting: true`, and the bot's instructions tell
