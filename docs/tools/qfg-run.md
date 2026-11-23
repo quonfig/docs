@@ -111,7 +111,7 @@ Mode B evaluates against your current workspace: the one named by `--workspace` 
 qfg run -w my-org/my-ws --environment=staging --env DATABASE_URL=db.url -- drizzle-kit migrate
 ```
 
-In CI you can use an [API key](/docs/explanations/concepts/keys-and-credentials#api-keys--automation-managing-config) instead of `qfg login`: set `QUONFIG_API_KEY` and `QUONFIG_WORKSPACE=<org>/<workspace>`, and still pass exactly one of `--environment` or `QUONFIG_ENVIRONMENT`.
+In CI, use a [service-account key](/docs/explanations/concepts/keys-and-credentials#api-keys--automation-managing-config) instead of `qfg login`: set `QUONFIG_API_KEY` (`QUONFIG_WORKSPACE` is optional; the key names its workspace), and still pass exactly one of `--environment` or `QUONFIG_ENVIRONMENT`.
 
 ### Errors you'll see when you cross the streams
 
