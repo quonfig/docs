@@ -86,6 +86,8 @@ address, a list of supported locales, or a banner message. For those, tick
 
 ### Confidential configs
 
+**Secrets are being redesigned.** Read the [notice on the Secret Management page](/docs/explanations/features/secret-management) before using them.
+
 A config can be "provided by" an environment variable. Quonfig then stores
 only a pointer that says "read my value from `STRIPE_SECRET_KEY`", and never
 sees the value. A config can also be encrypted. Both let you put secrets
