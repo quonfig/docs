@@ -918,6 +918,8 @@ It follows the same rules as `set-default`: targeting rules above the fallback a
 
 `qfg create NAME` creates a new flag or config in Quonfig. You can use this to create basic values, encrypted secrets, or values provided by ENV vars.
 
+**Secrets are being redesigned.** Read the [notice on the Secret Management page](/docs/explanations/features/secret-management) before using them.
+
 Supported types: `boolean-flag`, `boolean`, `string`, `double`, `int`, `string-list`, `json`, `duration`, `log_level`
 
 A `duration` value is an ISO 8601 duration such as `PT30S`, `PT5M`, `PT1H30M` or `P1DT6H`: optional days, then `T` and hours, minutes and seconds; only seconds may have a fraction (`PT1.5S`).
