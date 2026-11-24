@@ -521,6 +521,8 @@ and `@quonfig/react`.
 
 ### Secrets
 
+**Secrets are being redesigned.** Read the [notice on the Secret Management page](/docs/explanations/features/secret-management) before using them.
+
 A [secret](/docs/explanations/features/secret-management) is read like any string config: `quonfig.get("payments.stripe.key")` (or `getString`) returns the **decrypted** string. The SDK decrypts it in your process using the encryption key, so the env var that `quonfig.secrets.encryption.key` is provided by (for example `QUONFIG_SECRET_KEY_DEFAULT`) must be set in the app's environment. If it isn't, a read that passes a default returns the default and logs one WARN per key; a read with no default throws (under the default `onNoDefault: "error"`). Secrets are always strings, so a JSON secret needs a parse:
 
 ```typescript

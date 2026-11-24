@@ -276,6 +276,8 @@ A pre-commit git hook is installed by `qfg init` to run this automatically.
 
 ### generate-new-hex-key
 
+**Secrets are being redesigned.** Read the [notice on the Secret Management page](/docs/explanations/features/secret-management) before using them.
+
 `qfg generate-new-hex-key` generates a cryptographically secure hex key suitable for encrypting config values with the `--secret` flag.
 
 Example:

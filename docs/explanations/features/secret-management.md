@@ -4,6 +4,10 @@ sidebar_label: Secret Management
 sidebar_position: 2
 ---
 
+:::warning Major changes coming
+Secrets are being redesigned. Please check with Jeff (hello@quonfig.com) before using this feature.
+:::
+
 Quonfig has zero-knowledge support for [sharing your secrets](https://quonfig.com/features/secrets) between developers and between your different applications. We use simple & straightforward cryptography and Quonfig never sees anything unencrypted. This simplifies sharing secrets for local development and sharing secrets between multiple applications or languages because you only need a single encryption/decryption secret. (Multiple secrets is perfectly fine too, use as many as you require).
 
 Quonfig owns:

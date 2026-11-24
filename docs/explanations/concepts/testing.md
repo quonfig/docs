@@ -126,6 +126,8 @@ QUONFIG_DIR=./my-config QUONFIG_ENVIRONMENT=development bundle exec rspec
 
 If your workspace has [secrets](/docs/explanations/features/secret-management), CI also needs the decryption key: set the env var your `quonfig.secrets.encryption.key` config is provided by (for example `QUONFIG_SECRET_KEY_DEFAULT`) in CI's environment.
 
+**Secrets are being redesigned.** Read the [notice on the Secret Management page](/docs/explanations/features/secret-management) before using them.
+
 See [Local Workspace (datadir)][datadir] for how to keep the copy up to date, which environments you can choose, and what the SDK does and doesn't send over the network in this mode.
 
 [datadir]: ./local-workspace

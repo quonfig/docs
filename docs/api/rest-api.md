@@ -152,6 +152,8 @@ Two things to know about the values you'll see:
   ciphertext and `decryptWith` names the config holding the decryption key.
   Decryption happens in your runtime — Quonfig servers never decrypt.
 
+**Secrets are being redesigned.** Read the [notice on the Secret Management page](/docs/explanations/features/secret-management) before using them.
+
 ### When something last changed
 
 Flag and config rows — on both the list and the detail responses — and
