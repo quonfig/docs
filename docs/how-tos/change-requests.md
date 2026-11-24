@@ -1,8 +1,11 @@
 ---
 title: Propose a Change for Review
 sidebar_label: Change Requests
+sidebar_class_name: sidebar-beta
 description: Propose a flag or config change from the app, the CLI or an agent. Nothing goes live until someone with rights merges it.
 ---
+
+<span className="beta-tag">Beta</span>
 
 A **change request** lets you propose a flag or config change without making it
 live. Someone who could make the same change directly reviews it and merges it.

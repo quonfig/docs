@@ -130,3 +130,30 @@ summary h4 {
     color: #fff;
   }
 }
+
+/*
+ * "Beta" tag: a small pill for features we are still collecting feedback on.
+ * In a page, use <span className="beta-tag">Beta</span>. In the sidebar, set
+ * `sidebar_class_name: sidebar-beta` in the doc's front matter.
+ */
+.beta-tag,
+.sidebar-beta > .menu__link::after {
+  content: "Beta";
+  display: inline-block;
+  flex: none;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 0.25rem;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.sidebar-beta > .menu__link::after {
+  margin-left: 0.5rem;
+}
+.sidebar-beta > .menu__link {
+  justify-content: flex-start;
+}
